@@ -29,9 +29,9 @@ class PlotGammaRayBurst(object):
         ax_excess.errorbar(stats['livetime'], stats['excess'],
                            yerr=yerr,
                            color='black', fmt='o')
-        ax_excess.set_xlabel('Cumulative livetime [s]', fontweight='bold')
+        ax_excess.set_xlabel('Livetime [s]', fontweight='bold')
         ax_excess.set_ylabel('#Evts', fontweight='bold')
-        ax_excess.set_title('Excess', fontweight='bold')
+        ax_excess.set_title('Cumulated excess', fontweight='bold')
         ax_excess.set_ylim(0., (stats['excess'] + yerr).max() * (1.1))
         ax_excess.grid(which='both')
         ax_excess.set_xscale('log')
@@ -47,9 +47,9 @@ class PlotGammaRayBurst(object):
                             stats['alpha']
                         ),
                         color='black', fmt='o')
-        ax_bkg.set_xlabel('Cumulative livetime [s]', fontweight='bold')
+        ax_bkg.set_xlabel('Livetime [s]', fontweight='bold')
         ax_bkg.set_ylabel('#Evts', fontweight='bold')
-        ax_bkg.set_title('Background', fontweight='bold')
+        ax_bkg.set_title('Cumulated background', fontweight='bold')
         ax_bkg.set_ylim(stats['bkg'].min() * 0.9, (stats['bkg'] + yerr).max() * (1.1))
         ax_bkg.grid(which='both')
         ax_bkg.set_xscale('log')
@@ -59,12 +59,12 @@ class PlotGammaRayBurst(object):
             ax_sigma = plt.subplot2grid((1, 3), (0, 2))
         ax_sigma.errorbar(stats['livetime'], stats['sigma'],
                           color='black', fmt='o')
-        ax_sigma.set_xlabel('Cumulative livetime [s]', fontweight='bold')
+        ax_sigma.set_xlabel('Livetime [s]', fontweight='bold')
         ax_sigma.set_ylabel('Significance', fontweight='bold')
         ax_sigma.set_title('Signifiance (Li & Ma)', fontweight='bold')
         ax_sigma.set_ylim(0., stats['sigma'].max() * (1.1))
         ax_sigma.grid(which='both')
-        ax_sigma.set_xscale('log')
+#        ax_sigma.set_xscale('log')
         
         plt.tight_layout()
         if savefig == True:
@@ -115,3 +115,5 @@ class PlotGammaRayBurst(object):
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
             anim.save(outdir + '/' + grb.name + '_animate.gif', writer='imagemagick')
+            
+
