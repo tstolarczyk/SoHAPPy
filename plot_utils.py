@@ -13,19 +13,19 @@ class PlotGammaRayBurst(object):
     """
 
     @staticmethod
-    def plot_stats_detection(grb, ax_excess=None, ax_bkg=None, ax_sigma=None, savefig=False, outdir='./out/'):
+    def plot_stats_detection(grb, ax_excess=None, ax_relative=None, ax_bkg=None, ax_sigma=None, savefig=False, outdir='./out/'):
         stats = grb.get_cumulative_stats()
 
         import matplotlib.pyplot as plt
-        fig = plt.figure(num=grb.name + ' stats', figsize=(14, 6))
+        fig = plt.figure(num=grb.name + ' stats', figsize=(18, 6))
 
         if ax_excess is None:
-            ax_excess = plt.subplot2grid((1, 3), (0, 0))
+            ax_excess = plt.subplot2grid((1, 4), (0, 0))
         yerr = excess_error(
             stats['n_on'],
             stats['n_off'],
             stats['alpha']
-        )
+        )  
         ax_excess.errorbar(stats['livetime'], stats['excess'],
                            yerr=yerr,
                            color='black', fmt='o')
@@ -35,8 +35,25 @@ class PlotGammaRayBurst(object):
         ax_excess.set_ylim(0., (stats['excess'] + yerr).max() * (1.1))
         ax_excess.grid(which='both')
         ax_excess.set_xscale('log')
+        
+        if ax_relative is None:
+            ax_relative = plt.subplot2grid((1, 4), (0, 1))
+        yerr = excess_error(
+            stats['n_on'],
+            stats['n_off'],
+            stats['alpha']
+        )  
+        ax_relative.errorbar(stats['livetime'], yerr/stats['excess'],
+                           yerr=0,
+                           color='black', fmt='o')
+        ax_relative.set_xlabel('Livetime [s]', fontweight='bold')
+        ax_relative.set_ylabel('Excess relative error', fontweight='bold')
+        ax_relative.set_title('Relative error evolution', fontweight='bold')
+        ax_relative.grid(which='both')
+        ax_relative.set_xscale('log')        
+        
         if ax_bkg is None:
-            ax_bkg = plt.subplot2grid((1, 3), (0, 1))
+            ax_bkg = plt.subplot2grid((1, 4), (0, 2))
         yerr = background_error(
             stats['n_off'],
             stats['alpha']
@@ -47,6 +64,7 @@ class PlotGammaRayBurst(object):
                             stats['alpha']
                         ),
                         color='black', fmt='o')
+
         ax_bkg.set_xlabel('Livetime [s]', fontweight='bold')
         ax_bkg.set_ylabel('#Evts', fontweight='bold')
         ax_bkg.set_title('Cumulated background', fontweight='bold')
@@ -56,22 +74,22 @@ class PlotGammaRayBurst(object):
         ax_bkg.set_yscale('log')
         
         if ax_sigma is None:
-            ax_sigma = plt.subplot2grid((1, 3), (0, 2))
+            ax_sigma = plt.subplot2grid((1, 4), (0, 3))
         ax_sigma.errorbar(stats['livetime'], stats['sigma'],
                           color='black', fmt='o')
         ax_sigma.set_xlabel('Livetime [s]', fontweight='bold')
         ax_sigma.set_ylabel('Significance', fontweight='bold')
-        ax_sigma.set_title('Signifiance (Li & Ma)', fontweight='bold')
+        ax_sigma.set_title('Significance (Li & Ma)', fontweight='bold')
         ax_sigma.set_ylim(0., stats['sigma'].max() * (1.1))
         ax_sigma.grid(which='both')
-#        ax_sigma.set_xscale('log')
+        ax_sigma.set_xscale('log') # CHANGED
         
         plt.tight_layout()
         if savefig == True:
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
             plt.savefig(outdir + '/' + grb.name + '.png')
-        return ax_excess, ax_bkg, ax_sigma
+        return ax_excess, ax_relative, ax_bkg, ax_sigma
 
 
     @staticmethod
