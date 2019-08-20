@@ -6,17 +6,18 @@ from astropy.table import Table
 from gammapy.spectrum.models import TableModel, AbsorbedSpectralModel
 #from gammapy.scripts.cta_utils import (CTAObservationSimulation, Target,
 #                                       ObservationParameters)
-from cta_utils_imported import (CTAObservationSimulation, Target,
-                                       ObservationParameters)
-from gammapy.spectrum import (SpectrumObservationList,
-                              SpectrumObservationStacker)
+from cta_grb_observation import (GRBObservationSimulation, GRBTarget,
+                                       GRBObservationParameters)
+#from gammapy.spectrum import (SpectrumObservationList,
+#                              SpectrumObservationStacker)
+from gammapy.spectrum import SpectrumDatasetOnOffStacker
+from gammapy.data import Observations
 from gammapy.stats.poisson import (significance_on_off,
                                    excess_error,
                                    background_error)
 
 #### ThS
 import matplotlib.pyplot as plt
-import os
 
 #------------------------------------------------------------------------------
 class GammaRayBurst(object):
@@ -39,6 +40,7 @@ class GammaRayBurst(object):
         # GRB properties
         self.name=name
         self.z=z
+        self.fluence = 0.
 
         # Time intervals
         self.time_interval=time_interval
@@ -52,7 +54,7 @@ class GammaRayBurst(object):
         
    #--------------------------------------------------------------------------
     @classmethod
-    def from_file(cls, filepath, absorption,dbg=False):
+    def from_file(cls, filepath, absorption,reduction_factor=1, dbg=False):
         """Read from an ascii file."""
         data = cls.get_grb_properties(filepath + '/grb_properties.txt')
         
@@ -100,7 +102,7 @@ class GammaRayBurst(object):
             table = Table.read(filepath + '/' + filename, format='ascii')
 
             energy = table['col1'] * u.TeV
-            flux = table['col2'] * u.Unit('1 / (cm2 s TeV)')
+            flux = (table['col2'] / reduction_factor) * u.Unit('1 / (cm2 s TeV)')
             
             
                                 
@@ -188,15 +190,15 @@ class GammaRayBurst(object):
         self.simulations = []
         for idx, interval in enumerate(self.time_interval):
             # print(" == Simulating interval ",idx)
-            target = Target(name=self.name, model=self.spectral_model[idx])
+            target = GRBTarget(name=self.name, model=self.spectral_model[idx])
             
             livetime = interval[1] - interval[0]
-            obs_param = ObservationParameters(
+            obs_param = GRBObservationParameters(
                 alpha=alpha * u.Unit(''), livetime=livetime,
                 emin=emin, emax=1000 * u.TeV
             )
 
-            simu =  CTAObservationSimulation.simulate_obs(
+            simu =  GRBObservationSimulation.simulate_obs(
                 perf=perf,
                 target=target,
                 obs_param=obs_param,
@@ -210,9 +212,16 @@ class GammaRayBurst(object):
         """
         Stack observations
         """
-        stack = SpectrumObservationStacker(
-            SpectrumObservationList(self.simulations)
-        ) 
+# Gpy 0.9
+#        stack = SpectrumObservationStacker(
+#            SpectrumObservationList(self.simulations)
+#        ) 
+        
+        # Gpy 0.9
+        # stack = SpectrumObservationStacker(
+        #    Observations(self.simulations)
+            
+        stack = SpectrumDatasetOnOffStacker(Observations(self.simulations)) 
         stack.run()
         return stack.stacked_obs
 
