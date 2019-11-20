@@ -6,7 +6,6 @@ from gammapy.utils.scripts import make_path
 #from gammapy.utils.nddata import NDDataArray, BinnedDataAxis # Gammapy 0.9
 from gammapy.utils.nddata import NDDataArray
 from gammapy.maps import MapAxis
-from gammapy.utils.energy import EnergyBounds
 from gammapy.irf import EffectiveAreaTable2D, EffectiveAreaTable, Background3D
 from gammapy.irf import EnergyDispersion2D, EnergyDependentMultiGaussPSF
 
@@ -16,13 +15,19 @@ __all__ = [
     'BgRateTable',
     'Psf68Table',
     'SensitivityTable',
-    'CTAPerf_imported',
+    'CTAPerf_onaxis',
 ]
 
-
+###############################################################################
+#
+###############################################################################
 class CTAIrf(object):
-    """CTA instrument response function container.
+    """
+    CTA instrument response function container.
+
     Class handling CTA instrument response function.
+    Written by J. Lefaucheur, July 2018
+    Note : this has been for a while in gammapy 0.6 and then was removed
     For now we use the production 2 of the CTA IRF
     (https://portal.cta-observatory.org/Pages/CTA-Performance.aspx)
     adapted from the ctools
@@ -33,21 +38,30 @@ class CTAIrf(object):
     we'll fix the missing pieces.
     This class is similar to `~gammapy.data.DataStoreObservation`,
     but only contains IRFs (no event data or livetime info).
+
     TODO: maybe re-factor code somehow to avoid code duplication.
+
     Parameters
     ----------
     aeff : `~gammapy.irf.EffectiveAreaTable2D`
         Effective area
+
     edisp : `~gammapy.irf.EnergyDispersion2D`
         Energy dispersion
+
     psf : `~gammapy.irf.EnergyDependentMultiGaussPSF`
         Point spread function
+
     bkg : `~gammapy.irf.Background3D`
         Background rate
+
     ref_sensi : `~gammapy.irf.SensitivityTable`
         Reference Sensitivity
+
     """
 
+
+    ###########################################################################
     def __init__(self, aeff=None, edisp=None, psf=None, bkg=None, ref_sensi=None):
         self.aeff = aeff
         self.edisp = edisp
@@ -55,9 +69,12 @@ class CTAIrf(object):
         self.bkg = bkg
         self.ref_sensi = ref_sensi
 
+    ###########################################################################
     @classmethod
     def read(cls, filename):
-        """Read from a FITS file.
+        """
+        Read from a FITS file.
+
         Parameters
         ----------
         filename : `str`
@@ -84,20 +101,27 @@ class CTAIrf(object):
             ref_sensi=sensi,
         )
 
-
+###############################################################################
+#
+###############################################################################
 class BgRateTable(object):
-    """Background rate table.
+    """
+    Background rate table.
+
     The IRF format should be compliant with the one discussed
     at http://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/.
     Work will be done to fix this.
     Parameters
-    -----------
+    ----------
     energy_lo, energy_hi : `~astropy.units.Quantity`, `~gammapy.utils.nddata.BinnedDataAxis`
         Bin edges of energy axis
+
     data : `~astropy.units.Quantity`
         Background rate
+
     """
 
+    ###########################################################################
     def __init__(self, energy_lo, energy_hi, data):
         #axes = [
         #    BinnedDataAxis(energy_lo, energy_hi, interpolation_mode='log', name='energy'),
@@ -110,10 +134,12 @@ class BgRateTable(object):
         #print("BgRateTable ",axes)
         self.data = NDDataArray(axes=axes, data=data)
 
+    ###########################################################################
     @property
     def energy(self):
         return self.data.axes[0]
 
+    ###########################################################################
     @classmethod
     def from_table(cls, table):
         """Background rate reader"""
@@ -122,30 +148,38 @@ class BgRateTable(object):
         data = table['BGD'].quantity
         return cls(energy_lo=energy_lo, energy_hi=energy_hi, data=data)
 
+    ###########################################################################
     @classmethod
     def from_hdulist(cls, hdulist, hdu='BACKGROUND'):
         fits_table = hdulist[hdu]
         table = Table.read(fits_table)
         return cls.from_table(table)
 
+    ###########################################################################
     @classmethod
     def read(cls, filename, hdu='BACKGROUND'):
         filename = make_path(filename)
         with fits.open(str(filename), memmap=False) as hdulist:
             return cls.from_hdulist(hdulist, hdu=hdu)
 
+    ###########################################################################
     def plot(self, ax=None, energy=None, **kwargs):
-        """Plot background rate.
+        """
+        Plot background rate.
+
         Parameters
         ----------
         ax : `~matplotlib.axes.Axes`, optional
             Axis
+
         energy : `~astropy.units.Quantity`
             Energy nodes
+
         Returns
         -------
         ax : `~matplotlib.axes.Axes`
             Axis
+
         """
         import matplotlib.pyplot as plt
         ax = plt.gca() if ax is None else ax
@@ -165,8 +199,13 @@ class BgRateTable(object):
         return ax
 
 
+###############################################################################
+#
+###############################################################################
 class Psf68Table(object):
-    """Background rate table.
+    """
+    Background rate table.
+
     The IRF format should be compliant with the one discussed
     at http://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/.
     Work will be done to fix this.
@@ -174,10 +213,13 @@ class Psf68Table(object):
     -----------
     energy_lo, energy_hi : `~astropy.units.Quantity`, `~gammapy.utils.nddata.BinnedDataAxis`
         Bin edges of energy axis
+
     data : `~astropy.units.Quantity`
         Background rate
+
     """
 
+    ###########################################################################
     def __init__(self, energy_lo, energy_hi, data):
         #axes = [
         #    BinnedDataAxis(energy_lo, energy_hi, interpolation_mode='log', name='energy'),
@@ -189,10 +231,12 @@ class Psf68Table(object):
         #print("PSF68Table ",axes)
         self.data = NDDataArray(axes=axes, data=data)
 
+    ###########################################################################
     @property
     def energy(self):
         return self.data.axes[0]
 
+    ###########################################################################
     @classmethod
     def from_table(cls, table):
         """PSF reader"""
@@ -201,30 +245,38 @@ class Psf68Table(object):
         data = table['PSF68'].quantity
         return cls(energy_lo=energy_lo, energy_hi=energy_hi, data=data)
 
+    ###########################################################################
     @classmethod
     def from_hdulist(cls, hdulist, hdu='POINT SPREAD FUNCTION'):
         fits_table = hdulist[hdu]
         table = Table.read(fits_table)
         return cls.from_table(table)
 
+    ###########################################################################
     @classmethod
     def read(cls, filename, hdu='POINT SPREAD FUNCTION'):
         filename = make_path(filename)
         with fits.open(str(filename), memmap=False) as hdulist:
             return cls.from_hdulist(hdulist, hdu=hdu)
 
+    ###########################################################################
     def plot(self, ax=None, energy=None, **kwargs):
-        """Plot point spread function.
+        """
+        Plot point spread function.
+
         Parameters
         ----------
         ax : `~matplotlib.axes.Axes`, optional
             Axis
+
         energy : `~astropy.units.Quantity`
             Energy nodes
+
         Returns
         -------
         ax : `~matplotlib.axes.Axes`
             Axis
+
         """
         import matplotlib.pyplot as plt
         ax = plt.gca() if ax is None else ax
@@ -245,19 +297,28 @@ class Psf68Table(object):
         return ax
 
 
+###############################################################################
+#
+###############################################################################
 class SensitivityTable(object):
-    """Sensitivity table.
+    """
+    Sensitivity table.
+
     The IRF format should be compliant with the one discussed
     at http://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/.
     Work will be done to fix this.
+
     Parameters
     -----------
     energy_lo, energy_hi : `~astropy.units.Quantity`, `~gammapy.utils.nddata.BinnedDataAxis`
         Bin edges of energy axis
+
     data : `~astropy.units.Quantity`
         Sensitivity
+
     """
 
+    ###########################################################################
     def __init__(self, energy_lo, energy_hi, data):
         #axes = [
         #    BinnedDataAxis(energy_lo, energy_hi, interpolation_mode='log', name='energy'),
@@ -267,10 +328,12 @@ class SensitivityTable(object):
         self.data = NDDataArray(axes=axes, data=data)
         # print("Sensitivity ",axes)
 
+    ###########################################################################
     @property
     def energy(self):
         return self.data.axis('energy')
 
+    ###########################################################################
     @classmethod
     def from_table(cls, table):
         energy_lo = table['ENERG_LO'].quantity
@@ -278,30 +341,38 @@ class SensitivityTable(object):
         data = table['SENSITIVITY'].quantity
         return cls(energy_lo=energy_lo, energy_hi=energy_hi, data=data)
 
+    ###########################################################################
     @classmethod
     def from_hdulist(cls, hdulist, hdu='SENSITIVITY'):
         fits_table = hdulist[hdu]
         table = Table.read(fits_table)
         return cls.from_table(table)
 
+    ###########################################################################
     @classmethod
     def read(cls, filename, hdu='SENSITVITY'):
         filename = make_path(filename)
         with fits.open(str(filename), memmap=False) as hdulist:
             return cls.from_hdulist(hdulist, hdu=hdu)
 
+    ###########################################################################
     def plot(self, ax=None, energy=None, **kwargs):
-        """Plot sensitivity.
+        """
+        Plot sensitivity.
+
         Parameters
         ----------
         ax : `~matplotlib.axes.Axes`, optional
             Axis
+
         energy : `~astropy.units.Quantity`
             Energy nodes
+
         Returns
         -------
         ax : `~matplotlib.axes.Axes`
             Axis
+
         """
         import matplotlib.pyplot as plt
         ax = plt.gca() if ax is None else ax
@@ -321,8 +392,13 @@ class SensitivityTable(object):
         return ax
 
 
+###############################################################################
+#
+###############################################################################
 class CTAPerf_onaxis(object):
-    """CTA instrument response function container.
+    """
+    CTA instrument response function container.
+
     Class handling CTA performance.
     For now we use the production 2 of the CTA IRF
     (https://portal.cta-observatory.org/Pages/CTA-Performance.aspx)
@@ -336,18 +412,25 @@ class CTAPerf_onaxis(object):
     ----------
     aeff : `~gammapy.irf.EffectiveAreaTable`
         Effective area
+
     edisp : `~gammapy.irf.EnergyDispersion2D`
         Energy dispersion
+
     psf : `~gammapy.scripts.Psf68Table`
         Point spread function
+
     bkg : `~gammapy.scripts.BgRateTable`
         Background rate
+
     sens : `~gammapy.scripts.SensitivityTable`
         Sensitivity
+
     rmf: `~gammapy.irf.EnergyDispersion`
         RMF
+
     """
 
+    ###########################################################################
     def __init__(self, aeff=None, edisp=None, psf=None, bkg=None, sens=None, rmf=None):
         self.aeff = aeff
         self.edisp = edisp
@@ -356,14 +439,18 @@ class CTAPerf_onaxis(object):
         self.sens = sens
         self.rmf = rmf
 
+    ###########################################################################
     @classmethod
     def read(cls, filename, offset='0.5 deg'):
-        """Read from a FITS file.
+        """
+        Read from a FITS file.
+
         Compute RMF at 0.5 deg offset on fly.
         Parameters
         ----------
         filename : `str`
             File containing the IRFs
+
         """
         filename = str(make_path(filename))
 
@@ -404,6 +491,7 @@ class CTAPerf_onaxis(object):
             rmf=rmf
         )
 
+    ###########################################################################
     def peek(self, figsize=(15, 8)):
         """Quick-look summary plots."""
         import matplotlib.pyplot as plt
@@ -427,16 +515,22 @@ class CTAPerf_onaxis(object):
         ax_psf.grid(which='both')
         fig.tight_layout()
 
+    ###########################################################################
     @staticmethod
     def superpose_perf(cta_perf, labels):
-        """Superpose performance plot.
+        """
+        Superpose performance plot.
+
         Parameters
         ----------
         cta_perf : `list` of `~gammapy.scripts.CTAPerf`
            List of performance
+
         labels : `list` of `str`
            List of labels
+
         """
+
         import matplotlib.pyplot as plt
 
         fig = plt.figure(figsize=(10, 8))
