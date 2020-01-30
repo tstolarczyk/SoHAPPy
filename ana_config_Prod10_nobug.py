@@ -10,8 +10,8 @@ import astropy.units as u
 #------------------------------------------------------------------------------
 ### Physics Initialisations
 #------------------------------------------------------------------------------
-ngrb            = 1 # Number of GRB to be read
-ifirst          = 913 # First GRB to be read
+ngrb            = 1000 # Number of GRB to be read
+ifirst          = 1 # First GRB to be read
 det_level       = 0.9 # Will be detected if n=3,5 sigma reached in det_level of the population
 #redfactor       = [1, 2, 3, 5, 10, 20, 50, 100] # Initial flux is divided by this value, for test
 #redfactor       = [0.5,1, 2] # Initial flux is divided by this value, for test
@@ -20,7 +20,7 @@ EBLmodel        = "dominguez"
 #------------------------------------------------------------------------------
 ### Simulation Initialisations
 #------------------------------------------------------------------------------
-niter  = 10 # Number of iterations for the Monte Carlo
+niter  = 100 # Number of iterations for the Monte Carlo
 alpha  = 0.2 # 5 zones (1/0.2) to define the off region for background estimation
 fov    = [5.*u.deg, 0.125*u.deg] # Full Field-of-view and bin size
 dtslew = [30*u.s, True] # Time to point the GRB,  If False, random < dt_slew
@@ -31,7 +31,7 @@ dtslew = [30*u.s, True] # Time to point the GRB,  If False, random < dt_slew
 ### Code Initialisations
 #------------------------------------------------------------------------------
 dbg_level = 0  # 0 : evt counting, 1: evt counting + some results, 2: + details for each evt, 3: + plots
-showplots = 3 # 0 : not shown, not written,
+showplots = 0 # 0 : not shown, not written,
                # 1 : shown on screen
                # 2 : shown on screen and written out
                # 3 : written out, not shown on screen (for production)
@@ -41,7 +41,7 @@ lkhd      = 0 # If zero, do the on-off analysis, otherwise set the degree of fre
 #------------------------------------------------------------------------------
 res_folder = "../output/Result" # Folder for results
 res_folder = "../output/Today" # Folder for results
-#res_folder = "../output/Prod10_nobug"
+res_folder = "../output/Prod10_nobug"
 
 old_file   = False # Use old GRB file
 grb_oldfolder = '../input/lightcurves/long_grb_test/' # to be changed into a repository to be scanned

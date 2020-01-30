@@ -10,6 +10,11 @@ from gammapy.cube import MapDataset, MapEvaluator
 from gammapy.utils.fitting import Fit
 from gammapy.cube.models import BackgroundModel
 
+# Suppress RunTimeWarning in mc_3d background fitting
+import sys
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
 ###############################################################################
 def fit_3d(mc, counts_map, irf, debug=0):
 
