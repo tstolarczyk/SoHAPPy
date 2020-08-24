@@ -16,42 +16,35 @@ import astropy.units         as u
 from   astropy.table         import Table
 from   astropy.io            import fits
 from   astropy.time          import Time
-from   astropy.coordinates   import SkyCoord, AltAz, EarthLocation
+from   astropy.coordinates   import SkyCoord
 
-from gammapy.maps import WcsGeom, MapAxis
 from gammapy.spectrum.models import TableModel, AbsorbedSpectralModel
 from gammapy.image.models import SkyPointSource
-from gammapy.spectrum import SpectrumDatasetOnOffStacker
-from gammapy.data import Observations
-from gammapy.stats.poisson import significance_on_off
 
 # Prevent downloading Earth position correction from outside
-# Results in warning
-# https://docs.astropy.org/en/stable/utils/iers.html
+# Results in a warning : https://docs.astropy.org/en/stable/utils/iers.html
 from astropy.utils import iers
 iers.conf.auto_download = False
 
-__all__=['GammaRayBurst','GRBTarget']
+__all__=['GammaRayBurst']
 
 ###############################################################################
 class GammaRayBurst(object):
     """
     Class to store GRB properties
 
-    This class includes the calls for simulated observations.
-    The GRB information is read from file.
-    A GRB is composed of :
-        - a name
-        - a redshift
-        - a position in the sky (temporarily given outside the file)
-        - a list of time-intervals with correspoding :
-            - energy spectrum.
-            - observations
-            - simulations
-
-    Simulations are done with appropriate functions
-    ~run_OnOffsimulation
-    ~run_3Dsimulation
+    The GRB information is read from files.
+    A GRB is composed of several parameters among which:
+        - A name
+        - A redshift
+        - A position in the sky
+        - A visibility window
+    It is characterised by a list of time-intervals with a given energy 
+    spectrum.
+    
+    The energy spectrum is given as a series of points given the flux at that 
+    point.
+    
     """
 
     ###########################################################################
@@ -69,8 +62,7 @@ class GammaRayBurst(object):
 
         # GRB properties - theory
         self.z        = 0*u.dimensionless_unscaled
-        self.radec    = SkyCoord(ra=100*u.degree,
-                                 dec=-20*u.degree,
+        self.radec    = SkyCoord(ra=100*u.degree, dec=-20*u.degree, 
                                  frame='icrs')
         self.Eiso     = 0.*u.erg
         self.Epeak    = 0.*u.keV
@@ -82,8 +74,8 @@ class GammaRayBurst(object):
         self.gamma_he = 0.*u.dimensionless_unscaled
 
         # GRB alert received
-        self.altmin   = 90*u.deg
-        self.t_trig   = Time('2000-01-01 00:00:00', scale='utc')
+        self.altmin   = 0*u.deg
+        self.t_trig   = Time('2000-01-01 02:00:00', scale='utc')
         self.site       = {"North": 'Roque de los Muchachos',
                            "South": 'Paranal'}
 
@@ -94,30 +86,34 @@ class GammaRayBurst(object):
         # Visible at the moment of the GRB trigger
         self.vis_prompt  = {"North":True,"South":True}
 
-        # The start and stop time are searched during 24h after the trigger
+        # The start and stop dates are searched during 24h after the trigger
         # and correspond to the first visibility interval.
         # Does not report a second visibility interval during 24h,
         # that should be possible only if the target is promptly visible
         # (about 15% of the targets)
         # By default seen in the North
+        # Default times are defined for the firts GRB sample with no 
+        # visibikity given. The North visibility is chosen to have the 
+        # trigger therein. The South visibility starts after the trigger. 
+        # This allows having the two conditions explored.
 
         # Visible above min. alt.
-        self.t_true     = {"North":[Time('2000-01-01 00:01:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')],
+        self.t_true     = {"North":[Time('2000-01-01 00:00:00', scale='utc'),
+                                    Time('2000-01-01 08:00:00', scale='utc')],
                            "South":[Time('2000-01-01 03:00:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')]}
+                                    Time('2000-01-01 11:00:00', scale='utc')]}
 
         # Astronomical twilight
-        self.t_twilight = {"North":[Time('2000-01-01 00:01:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')],
+        self.t_twilight = {"North":[Time('2000-01-01 00:00:00', scale='utc'),
+                                    Time('2000-01-01 8:00:00', scale='utc')],
                            "South":[Time('2000-01-01 03:00:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')]}
+                                    Time('2000-01-01 11:00:00', scale='utc')]}
 
         # Rise and set of the target
-        self.t_event    = {"North":[Time('2000-01-01 00:01:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')],
+        self.t_event    = {"North":[Time('2000-01-01 00:00:00', scale='utc'),
+                                    Time('2000-01-01 08:00:00', scale='utc')],
                            "South":[Time('2000-01-01 03:00:00', scale='utc'),
-                                    Time('2000-01-01 12:00:00', scale='utc')]}
+                                    Time('2000-01-01 11:00:00', scale='utc')]}
 
         # Flux table - Flux at a series of points
         self.Eval           = [0]*u.GeV
@@ -144,17 +140,21 @@ class GammaRayBurst(object):
 
         """
         Fluxes are given for a series of (t,E) values
-        From this we create a list of time intervals omitting the last
-        point in t. An alternative is to add and other t point close to
-        infinite, with a very low flux which is unlikely to give
-        significant detection.
-
+        From this we create a list of time intervals omitting the first
+        point in t. The flux does not exist beyond the last point. 
+        
         Once this is done, it is considered that the flux at is valid
         for all t values until the end of the interval. An alternative
         would be to compute an evolutive flux along the time interval, or
         to assign a mean value from both edges to the whole interval.
 
         The observing time is considered to be the end of the interval.
+        
+        The spectrum is stored as a table, TableModel, that take as an input
+        a series of flux values as a function of the energy.
+        The model will return values interpolated in log-space with 
+        math::`scipy.interpolate.interp1d`, returning zero for energies 
+        outside of the limits of the provided energy array.
 
         - number of values in t  : $N_{val}$
         - number of intervals    : $N_{val} - 1
@@ -167,7 +167,7 @@ class GammaRayBurst(object):
         filename : STRING
             GRB input file name
         ebl : STRING, optional
-            The EBL absorption model considered. The default is 'dominguez'.
+            The EBL absorption model considered. There is no default set.
 
         Returns
         -------
@@ -215,49 +215,54 @@ class GammaRayBurst(object):
 
         t  = Time(grbvis["Event"].data,format="jd")
         grb.t_event    = {"North":t[0:2],"South":t[2:4]}
+        
 
         # Energies, times and fluxes
         grb.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
         grb.tval     = Table.read(hdul,hdu=3)["Times (afterglow)"].quantity
         flux         = Table.read(hdul,hdu=4)
+        flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
+        
         icol_t       = len(flux.colnames)          # column number - time
         jrow_E       = len(flux[flux.colnames[0]]) # row number
 
-        # Warning : the units here should comply with
-        # hdulist[4].header["units"]
         # Note the transpoisition from flux to fluxval
-        grb.fluxval = np.zeros( (icol_t,jrow_E) ) /(u.cm)**2/(u.s)/(u.GeV)
+        grb.fluxval = np.zeros( (icol_t,jrow_E) )*flux_unit
         for i in range(0,icol_t):
             for j in range(0,jrow_E):
-                grb.fluxval[i][j] = flux[j][i]/((u.cm)**2*u.s*u.GeV) # transp!
+                grb.fluxval[i][j] = flux[j][i]*flux_unit # transp!
 
         # Compute time intervals
         grb.time_interval = []
         for i,t in enumerate(grb.tval[:-1]): # Forget last point
             grb.time_interval = grb.time_interval + [[t,grb.tval[i+1]]]
 
-        # Set observing time to end of interval
+        # Set observing time to end of intervals
         grb.t_s = grb.tval[1:]
 
         # Create spectral model for each time interval
         for i,t in enumerate(grb.time_interval):
             # We decide that the valid flux is the one at the start of the
             # time interval
+            # Note that TableModel makes an interpolation
             tab = TableModel(energy       = grb.Eval,
                              values       = grb.fluxval[i],
                              norm         = 1.,
                              values_scale = 'lin')
 
-            grb.spectra.append(AbsorbedSpectralModel(spectral_model = tab,
+            if (ebl != None):
+                grb.spectra.append(AbsorbedSpectralModel(spectral_model = tab,
                                                       absorption    = ebl,
                                                       parameter     = grb.z))
-
+            else:
+                print(" EBL absorption not defined")
+                
         return grb
 
     ###########################################################################
     @classmethod
     def read_old(cls, path, ebl = None,reduction_factor=1,
-             pointing = None, dbg=False):
+             pointing = None):
 
         """
 
@@ -353,113 +358,66 @@ class GammaRayBurst(object):
         return grb
 
     ###########################################################################
-    def plot(self):
-        """
-        Display GRB characteristics
-        """
-        print("READY TO PLOT")
-
-        return
-
-    ###########################################################################
     def __str__(self):
         """ Printout the GRB properties """
+        
+        # After glow duration
+        dt_afterglow = self.time_interval[-1][1]-self.time_interval[0][0]
         txt = '\n'
-        txt += "=============================================================\n"
-        txt += "===                             GRB summary               ===\n"
-        txt += "=============================================================\n"
-        txt += '  Name           : {}\n'.format(self.name)
-        txt += '  RA             : {}\n'.format(self.radec.ra)
-        txt += '  DEC            : {}\n'.format(self.radec.dec)
-        txt += '  Redshift       : {}\n'.format(self.z)
-        txt += '  Eiso           : {}\n'.format(self.Eiso)
-        txt += '  Epeak          : {}\n'.format(self.Epeak)
-        txt += '  t90            : {}\n'.format(self.t90)
-        txt += '  G0H / G0W      : {} / {}\n'.format(self.G0H,self.G0W)
-        txt += '  Flux peak      : {}\n'.format(self.FluxPeak)
-        txt += '  gamma LE / HE  : {} / {}\n'.format(self.gamma_le,self.gamma_he)
-        txt += '  t_trig         : {}\n'.format(self.t_trig.datetime)
-
-        txt += '  Energy bins    : {}\n'.format(len(self.Eval))
-        txt += '  Time bins      : {}\n'.format(len(self.tval))
-        txt += '  Time intervals : {}\n'.format(len(self.time_interval))
+        txt += "==================================================================\n"
+        txt += "===                             {:10s}                     ===\n"\
+        .format(self.name)
+        txt += "==================================================================\n"
+        txt += '  RA, DEC            : {:6.2f} {:6.2f}\n'\
+        .format(self.radec.ra, self.radec.dec)
+        txt += '  Redshift           : {:6.2f}\n'.format(self.z)
+        txt += '  Eiso               : {:6.2e}\n'.format(self.Eiso)
+        txt += '  Epeak              : {:6.2f}\n'.format(self.Epeak)
+        txt += '  t90                : {:6.2f}\n'.format(self.t90)
+        txt += '  G0H / G0W          : {:6.2f} / {:6.2f}\n' \
+        .format(self.G0H,self.G0W)
+        txt += '  Flux peak          : {:6.2f}\n'.format(self.FluxPeak)
+        txt += '  gamma LE / HE      : {:6.2f} / {:6.2f}\n' \
+        .format(self.gamma_le,self.gamma_he)
+        txt += '  t_trig             : {}\n'.format(self.t_trig.datetime)
+        txt += '  Afterglow duration : {:6.2f}\n'.format(dt_afterglow.to(u.d))
+        txt += '  Bins : E, t, dt    : {:4d} {:4d} {:4d} \n' \
+        .format(len(self.Eval), len(self.tval), len(self.time_interval))
+        
 
         return txt
-
-    ###########################################################################
-    def add_stack_OnOffobs(self,simulations):
-        """Stack observations"""
-        stack = SpectrumDatasetOnOffStacker(Observations(simulations))
-        #stack.run()
-        return stack.stacked_obs
-
-    ###########################################################################
-    def get_cumulative_stats(self,simulations):
-        """Get cumulative statistics"""
-
-        # Init vectors
-        nsim = len(simulations)
-        tot_time  = np.zeros(nsim)
-        tot_n_on  = np.zeros(nsim)
-        tot_n_off = np.zeros(nsim)
-        tot_alpha = np.zeros(nsim)
-        delta_t   = np.zeros(nsim)
-
-        # Loop on observations
-        for idx, obs in enumerate(simulations):
-
-            alpha = obs.alpha
-
-            if idx == 0:
-                tot_time[idx]  = obs.total_stats_safe_range.livetime.value
-                tot_n_on[idx]  = obs.total_stats_safe_range.n_on
-                tot_n_off[idx] = obs.total_stats_safe_range.n_off
-                tot_alpha[idx] = obs.total_stats_safe_range.alpha
-            else:
-                tot_time[idx]  += tot_time[idx-1] + obs.total_stats_safe_range.livetime.value
-                tot_n_on[idx]  += tot_n_on[idx-1] + obs.total_stats_safe_range.n_on
-                tot_n_off[idx] += tot_n_off[idx-1] + obs.total_stats_safe_range.n_off
-                tot_alpha[idx]  = obs.total_stats_safe_range.alpha
-
-            delta_t[idx] =  obs.total_stats_safe_range.livetime.value
-            tot_excess = tot_n_on - alpha * tot_n_off
-            tot_bkg = alpha * tot_n_off
-            tot_significance = significance_on_off(tot_n_on,
-                                                   tot_n_off,
-                                                   tot_alpha)
-#        print(" cumulated stat : On={:10.2f} Off={:10.2f} bck={:10.2f} dt={:10.2f} "
-#           .format(tot_n_on[nsim-1], 
-#                   tot_bkg[nsim-1],
-#                   tot_n_off[nsim-1],
-#                   tot_time[nsim-1])) 
-#        print(" Cumulated On   = ",tot_n_on)
-#        print(" Cumulated bkg  = ",tot_bkg)
-#        print(" Cumulated Off  = ",tot_n_off)
-#        print(" Cumulated time = ",tot_time) 
-
-        return dict(livetime = tot_time,
-                    excess   = tot_excess,
-                    bkg      = tot_bkg,
-                    sigma    = tot_significance,
-                    n_on     = tot_n_on,
-                    n_off    = tot_n_off,
-                    alpha    = tot_alpha,
-                    delta_t  = delta_t)
-
-    # ###########################################################################
-    # def quicklook(self,simulations,plot=False):
-
-    #     for idx, obs in enumerate(simulations):
-    #         print("GRB ",self.name," - Observation: ",idx)
-    #         #obs.peek() # n_on, alpha*n_off Espec. eff.area,, Ematrix and stat
-    #         print("    - lifetime:",obs.total_stats_safe_range.livetime.value)
-    #         print("    - excess vector:",obs.excess_vector.data)
-    #         if (plot):
-    #             obs.excess_vector.peek()
-    #         plt.show()
-
-    #     return
-
+###########################################################################
+    def visibility(self,opt="None"):
+    
+        site  = ["North","South"]
+        vis   = {"North":False,"South":False}
+        
+        print("  Visibility (Minimum altitude : {})".format(self.altmin))
+    
+        for loc in site:
+            print("+----------------------------------------------------------------+")
+            print('{}  Visible    : {} - tonight, prompt : {}, {}'
+                  .format(loc,
+                          self.vis[loc],
+                          self.vis_tonight[loc],
+                          self.vis_prompt[loc]))
+            if (self.vis_tonight[loc]): # Seen within 24hr after the trigger
+                vis[loc] = True
+                print(" Event  : {} * {}"
+                      .format(self.t_event[loc][0].datetime,
+                              self.t_event[loc][1].datetime))
+    
+                print(" Twil.  : {} * {}"
+                      .format(self.t_twilight[loc][0].datetime,
+                              self.t_twilight[loc][1].datetime))
+    
+                print(" True   : {} * {}"
+                      .format(self.t_true[loc][0].datetime,
+                              self.t_true[loc][1].datetime))
+        print("+----------------------------------------------------------------+")
+        
+        return (vis["North"] or vis["South"])
+    
     @staticmethod
     ###########################################################################
     def get_grb_properties(filename):
@@ -473,145 +431,107 @@ class GammaRayBurst(object):
             intervals.append([float(delta_t[idx]), float(delta_t[idx + 1])] * u.s)
         data['time intervals'] = intervals
         return data
-
-###############################################################################
 #
-###############################################################################
-class GRBTarget(object):
-    """
-    Observation target information.
-
-    Parameters
-    ----------
-    name : `str`
-        Name of the source
-    model : `~gammapy.spectrum.models.SpectralModel`
-        Model of the source
-    """
-
-    ###########################################################################
-    def __init__(self, name=None, model=None,pointing = None):
-        self.name = name
-        self.model = model
-        self.pointing = pointing
-    ###########################################################################
-    def __str__(self):
-        """Target report (`str`)."""
-        ss = '*** Target parameters ***\n'
-        ss += 'Name={}\n'.format(self.name)
-        for par in self.model.parameters.parameters:
-            ss += '{}={} {}\n'.format(par.name, str(par.value), par.unit)
-        return ss
-    ###########################################################################
-    def from_fermi_lat_catalogue(name):
-        raise NotImplementedError
-
-###############################################################################
+################################################################################
+##
+################################################################################
+#class GRBTarget(object):
+#    """
+#    Observation target information.
 #
-###############################################################################
-class GRBObservationParameters(object):
-    """
-    Container for observation parameters.
-
-    Parameters:
-
-    alpha : `~astropy.units.Quantity`
-        Normalisation between ON and OFF regions
-
-    livetime :  `~astropy.units.Quantity`
-        Observation time
-
-    emin :  `~astropy.units.Quantity`
-        Minimal energy for simulation
-
-    emax : `~astropy.units.Quantity`
-        Maximal energy for simulation
-    """
-
-    ###########################################################################
-    def __init__(self, alpha=None, livetime=None,
-                 emin=None, emax=None, pointing=None, fov=None, binsize=None):
-        self.alpha = alpha
-        self.livetime = livetime
-        self.emin = emin
-        self.emax = emax
-        self.fov = fov
-        self.binsize = binsize
-
-        # Create sky map frame - Emin, Emax, and the bin size could be extracted from the IRF
-        nedges = 10
-        logEedges = np.logspace(np.log10(self.emin.value),
-                                np.log10(self.emax.value), nedges)
-        if (pointing):
-            self.axis = MapAxis.from_edges(logEedges, unit="TeV",
-                                           name="energy", interp="log")
-            self.geom = WcsGeom.create(skydir   = pointing,
-                                       binsz    = binsize,
-                                       width    = (fov, fov),
-                                       coordsys ="GAL",
-                                       axes=[self.axis]) # Width in degrees
-
-#        print(" - Number of Energy log. bins : ",nedges-1," from ",self.emin," to ",self.emax)
-#        print(" - Number of spatial bins : ",self.fov/self.binsize," x ",self.fov/self.binsize)
-#        print(" *** Sky map")
-
-    ###########################################################################
-    def __str__(self):
-        """Observation summary report (`str`)."""
-        ss = '*** Observation parameters summary ***\n'
-        ss += 'alpha={} [{}]\n'.format(self.alpha.value, self.alpha.unit)
-        ss += 'livetime={} [{}]\n'.format(self.livetime.value,
-                                          self.livetime.unit)
-        ss += 'emin={} [{}]\n'.format(self.emin.value, self.emin.unit)
-        ss += 'emax={} [{}]\n'.format(self.emax.value, self.emax.unit)
-        return ss
+#    Parameters
+#    ----------
+#    name : `str`
+#        Name of the source
+#    model : `~gammapy.spectrum.models.SpectralModel`
+#        Model of the source
+#    """
+#
+#    ###########################################################################
+#    def __init__(self, name=None, model=None,pointing = None):
+#        self.name = name
+#        self.model = model
+#        self.pointing = pointing
+#    ###########################################################################
+#    def __str__(self):
+#        """Target report (`str`)."""
+#        ss = '*** Target parameters ***\n'
+#        ss += 'Name={}\n'.format(self.name)
+#        for par in self.model.parameters.parameters:
+#            ss += '{}={} {}\n'.format(par.name, str(par.value), par.unit)
+#        return ss
+#    ###########################################################################
+#    def from_fermi_lat_catalogue(name):
+#        raise NotImplementedError
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
 
-    import grbplot as gplt
+    import os
+    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
+    
+    import grb_plot as gplt
     from gammapy.spectrum.models import Absorption
     import ana_config as cf # Steering parameters
 
     cf.old_file   = False # Use old GRB file
     cf.dbg_level  = 0
     absorption = Absorption.read_builtin(cf.EBLmodel)
+    
     for i in range(cf.ifirst,cf.ngrb+cf.ifirst):
+
+        # Get GRBs
         if (cf.old_file):
-            loc = Path(cf.grb_oldfolder + "LGRB"+str(i))
+            loc = Path(cf.grb_olddir + "LGRB"+str(i))
             grb = GammaRayBurst.read_old(loc,ebl=absorption)
         else:
-            loc = Path(cf.grb_folder + "/Event"+str(i)+".fits")
+            loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
             grb = GammaRayBurst.read(loc,ebl=absorption)
 
         print(grb)
+        gplt.spectra(grb,opt="Packed")
 
-        tmin = grb.t_trig # GRB trigger time
-        tmax = grb.t_event["North"][1] # End of visibility
-        duration = tmax - tmin
-        print(duration)
+        grb.visibility()
+        gplt.visibility_chart(grb)
+        gplt.visibility_alt_plot(grb)
 
-        # Visibility points
-        tvis = np.linspace(0,duration.value,100)
-        sitecoord = EarthLocation.of_site(grb.site["North"])
-        altazvis  = grb.radec.transform_to( AltAz(obstime= tvis + grb.t_trig,
-                                        location=sitecoord))
+        ###################################
+        # Investigate next day visibility
+        ###################################
+        # If the GRB was not visible, no chance it will be the day after
+        # -9 values a unchanged
+        for loc in ["North","South"]:
+            for i in range(2):
+                
+                # The time of visiility is when the GRB is above the horizon 
+                # (at min altitude the same) theday after. However, contrarily to 
+                # the first day, the trigger has occured.
+                if (grb.t_true[loc][i] != -9): 
+                    
+                    grb.t_true[loc][i] += 1*u.d
+                
+                # The dark time is the same + approx. one day
+                if (grb.t_twilight[loc][i] != -9): 
+                    grb.t_twilight[loc][i] += 1*u.d
+                
+                # The time above the horizon is the same + approx. one day
+                if (grb.t_event[loc][i] != -9): 
+                    grb.t_event[loc][i] += 1*u.d   
+                
+        loc = "North"
+        print("the day after :")
+        print(" Visible : unchanged -> ",grb.vis[loc])
+        print(" Tonight : unchanged -> ",grb.vis_tonight[loc])
+        print(" Prompt : unchanged -> "
+             ,grb.vis_tonight[loc])
 
-        # GRB points with the visibility
-        tgrb = grb.t_s
-        tgrb = [ t.value for t in tgrb if t < duration]*tgrb[0].unit
-        altazgrb = grb.radec.transform_to( AltAz(obstime= grb.t_trig+tgrb,
-                                        location=sitecoord))
-#        # Measurement points
-#
-        from   astropy.visualization import quantity_support
-        import matplotlib.pyplot as plt
-        with quantity_support():
-            plt.plot(tvis,altazvis.alt,label="Visibility")
-            plt.plot(tgrb,altazgrb.alt,marker='X',ms=10.0,ls='',label="Obs. point")
-            plt.legend()
-            plt.show()
-        #gplt.visibility(grb,opt='plot')
+#        from   astropy.visualization import quantity_support
+#        import matplotlib.pyplot as plt
+#        with quantity_support():
+#            plt.plot(tvis,altazvis.alt,label="Visibility")
+#            plt.plot(tgrb,altazgrb.alt,marker='X',ms=10.0,ls='',label="Obs. point")
+#            plt.legend()
+#            plt.show()
         #gplt.spectra(grb,opt="2D")
         #gplt.spectra(grb,opt="Packed")
         #gplt.spectra(grb,opt="Time")

@@ -5,7 +5,6 @@ Created on Tue Jan 22 11:41:34 2019
 @author: Stolar
 """
 #import numpy as np
-import matplotlib.pyplot as plt
 from gammapy.cube import MapDataset, MapEvaluator
 from gammapy.utils.fitting import Fit
 from gammapy.cube.models import BackgroundModel
@@ -174,7 +173,10 @@ def DataSetShow(dataset, label="", debug=0, plot=True):
 #        ax[1].set_title("Residuals")
 #        plt.show()
 #
+    # This coild go somewhere else as it requires matplotlib
     if (plot):
+        import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots(ncols=3,nrows=1,figsize=(14,4))
 
         c0 = ax[0].imshow(count_src.data.sum(axis=0),cmap='viridis')
