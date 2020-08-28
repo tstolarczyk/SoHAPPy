@@ -21,7 +21,7 @@ import gammapy
 # -- Project information -----------------------------------------------------
 
 project = 'SoHAPPy'
-copyright = '2019, Th. Stolarczyk'
+copyright = '2020, Th. Stolarczyk'
 author = 'Th. Stolarczyk'
 
 # The short X.Y version
@@ -39,17 +39,29 @@ release = '0.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+   #  'sphinx.ext.autodoc',
+   # 'sphinx.ext.doctest',
+   #  'sphinx.ext.intersphinx',
+   #  'sphinx.ext.todo',
+   #  'sphinx.ext.coverage',
+   #  'sphinx.ext.mathjax',
+   #  'sphinx.ext.ifconfig',
+   #  'sphinx.ext.viewcode',
+   #  'sphinx.ext.githubpages',
+# Copied from ctapipe
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-	'sphinx_automodapi.automodapi',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.todo",
+    "sphinx.ext.coverage",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.mathjax",
+    "sphinx_automodapi.automodapi",
+    "nbsphinx",
+    "matplotlib.sphinxext.plot_directive",
+    "numpydoc",
 	'recommonmark'
 ]
 
@@ -112,7 +124,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

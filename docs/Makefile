@@ -1,5 +1,6 @@
 # Minimal makefile for Sphinx documentation
-#
+
+export SPHINX_APIDOC_OPTIONS='members,special-members,private-members,undoc-members,show-inheritance'
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
