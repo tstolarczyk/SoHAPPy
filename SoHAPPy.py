@@ -1,276 +1,462 @@
 """
 
-Input parameters:
------------------
 
-    The parameters are described in ana_congif.py
-
-    Folders (by default) are :
-        - the IRF are stored in :math:`irf`
-        - the GRB files are in :math:`data`
-        - the documentation is generated with sphynx in :math:`docs`
-        - some plots are in :math:`out`
-        - results are where you wish, typicall :math:`Result`
-
-
-Description:
-------------
-
-- The parameters are read from the ana_congfi.py file which is renamed at each execution with the date (_hhmmss)
-
-(-) Loop over the reconstruction chain (reco1, reco2) and the IRF observation duration
-
-    - Opens an output file for that set
-
-    (-) Loop over the site position, zenith and azimuth (this will be replaced by a GRB position later)
-        - Compute the pointing (temporary)
-        - Read the propoer IRF, stored in :math:`cta\_perf` (depending on the analysis chosen)
-        - Read the absorption from the EBL model
-
-        (-) Loop over the GRB list and the reduction factor
-            - Create a :class:`grb.GammaRayBurst` object (includes the absorbed spectrum and the positionin the sky)
-            - Prepare an output file for the given GRB
-            - Create a :class:`montecarlo.GRBMonteCarlo` object from the GRB files
-                - get the charcateristics (name, redshift...)
-
-                (-) Loop over time slices
-                    - Read differential flux as an array :math:`(E, df/dE)`
-
-            (-) Loop over trials (:meth:`montecarlo.GRBMonteCarlo.loop_3D` or :meth:`montecarlo.GRBMonteCarlo.loop_OnOff`)
-
-                - Initialize the list of results from each trials
-                -  Depending on the analysis chain :
-                    (-) loop over time slices :meth:`grb.GammaRayBurst.run_OnOffsimulation`
-                        - Create a target :class:`grb.cta_grb_observation.GRBObservationParameters.GRBTarget`
-                        - Create an observation :class:`cta_grb_observation.GRBObservationParameters`
-                        - Simulate the current slice :meth:`cta_grb_observation.GRBObservationSimulation.simulate_OnOffobs`
-
-
-                    (-) loop over time slices :meth:`grb.GammaRayBurst.run_3Dsimulation`
-                        - Create a target :class:`grb.cta_grb_observation.GRBObservationParameters.GRBTarget`
-                        - Create an observation :class:`cta_grb_observation.GRBObservationParameters`
-                        - Simulate the current slice :meth:`cta_grb_observation.GRBObservationSimulation.simulate_3Dobs`
-
-                -   Analyze results, get :math:`3 sigma` and :math:`5 sigma` responses
-
-Todo :
-------
-    - Add number of counts to the output;
-    - Compute the fluence;
-    - Interpolate time counts within the time slices;
-    - in output file, separate constant information from variable information (use a header).
 
 """
-###############################################################################
+# from . import __version__ # does not work
+__version__ = "Sofia dev"
+
 import os
+import sys, getopt
 
-import shutil
-import time
-import datetime
-import matplotlib.pyplot   as plt
+import numpy as np
+import time, datetime
+import pickle
+import warnings
+
 from   pathlib import Path
+import astropy.units as u
 
-from   astropy.table       import Table
+import ana_config as cf # Steering parameters
 
-# Gammapy
-import gammapy
-from   gammapy.spectrum.models import Absorption
+# Transform warnings into errors - useful to find who is guilty !
+# import warnings
+# warnings.filterwarnings('error')
+
+import gammapy # Just for the version number
 
 from grb            import GammaRayBurst
-import grbplot      as gplt
-from montecarlo     import MonteCarlo
+from timeslot       import Slot
+from   mcsim        import MonteCarlo
+import mcsim_res    as mcres
 
-# Steering parameters
-import ana_config as cf
+from utilities import backup_file, Log, warning
+ 
+os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
+os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
+#print(os.getenv('GAMMAPY_EXTRA'))
+#print(os.listdir(os.getenv('GAMMAPY_EXTRA')))
 
-# Styles
-#plt.rcdefaults()
-#plt.rcParams['font.weight'] = 'bold'
-#plt.rcParams['axes.labelweight'] = 'bold'
-#plt.rcParams['axes.titleweight'] = 'bold'
-#plt.style.use('seaborn-talk') # Make the labels readable
-plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!
-# print(plt.style.available)
+__all__ = ["main", "init", "summary", "get_grb_fromfile", "get_delay"]
+###############################################################################
+def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
+    """
+    Obtain data for the ith GRB file and create a GammaRayBurst instance.
+
+    Parameters
+    ----------
+    i : integer
+        GRB position in the list 
+    prompt : boolen, optional
+        If True, reads the prompt GRB file, otherwise the afterglow (default).
+    afterglow : boolean, optional
+        If True, use the afterglow file generic information (e.g.) for the 
+        prompt data, oterwise use the default. 
+        The default is False.
+    log : TextIO, optional
+        Log file. The default is None.
+
+    Returns
+    -------
+    grb : GammaRayBurst
+        A GammaRayBurst instance
+
+    """
+            
+    if (cf.test_prompt):
+        # create a new object from the default (Visible in North)
+        loc = Path('../input/lightcurves/prompt' 
+                   + "/events_"+str(i)+".fits")
+        if (cf.use_afterglow):
+            # use afterglow characteristics
+            loc_glow = Path(cf.grb_dir + "/Event"+str(i)+".fits")
+            glow = GammaRayBurst.read(loc_glow, ebl = cf.EBLmodel)
+            grb = GammaRayBurst.read_prompt(loc, glow=glow, ebl = cf.EBLmodel)
+        else:
+            # use default visibility
+            grb = GammaRayBurst.read_prompt(loc, 
+                                            glow=None, 
+                                            ebl = cf.EBLmodel,
+                                            z=cf.redshift)
+    else:
+        if (cf.old_file):
+            loc = Path(cf.grb_olddir + "LGRB"+str(i))
+            grb = GammaRayBurst.read_old(loc,ebl = cf.EBLmodel)
+        else:
+            loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
+            grb = GammaRayBurst.read(loc, ebl = cf.EBLmodel)
+                      
+    return grb
 
 ###############################################################################
-def save_config(dbg=False):
+def init(argv):
     """
-    Copy configuration file to result folder
+    Decode the command line arguments if any, treat some information from the 
+    configuration file, overwrite some configuration parameters with the 
+    command line parameters.
+    Build the debugging flag for printout and plots.
+    Create the result output folder.
+
+    Parameters
+    ----------
+    argv : Command line arguments
+        User command line arguments.
+
+    Returns
+    -------
+    None.
+
+    """
+            
+    # Read arguments from command line, supersede default ones
+    try:
+          opts, args = getopt.getopt(argv,
+                                     "hn:f:d:N:o:",
+                                     ["ngrb=",
+                                      "first=",
+                                      "niter=",
+                                      "dbg=",
+                                      "output=",])    
+              
+          for opt, arg in opts:
+             if opt == '-h':
+                 print(" SoHAPPy.py "
+                       + "-N <ngrb> "
+                       + "-f <1st grb or list> "
+                       + "-n <MC iterations> "
+                       + "-o <Output folder> "
+                       + "-d <debug> ")
+                 sys.exit()
+             elif opt in ("-N", "--ngrb"):
+                 cf.ngrb =  int(arg)
+             elif opt in ("-f", "--first"):
+                 cf.ifirst = int(arg)
+             elif opt in ("-n", "--niter"):
+                 cf.niter = int(arg)
+             elif opt in ("-o", "--output"):
+                  cf.res_dir = arg
+             elif opt in ("-d", "--debg"):
+                 dbg = int(arg)
+                 cf.dbg = abs(dbg)
+              
+    except getopt.GetoptError:
+        print("No line arguments passed: Using default values")
+    
+    # Create the show debugging flag from the general debug flag
+    if (cf.dbg < 0): cf.show = 0
+    else: cf.show = abs(cf.dbg)
+        
+    if (cf.do_fluctuate == False): cf.niter = 1
+    if (cf.niter == 1): cf.do_fluctuate=False
+    if (cf.dbg>0): cf.silent = False
+    
+    
+    # Check that the output folder exist, otherwise create it
+    if (cf.res_dir[-1] != "/"): cf.res_dir = cf.res_dir+"/"
+    if not os.path.isdir(cf.res_dir):
+        warning("Creating {}".format(cf.res_dir))
+        os.mkdir(cf.res_dir)
+    
+    return
+
+###############################################################################
+def summary(log=None):
+    """
+    Printout the main characteristics of the simulation.
+
+    Parameters
+    ----------
+    log : TextIO, optional
+        Log file. The default is None.
+
+    Returns
+    -------
+    None.
+
     """
 
-    if (not os.path.exists(cf.res_folder)):
-            if (dbg): print(" *** Creating result folder ",cf.res_folder)
-            os.makedirs(cf.res_folder)
-    config_file = cf.res_folder+"/config.txt"
+    log.prt("")
+    log.prt("+----------------------------------------------------------------+")
+    log.prt("|                                                                |")
+    log.prt("|                    SoHAPPy with GammaPy {:4s}                   |"
+          .format(gammapy.__version__))
+    log.prt("|                            ({:4s})                              |"
+          .format(__version__))    
+    log.prt("|  (Simulation of High-energy Astrophysics Processes in Python)  |")
+    log.prt("|                                                                |")
+    log.prt("+----------------------------------------------------------------+")
+    log.prt(" Simulation:")
+    if type(cf.ifirst)!=list:
+        log.prt("     *Number of sources  : {:>5d}".format(cf.ngrb))
+        log.prt("     *First source       : {:>5d}".format(cf.ifirst))
+    else:
+        log.prt("     * Source list       : {}".format(cf.ifirst))
+    log.prt("     *Number of trials   : {:>5d}".format(cf.niter))
+    log.prt(" EBL model               : {}".format(cf.EBLmodel))
+    log.prt(" Input/output :")
+    log.prt("     *Debug mode         : {:>5d}".format(cf.dbg))
+    log.prt("     *Show plots         : {:>5d}".format(cf.show))
+    log.prt("      Analysing files in : {}".format(cf.grb_dir))
+    log.prt("      IRF files in       : {}".format(cf.irf_dir))
+    log.prt("     *Result folder      : {}".format(cf.res_dir))
+    if (cf.lkhd ==0):
+        method = "On-Off"
+    else:
+        method = "{}D likelihood".format(cf.lkhd)
+    log.prt(" Analysis (ndof)         : {}".format(method))
+    log.prt("+----------------------------------------------------------------+")
+    log.prt("|                 *: can be changed with command line (use -h)   |")
+    log.prt("+----------------------------------------------------------------+")
+    log.prt(" Developments:")
+    if (cf.save_grb == True):
+        log.highlight("Simulation saved to disk save_grb (save_grb = True)       ")        
+    if (cf.write_slices == True):
+        log.highlight("Slice information saved to disk (write_slices=True)       ")
+    if (cf.signal_to_zero == True):
+        log.warning(  "Signal set to zero (signal_to_zero==True)                 ")
+    if (cf.do_fluctuate == False):
+        log.warning(  "No fluctuation in simulation (do_fluctuate==False)        ")
+    if (cf.do_accelerate  == False):
+        log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
+    if (cf.fixed_zenith != False):
+        log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
+               .format(cf.fixed_zenith))
+    if (cf.day_after > 0):
+        log.warning(  "Simulate up to {} day(s)".format(cf.day_after))
+    if (cf.day_after < 0):
+        log.warning(  "Simulate the day after #{}".format(abs(cf.day_after)))
+    if (cf.niter == 0):
+        log.failure(  " Cannot run simulation with ZERO trials")
+        log.warning(  " Use other main specific scripts for tests")
+        sys.exit( " At least one trial is requested")
+    if (cf.test_prompt):
+        log.warning(  "Test prompt simulation")
 
-    if (os.path.exists(config_file)):
-        now = datetime.datetime.now()
-        newname = config_file+"_"+str(now.hour)+str(now.minute)+str(now.second)
-        os.rename(config_file, newname)
-        if (dbg): print("     --- config.txt exists, renamed to ",newname)
-
-    shutil.copy('ana_config.py',cf.res_folder+'/config.txt')
+    log.prt("")
 
     return
 
 ###############################################################################
-def get_grb_file(i, ebl = None):
+def get_delay():
     """
-    Obtain ith GRB file
+    Compute the overall delay to be applied to the start of detection 
+    (satelite and telescope slewing), according to the user parameters 
+
+    Returns
+    -------
+    dt : Quantity (time)
+        Delay before the detection can start.
+
+    """
+    
+    dt = 0*u.s
+    if (cf.fixslew):  dt = cf.dtslew 
+    else:             dt = cf.dtslew*np.random.random()
+        
+    if (cf.fixswift): dt = dt + cf.dtswift # don't do += !!! 
+    else: sys.exit("Variable SWIFT delay not implemented)")
+
+    return dt
+
+###############################################################################
+def main(argv):
+    """
+    This is the main and it should be seriously documented
 
     Parameters
     ----------
-    i : TYPE
+    argv : TYPE
         DESCRIPTION.
 
     Returns
     -------
-    name : TYPE
-        DESCRIPTION.
+    None.
 
     """
-    if (cf.old_file):
-        loc = Path(cf.grb_oldfolder + "LGRB"+str(i))
-        grb = GammaRayBurst.read_old(loc,ebl = ebl)
-    else:
-        loc = Path(cf.grb_folder + "/Event"+str(i)+".fits")
-        grb = GammaRayBurst.read(loc, ebl = ebl)
 
-    if cf.niter<=1 or cf.dbg_level>0 or cf.ngrb==1 :
-
-        gplt.visibility(grb)
-        gplt.spectra(grb,opt="Packed")
-        print(grb)
-    return grb
-
-###############################################################################
-def welcome(cf):
-    print("")
-    print("#################################################################################")
-    print("################ ")
-    print("################ SoHAPPy with GammaPy ",gammapy.__version__)
-    print("################ (Simulation of High-energy Astrophysics Processes in Python)")
-    print("################ ")
-    print("#################################################################################")
-    print("  Analysing files in     : ",cf.grb_folder)
-    print("  Number of sources      : ",cf.ngrb)
-    print("  First source index     : ",cf.ifirst)
-    print("  IRF files in           : ",cf.irf_folder)
-    print("  Reduction factor       : ",cf.redfactor)
-    print("  Alpha                  : ",cf.alpha)
-    print("  FOV                    : ",cf.fov[0])
-    print("  Bin size               : ",cf.fov[1])
-    print("  Slewing time           : ",cf.dtslew[0])
-    print("                   Fixed : ",cf.dtslew[1])
-    print("  Detection level        : ",cf.det_level)
-    print("  EBL model              : ",cf.EBLmodel)
-    print("")
-    print("  Number of MC trials    : ",cf.niter)
-    print("  Likelihood             : ",cf.lkhd)
-    print("  Debug mode             : ",cf.dbg_level)
-    print("  Show plots             : ",cf.showplots)
-    print("  Result folder          : ",cf.res_folder)
-    print("")
-    return
-###############################################################################
-if __name__ == "__main__":
-
-        SOLVE THE PROBLEM THAT IT CANNOT RUN IF NO INTERNET
-        BECAUSE OF THE SITE DATABASE
-    welcome(cf)  # Welcome message, with sterring parameters
-    save_config() # save the config file in the result folder
+    init(argv)           # Steering parametets and welcome message
+    if (cf.ngrb<=0):
+        print(" NO ANALYSIS REQUIRED (ngrb<=0)")
+        sys.exit(2)
+        
     start_all = time.time() # Starts chronometer
-
-    # Create population summary file
-    sumfile = cf.res_folder+"/Pop_" + str(cf.ifirst)+"-" \
-                                    + str(cf.ifirst+cf.ngrb-1)+"GRB_" \
-                                    + str(cf.lkhd)+"dof_"+ str(cf.niter)+"iter"
-    print("======>  Population file : ",sumfile,"\n")
-
-    # Intialise timing and stats
-    ndet_3s = 0
-    ndet_5s = 0
+        
+    # GRB list to be analysed
+    if type(cf.ifirst)!=list:
+        grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
+        first = str(cf.ifirst)
+        last = str(cf.ifirst+cf.ngrb-1)+"GRB_"
+        sep = "-"
+    else:
+        grblist = cf.ifirst    
+        first = str(grblist[0])
+        last  = str(grblist[-1])+"_"
+        sep = "-"
+        
+    # Create population simulation and logfile name
+    sim_filename    = cf.res_dir  + cf.datafile
+    log_filename    = cf.res_dir  + cf.logfile
+    log = Log(name  = log_filename, talk=not cf.silent)
+    conf_filename   = "config.py"
+    conf_filename   = backup_file(folder=cf.res_dir,dest=conf_filename)
+    
+    # Print Summary 
+    summary(log=log)
+    
     start_pop = time.time() # Start chronometer
-
-    # Initialise absorption
-    eblabs = Absorption.read_builtin(cf.EBLmodel)
-
-    with open(sumfile+".txt", 'w') as popfile:
+    
+    with open(sim_filename, 'w') as pop:
 
         ##############################
         # Loop over GRB population   #
         ##############################
-        write_header = True
-        for i in range(cf.ifirst,cf.ifirst+cf.ngrb):
+        
+        mcres.welcome(log=log) # Remind simulation parameters
+        
+        first = True # Actions for first GRB only
+            
+        for i in grblist:
+        
+            grb = get_grb_fromfile(i,log=log) ### Get GRB
+            
+            if (cf.get_visibility):
+                grb.update_visibility(altmin=cf.altmin) 
+                        
+            if (cf.save_grb):
+                grb_class_file = cf.res_dir + "/" \
+                               + grb.name + ".bin"
+                outfile  = open(grb_class_file,"wb")
+                pickle.dump(grb,outfile)
+                outfile.close()
+                print(" Saving grb {} to file : {}"
+                      .format(grb.name,grb_class_file))
 
-            ### Get the source
-            grb = get_grb_file(i,ebl = eblabs) ### Get GRB
+            if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
+                log.prt(grb)
+                grb.show_visibility(loc="North",log=log)        
+                grb.show_visibility(loc="South",log=log)        
+                
+            if (cf.show >0):
+                import grb_plot     as gplt
+                gplt.spectra(grb,opt="Packed")
+                #gplt.visibility_chart(grb)
+                gplt.visibility_plot(grb,loc="North")
+                gplt.visibility_plot(grb,loc="South")
+                
+                gplt.pause()
+    
+                if (cf.dbg>2) :
+                    gplt.animated_spectra(grb,savefig=True,outdir=cf.res_dir)
+    #            plt.show(block=True) 
+                                    
+            # Create slices and fix observation points
+            origin = Slot(grb,
+                          opt   = cf.obs_point,
+                          name  = grb.name,
+                          debug = bool(cf.dbg>1))
+            
+            ###--------------------------------------------###
+            #  Check individual sites - Loop over locations
+            ###--------------------------------------------###
+            for loc in grb.site_keys:           
+                
+                # Create a MC object
+                name = grb.name + "-" + loc
+                log.banner(" SIMULATION  : {:<50s} ".format(name))
 
-            #for location in ["North","South"]:
-            for location in ["North","South"]:
+                mc = MonteCarlo(niter  = cf.niter,
+                                ndof   = cf.lkhd, 
+                                debug  = cf.dbg,
+                                name   = name)
+    
+                if grb.vis_tonight[loc]:
+                    slot = origin.single_site(day_after = cf.day_after,
+                                              delay     = get_delay(),
+                                              site      = loc,
+                                              debug     = (cf.dbg>1))        
+                    mc.run(slot)                    
+                
+                first = mcres.result(mc, grb, log=log, header=first, pop=pop)
+                
+                if (cf.save_simu): # If requested save simulation to disk
+                    name = grb.name+"-"+loc+"-"+str(cf.niter)+".bin"
+                    mc.save_to_disk(cf.res_dir + "/" +name)
 
-                print("\n*** SIMULATION - ", grb.name,
-                      " - ",location," : ",end="\n")
-                # Create Monte Carlo default object
-                mc = MonteCarlo(grb,niter  = cf.niter,
-                                    alpha  = cf.alpha,
-                                    fov    = cf.fov,
-                                    dtslew = cf.dtslew,
-                                    where  = location,
-                                    fixed  = cf.fixed,
-                                    ndof   = cf.lkhd,
-                                    clevel = cf.det_level)
+                # If Simulation was not aborted - time to look at results
+                if (mc.err == mc.niter) and (cf.show > 0):   
+                    slot.plot()
+                    import mcsim_plot as mplt
+                    mplt.show(mc,loc=loc)
+    
+            ###--------------------------------------------###
+            #   Check both sites            
+            ###--------------------------------------------###
+            name = grb.name + "-Both"
+            log.banner(" SIMULATION  : {:<50s} ".format(name))
+            mc = MonteCarlo(niter  = cf.niter,
+                            ndof   = cf.lkhd, 
+                            debug  = cf.dbg,
+                            name   = name)  
 
-                mc.run(cf.dbg_level)
-                mc.result(debug       = cf.dbg_level,
-                          popfile     = popfile,
-                          write_header= write_header)
-                write_header = False
-
-                # If debugging level high or # evt low, be talkative
-#                    if (cf.niter <2) or (cf.dbg_level > 1):
-                    #mc.plot_trial()
-                if (mc.abort==0) : # Simulation was not aborted
-                    if (cf.showplots > 0) or (cf.dbg_level > 2):
-                        # grb.quicklook(mc.simulations,plot=True ) # deprecated ?
-                        mc.plot(cf.showplots,Path(cf.res_folder,grb.name))
-                        mc.plot2(cf.showplots,Path(cf.res_folder,grb.name),ref="VIS")
-                        mc.plot2(cf.showplots,Path(cf.res_folder,grb.name),ref="GRB")
-
-        # END of Loop over GRB       #
+            # This might not be true when altmin has not the default value
+            if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
+                slot_b = origin.both_sites(day_after = cf.day_after,
+                                           delay     = get_delay(),
+                                           debug     =(cf.dbg>1))
+                mc.run(slot_b)
+            
+            first= mcres.result(mc, grb, log=log, header=first, pop = pop)   
+                
+            if (cf.save_simu): # If requested save simulation to disk
+                name = grb.name+"-"+"Both"+"-"+str(cf.niter)+".bin"
+                mc.save_to_disk(cf.res_dir + "/" +name)
+                
+            # If Simulation was not aborted - time to look at results
+            if (mc.err == mc.niter) and (cf.show > 0):      
+                if (cf.show>0): slot_b.plot()
+                import mcsim_plot as mplt
+                mplt.show(mc,loc="Both")
+                        
+        # # END of Loop over GRB
 
     end_pop = time.time()
+    end_all = time.time()
+
     elapsed = end_pop-start_pop  # Stop chronometer
 
-    # Convert population file into smarter format
-    # Note : Guess=False is very useful to understand potential crashes
-    data = Table.read(sumfile+".txt",format="ascii",guess=False)
-    data.write(sumfile+'.csv', format="ascii.csv",overwrite="True")
-    data.write(sumfile+'.fits',format="fits",     overwrite="True")
+    log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+    log.prt(" Duration   = {:8.2f} (s)".format(elapsed))
+    log.prt("  per GRB   = {:8.2f} (s)".format( (elapsed)/cf.ngrb))
+    log.prt("  per trial = {:8.3f} (s)".format( (elapsed)/cf.ngrb/cf.niter))
+    log.prt("-*-*-*-*-*-*-*- End of full population simulation -*-*-*-*-*-*-*-*\n")
+    log.prt(" ******* End of job - Total time = {:8.2f} min *****"
+                 .format((end_all-start_all)/60))
+    
+    # Close log file
+    log.close()
+    
+    # tar gzip outputs, delete originals if requested
+    nw = datetime.datetime.now()
+    from pathlib import Path
+    outprefix = Path(cf.res_dir).parts[-1]
+    filename  = outprefix + "_" \
+                                + str(nw.hour) \
+                                + str(nw.minute) \
+                                + str(nw.second) \
+                                +".tar.gz"
+    import tarfile
+    tar = tarfile.open(cf.res_dir + filename, "w:gz")
+    tar.add(sim_filename,arcname=os.path.basename(sim_filename))
+    tar.add(log_filename,arcname=os.path.basename(log_filename))
+    tar.add(conf_filename,arcname=os.path.basename(conf_filename))
+    if (cf.remove_tarred):
+        os.remove(sim_filename)
+        os.remove(conf_filename)
+        os.remove(log_filename)
 
-    print("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-\n")
-    print(" Simulation duration   = {0:8.2f} (s)".format(elapsed))
-    print("             per GRB   = {0:8.2f} (s)"
-          .format( (elapsed)/cf.ngrb/len(cf.redfactor)))
-    print("             per trial = {0:8.3f} (s)"
-          .format( (elapsed)/cf.ngrb/len(cf.redfactor)/cf.niter))
-    print("-*-*-*-*-*-*-*- End of full population simulation -*-*-*-*-*-*-*-\n")
+    tar.close()                   
+    print("... completed")
 
-
-    end_all = time.time()
-    print(" ****************** End of job - Total execution time = ",
-          round((end_all-start_all)/60,1),"  minutes *****")
-
-
-
-    #     if (cf.niter<=1):
-
-    #         if (cf.likelihood == 0):
-    #             if (cf.dbg_level):
-    #                 gplt.stats_detection(grb,
-    #                                      mc.simulations,
-    #                                      savefig=True,
-    #                                      outdir='./out/')
-    #             # PlotGRB.make_gif_from_models(grb, savefig=True, outdir='./out/')
-    #         # plt.show(block=False)
-
+###############################################################################
+if __name__ == "__main__":
+    main(sys.argv[1:])
