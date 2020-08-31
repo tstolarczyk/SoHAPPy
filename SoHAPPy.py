@@ -31,6 +31,7 @@ from   mcsim        import MonteCarlo
 import mcsim_res    as mcres
 
 from utilities import backup_file, Log, warning
+import visibility as v
  
 os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
 os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
@@ -320,8 +321,14 @@ def main(argv):
             grb = get_grb_fromfile(i,log=log) ### Get GRB
             
             if (cf.get_visibility):
-                grb.update_visibility(altmin=cf.altmin) 
-                        
+                vis = v.Visibility(grb,loc="North") # Constructor    
+                vis.compute(altmin=cf.altmin)
+                grb.update_visibility(vis) 
+                
+                vis = v.Visibility(grb,loc="South") # Constructor    
+                vis.compute(altmin=cf.altmin)
+                grb.update_visibility(vis)                        
+                
             if (cf.save_grb):
                 grb_class_file = cf.res_dir + "/" \
                                + grb.name + ".bin"
