@@ -28,7 +28,7 @@ from   astropy.coordinates   import EarthLocation
 from   astropy.coordinates   import AltAz
 #from   astropy.coordinates   import Distance
         
-import visibility as v
+
 
 import gammapy
 # Suppress warnings and in particular the deprecation warning
