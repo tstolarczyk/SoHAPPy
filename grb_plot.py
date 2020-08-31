@@ -7,6 +7,7 @@ Created on Tue Jan 22 11:41:34 2019
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+<<<<<<< HEAD
 import warnings
 
 import astropy.units as u
@@ -15,6 +16,15 @@ from astropy.time import Time
 from   astropy.visualization import quantity_support
 import matplotlib.dates as mdates
 
+=======
+import astropy.units as u
+from   astropy.coordinates   import AltAz, EarthLocation
+from   astropy.visualization import quantity_support
+import matplotlib.dates as mdates
+
+import ana_config as cf
+
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 # Bigger texts and labels
 # plt.style.use('seaborn-talk') 
 plt.style.use('seaborn-poster') # Bug with normal x marker !!!
@@ -34,7 +44,12 @@ __all__ = ['energy_and_time_packed',
            'time_over_energyband',
            'energy_and_time_2d',
            'animated_spectra',
+<<<<<<< HEAD
            'visibility_plot'
+=======
+           'visibility_chart',
+           'visibility_alt_plot'
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
            ]
 
 ###############################################################################
@@ -64,11 +79,17 @@ def energy_and_time_packed(grb):
         
         ### Energy spectra for various measurement points in time
         # Note: the plot methods handle the labels, should not be overwritten        
+<<<<<<< HEAD
         nspectra = len(grb.tval)-1
         if (nspectra > n_E_2disp): 
             dnt = int(round(nspectra/n_E_2disp))
             tlist = list(range(0,nspectra,dnt))
             #tlist = [12, 13, 14, 15] + tlist # Typical Prompt times
+=======
+        nspectra = len(grb.t_s)
+        if (nspectra > n_E_2disp): 
+            dnt = int(round(nspectra/n_E_2disp))
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         else:
             dnt=1
         
@@ -76,9 +97,14 @@ def energy_and_time_packed(grb):
         
         fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,12))
 
+<<<<<<< HEAD
         for i in tlist:
             #print(" energy_and_time_packed",i)
             t = grb.tval[i]
+=======
+        for i in range(0,nspectra,dnt):
+            t = grb.t_s[i]
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
                                 ax1,
                                 label="t={:>8.1f}".format(t))
@@ -92,7 +118,11 @@ def energy_and_time_packed(grb):
                      color=c)
             
         for i in range(0,nspectra):
+<<<<<<< HEAD
             t = grb.tval[i]
+=======
+            t = grb.t_s[i]
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
                                 ax1,
                                 alpha=0.2,
@@ -109,7 +139,11 @@ def energy_and_time_packed(grb):
                 s="10 GeV",
                 rotation=270,
                 fontsize=14,va="bottom")
+<<<<<<< HEAD
         title = "{}: {:>2d} Flux points".format(grb.name,len(grb.tval))
+=======
+        title = "{}: {:>2d} meas. points".format(grb.name,len(grb.t_s))
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         ax1.set_title(title,fontsize=12)
         if (n_E_2disp<=15): ax1.legend(fontsize=12) # Too many t slices
 
@@ -123,8 +157,13 @@ def energy_and_time_packed(grb):
             
         
         for i in range(0,nlightcurves,dnE):
+<<<<<<< HEAD
             flux = [f[i].value for f in grb.fluxval ]* grb.fluxval[0].unit
             ax2.plot(grb.tval,
+=======
+            flux = [f[i].value for f in grb.fluxval][:-1] * grb.fluxval[0].unit
+            ax2.plot(grb.t_s,
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                      flux,
                      marker=".",
                      label="E= {:>8.2f}".format(grb.Eval[i]))
@@ -144,6 +183,18 @@ def energy_and_time_packed(grb):
             
         if (n_t_2disp<=8): 
             ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+<<<<<<< HEAD
+=======
+
+        # Set visibility limits
+        t1 = (grb.t_true["North"][0]-grb.t_trig).sec*u.s
+        t2 = (grb.t_true["North"][1]-grb.t_trig).sec*u.s
+        ax2.axvspan(t1,t2, color=coln,alpha=0.2,)
+
+        t1 = (grb.t_true["South"][0]-grb.t_trig).sec*u.s
+        t2 = (grb.t_true["South"][1]-grb.t_trig).sec*u.s
+        ax2.axvspan(t1,t2, color=cols,alpha=0.2)
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         
         plt.tight_layout()
         plt.show(block=block)
@@ -226,6 +277,7 @@ def time_over_energyband(grb):
     Plot t spectra along the E bins - E bin number is fixed :-)
     """
 
+<<<<<<< HEAD
     tb_n1 = grb.t_start["North"]
     tb_n2 = grb.t_stop["North"]
     tb_s1 = grb.t_start["South"]
@@ -233,6 +285,14 @@ def time_over_energyband(grb):
 
     dt_n = (tb_n2 - tb_n1)/3600
     dt_s = (tb_s2 - tb_s1)/3600
+=======
+    tb_n = [ (grb.t_true["North"][0] - grb.t_trig).datetime.total_seconds() ,
+             (grb.t_true["North"][1] - grb.t_trig).datetime.total_seconds() ]
+    tb_s = [ (grb.t_true["South"][0] - grb.t_trig).datetime.total_seconds(),
+             (grb.t_true["South"][1] - grb.t_trig).datetime.total_seconds() ]
+    dt_n = (tb_n[1] - tb_n[0])/3600
+    dt_s = (tb_s[1] - tb_s[0])/3600
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     # print(tbound_n, tbound_s)
 
     fig, ax = plt.subplots(nrows=8, ncols=5, figsize=(20,20))
@@ -251,11 +311,19 @@ def time_over_energyband(grb):
             # Display visibility boundaties - Add articifially 1 second  to
             # avoid log(0)
             if (dt_n):
+<<<<<<< HEAD
                 a.axvline(x=np.log10(tb_n1+1),linestyle =":",color=coln)
                 a.axvline(x=np.log10(tb_n2+1),linestyle =":",color=coln)
             if (dt_s):
                 a.axvline(x=np.log10(tb_s1+1),linestyle =":",color=cols)
                 a.axvline(x=np.log10(tb_s2+1),linestyle =":",color=cols)
+=======
+                a.axvline(x=np.log10(tb_n[0]+1),linestyle =":",color=coln)
+                a.axvline(x=np.log10(tb_n[1]+1),linestyle =":",color=coln)
+            if (dt_s):
+                a.axvline(x=np.log10(tb_s[0]+1),linestyle =":",color=cols)
+                a.axvline(x=np.log10(tb_s[1]+1),linestyle =":",color=cols)
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
             a.set_xlim(-0.5,5.5)
             a.set_ylim(-22,-4)
@@ -305,9 +373,14 @@ def animated_spectra(grb, emin=0.02 * u.TeV,
 
     """
     Create a gif animation of time slices,
+<<<<<<< HEAD
     """
     print(" grb_plot.animated_spectra seems corrupted ")
     return
+=======
+    
+    """
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
     from matplotlib.animation import FuncAnimation
 
@@ -354,6 +427,7 @@ def animated_spectra(grb, emin=0.02 * u.TeV,
 # Plot visibility
 #
 ###############################################################################
+<<<<<<< HEAD
 def visibility_plot(grb, 
                     ax=None, loc=None,
                     depth = 1,
@@ -517,3 +591,222 @@ def visibility_plot(grb,
         ax.set_xlabel("Time (s) wrt trigger")
 
     return     
+=======
+def visibility_chart(grb):
+    """
+    A schematic display of the various visibility intervals
+    """
+    
+    fig, (ax1, ax2) = plt.subplots(nrows=2,ncols=1,figsize=(8,7))
+
+    site  = ["North","South"]
+    for loc, ax  in zip(site,[ax1,ax2]):     
+#        if (grb.vis_tonight[loc]): # Seen within 24hr after the trigger
+        if (grb.vis_tonight[loc]): # Seen within 24hr after the trigger
+            t_event1 = grb.t_event[loc][0]
+            t_event2 = grb.t_event[loc][1]
+            t_twil1  = grb.t_twilight[loc][0]
+            t_twil2  = grb.t_twilight[loc][1]
+            t_true1  = grb.t_true[loc][0]
+            t_true2  = grb.t_true[loc][1]
+            
+            tmin = min(t_event1,t_twil1,t_true1)
+            tmax = max(t_event2+ 1*u.d*cf.day_after,
+                       t_twil2+ 1*u.d*cf.day_after,
+                       t_true2+ 1*u.d*cf.day_after)
+
+            
+           # Event : above horizon
+            ax.plot([t_event1.datetime,t_event2.datetime],
+                    ["Event","Event"],
+                    color="tab:blue",
+                    label=loc+"\nAbove horizon")
+            ax.axvline(t_event1.datetime,ls=":",lw=1,color="tab:blue")
+            ax.axvline(t_event2.datetime,ls=":",lw=1,color="tab:blue")
+            
+            # Twilight : dark time             
+            ax.plot([t_twil1.datetime,t_twil2.datetime],
+                    ["Twilight","Twilight"],
+                    color="black",
+                    label="Dark time")
+            ax.axvline(t_twil1.datetime,ls=":",lw=1,color="black")
+            ax.axvline(t_twil2.datetime,ls=":",lw=1,color="black")
+            
+            # True : observable (above horizon, dark time, triggered )
+            ax.plot([t_true1.datetime,t_true2.datetime],
+                    ["True","True"],
+                    color="tab:green",
+                    label="Observable")
+            ax.axvline(t_true1.datetime,ls=":",lw=1,color="tab:green")
+            ax.axvline(t_true2.datetime,ls=":",lw=1,color="tab:green")
+
+            # Trigger
+            ax.axvline(x=grb.t_trig.datetime,
+                       ls=":",color="tab:green",label="Trigger")                 
+
+            if (cf.day_after):
+               
+                # Event : above horizon
+                ax.plot([(t_event1+1*u.d).datetime,(t_event2+1*u.d).datetime],
+                        ["Event","Event"],
+                        color="tab:blue")   
+                ax.axvline((t_event1 + 1*u.d).datetime,
+                           ls=":",lw=1,color="tab:blue")
+                ax.axvline((t_event2 + 1*u.d).datetime,
+                           ls=":",lw=1,color="tab:blue")
+                
+                # Twilight : dark time             
+                ax.plot([(t_twil1+1*u.d).datetime,(t_twil2+1*u.d).datetime],
+                        ["Twilight","Twilight"],
+                        color="black")    
+                ax.axvline((t_twil1 + 1*u.d).datetime,
+                           ls=":",lw=1,color="black")
+                ax.axvline((t_twil2 + 1*u.d).datetime,
+                           ls=":",lw=1,color="black")
+
+                # True : observable (above horizon, dark time, triggered )
+                tstart = max(t_twil1+1*u.d,t_event1+1*u.d)
+                ax.plot([tstart.datetime,(t_true2+1*u.d).datetime],
+                        ["True","True"],
+                        color="tab:green")
+                ax.axvline(tstart.datetime,
+                           ls=":",lw=1,color="tab:green")
+                ax.axvline((t_true2 + 1*u.d).datetime,
+                           ls=":",lw=1,color="tab:green")                
+            
+            
+            ax.tick_params(axis='x', rotation=70)
+            ax.tick_params(axis='y', rotation=45)
+        
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.set_xlim(xmin=tmin.datetime, xmax=tmax.datetime)
+            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+
+    plt.tight_layout()
+    plt.show(block=block)
+    return
+
+###########################################################################
+def visibility_alt_plot(grb):
+    
+    """
+    Plot visibility from the souce position and times around which
+    the GRB is indeed visible.
+    The time scale extend from the trigger time to 1 hr after the last
+    visibility point.
+    Optionnaly, display the same for the next day in an approximate way 
+    (adding one day to dates)
+
+    """
+    site  = ["North","South"]
+    color = {"North":coln,"South":cols}
+    
+    if (grb.vis_tonight[site[0]]==False 
+        and grb.vis_tonight[site[1]]==False):
+        return
+   
+    tgrb_max = grb.t_trig + grb.tval[-1] # last point in GRB lightcurve
+
+    # Compute time limits from the GRB visibility - add one day if requested
+    if grb.vis_tonight["North"]:
+        tmin = grb.t_event["North"][0]
+        tmax = grb.t_event["North"][1] + 1*u.d*cf.day_after
+        if grb.vis_tonight["South"]:
+            tmin = min(tmin,grb.t_event["South"][0])
+            tmax = max(tmax,grb.t_event["South"][1]+ 1*u.d*cf.day_after) 
+            # tmax = max(tmax,grb.t_event["South"][1]+ 1*u.d*cf.day_after,tgrb_max) 
+    else:
+        tmin = grb.t_event["South"][0]
+        tmax = grb.t_event["South"][1] + 1*u.d*cf.day_after    
+            
+    dt_visible = tmax - tmin
+    dt = np.linspace(0,dt_visible.value,100)
+    t =  (tmin + dt)
+
+    fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
+    with quantity_support():
+        
+        ax.tick_params(axis='x', rotation=70)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%D:%H:%M'))
+        ax.set_ylim(ymin=0*u.deg,ymax=90*u.deg)
+                    
+        for loc in site:
+            where = EarthLocation.of_site(grb.site[loc])
+
+            if (grb.vis_tonight[loc]):
+                
+                # GRB trajectory in the sky (altitude)
+                altaz =  grb.radec.transform_to( AltAz(obstime=t,
+                                                  location=where ))
+                ax.plot(t.datetime,altaz.alt,ls=":",color=color[loc])
+
+                # Show the night(s)
+                t1 = grb.t_twilight[loc][0].datetime
+                t2 = grb.t_twilight[loc][1].datetime
+                ax.axvspan(t1,t2, color=color[loc],alpha=0.2,)   
+                if (cf.day_after):
+                    t1 = (grb.t_twilight[loc][0]+ 1*u.d).datetime
+                    t2 = (grb.t_twilight[loc][1]+ 1*u.d).datetime
+                    ax.axvspan(t1,t2, color=color[loc],alpha=0.2,)   
+                        
+                tstart = grb.t_true[loc][0]
+                tstop  = grb.t_true[loc][1]
+                duration = tstop - tstart
+                t10 = tstart +  np.linspace(0,duration.value,100)
+                altaz =  grb.radec.transform_to( AltAz(obstime=t10,
+                                                    location=where ))
+                ax.plot(t10.datetime,altaz.alt, color=color[loc],label=loc)
+                
+                if (cf.day_after):
+                    # Trigger occured, recompute the min time for that day
+                    tstart = max(grb.t_twilight[loc][0] + 1*u.d,
+                                 grb.t_event[loc][0] + 1*u.d)
+                    tstop  = grb.t_true[loc][1] + 1*u.d
+                    duration = tstop - tstart
+                    t10 = tstart +  np.linspace(0,duration.value,100)
+                    altaz =  grb.radec.transform_to( AltAz(obstime=t10,
+                                                        location=where ))
+                    idlow = np.where(altaz.alt < grb.altmin)[0]
+                    if (idlow.size ==0):idlow = t10.size - 1
+                    else : idlow = idlow[0]
+                    ax.plot(t10.datetime[:idlow],altaz.alt[:idlow], 
+                            color=color[loc])              
+
+            else:
+                print("Not visible in :",loc," within 24h after trigger")
+
+ 
+        ax.axhline(10*u.deg,ls ="--",color="grey",label="Min alt.")
+        ax.axvline(x=grb.t_trig.datetime,color="grey",ls=":")
+        
+        axx = ax.twinx()
+        # Plot the GRB spectrum as an illustration
+        Eref = 100 *u.GeV
+        dE = np.inf
+        for i,E in enumerate(grb.Eval):
+            if np.abs(E - Eref) < dE:
+                dE = np.abs(E - Eref)
+                iref = i
+                
+        axx.plot((grb.t_trig + grb.tval).datetime,
+                 grb.fluxval[:,iref],
+                 marker=".",
+                 ls = "--",
+                 lw = 1,
+                 color="tab:green",
+                 label = "$E \sim {}$".format(Eref)) 
+        axx.set_yscale("log")
+        axx.legend()
+        
+        ax.set_title(grb.name)
+        ax.set_xlabel("Date (DD-HH-MM) UTC")
+        ax.set_xlim(xmax=(tmax + 4*u.h).datetime)
+        ax.legend()
+        
+        plt.show(block=block)
+       
+       
+    
+
+    return
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76

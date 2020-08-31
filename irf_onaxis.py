@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from astropy.io import fits
 from astropy.table import Table
 from gammapy.utils.scripts import make_path
+<<<<<<< HEAD
 
 # # Avoid deprecation Astropy warnings in gammapy.maps
 import warnings
@@ -12,6 +13,13 @@ with warnings.catch_warnings():
     from gammapy.maps import MapAxis
     from gammapy.irf import EffectiveAreaTable2D, EffectiveAreaTable, Background3D
     from gammapy.irf import EnergyDispersion2D, EnergyDependentMultiGaussPSF
+=======
+#from gammapy.utils.nddata import NDDataArray, BinnedDataAxis # Gammapy 0.9
+from gammapy.utils.nddata import NDDataArray
+from gammapy.maps import MapAxis
+from gammapy.irf import EffectiveAreaTable2D, EffectiveAreaTable, Background3D
+from gammapy.irf import EnergyDispersion2D, EnergyDependentMultiGaussPSF
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
 import numpy as np
 __all__ = [
@@ -66,6 +74,7 @@ class CTAIrf(object):
 
 
     ###########################################################################
+<<<<<<< HEAD
     def __init__(self, 
                  aeff =None, 
                  edisp=None, 
@@ -73,12 +82,18 @@ class CTAIrf(object):
                  bkg  =None, 
                  ref_sensi=None,
                  name =None):
+=======
+    def __init__(self, aeff=None, edisp=None, psf=None, bkg=None, ref_sensi=None):
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         self.aeff = aeff
         self.edisp = edisp
         self.psf = psf
         self.bkg = bkg
         self.ref_sensi = ref_sensi
+<<<<<<< HEAD
         self.name = name
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
     ###########################################################################
     @classmethod
@@ -110,7 +125,10 @@ class CTAIrf(object):
             edisp=edisp,
             psf=psf,
             ref_sensi=sensi,
+<<<<<<< HEAD
             name = filename
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         )
 
 ###############################################################################
@@ -443,15 +461,22 @@ class CTAPerf_onaxis(object):
     """
 
     ###########################################################################
+<<<<<<< HEAD
     def __init__(self, aeff=None, edisp=None, psf=None, 
                  bkg=None, sens=None, rmf=None, name=None):
+=======
+    def __init__(self, aeff=None, edisp=None, psf=None, bkg=None, sens=None, rmf=None):
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         self.aeff = aeff
         self.edisp = edisp
         self.psf = psf
         self.bkg = bkg
         self.sens = sens
         self.rmf = rmf
+<<<<<<< HEAD
         self.name = name
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
     ###########################################################################
     @classmethod
@@ -502,8 +527,12 @@ class CTAPerf_onaxis(object):
             edisp=edisp,
             psf=psf,
             sens=sens,
+<<<<<<< HEAD
             rmf=rmf,
             name=filename
+=======
+            rmf=rmf
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         )
 
     ###########################################################################

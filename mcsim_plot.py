@@ -52,6 +52,7 @@ def pause():
     """
     plt.show(block=True)
     return
+<<<<<<< HEAD
 
 ###############################################################################
 def show(mc,show=2,loc="nowhere"):
@@ -62,11 +63,16 @@ def show(mc,show=2,loc="nowhere"):
     pause()
     
     return
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 ###############################################################################
 def plot_on_off(ax,nex,nb,
                 color = None,
                 desc  = None,
+<<<<<<< HEAD
                 marker=".",
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                 log   = False):
     """
     Plot Non versus Noff from the background and excess counts.
@@ -91,7 +97,11 @@ def plot_on_off(ax,nex,nb,
         
     ax.plot(noff, non,
             alpha=0.5,
+<<<<<<< HEAD
             marker=marker,
+=======
+            marker=".",
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
             markersize=20,
             markerfacecolor="none",
             markeredgewidth = 1.5,
@@ -107,7 +117,11 @@ def plot_on_off(ax,nex,nb,
 ###############################################################################
 def stat(mc, saveplots, outfile):
     """
+<<<<<<< HEAD
     Plot result of the simulations of the current grb:
+=======
+    Plot resulkt of the siumlations of the current grb:
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         - evolution of sigma with observation time
         - distibutions of Non versus Noff
     """
@@ -118,6 +132,7 @@ def stat(mc, saveplots, outfile):
     else:
         sig = '$\sigma_{Li&Ma}$'
 
+<<<<<<< HEAD
     with quantity_support():
         
         # Compute relevant quantities
@@ -135,6 +150,26 @@ def stat(mc, saveplots, outfile):
         t5s = [mc.slot.slices[i].tobs().value
                  for i in mc.id_5s_list
                  if mc.slot.slices[i].tobs().value>=0]
+=======
+
+    with quantity_support():
+        
+        # Compute relevant quantities
+        eventid = mc.grb.name +  " " + mc.where
+        
+        t_s = [t[1] for t in mc.tobs] # observation at end of interval
+        tmax = [mc.tobs[i][0].value
+                 for i in mc.id_smax_list
+                 if mc.tobs[i][0].value>=0]
+        smax = np.max(mc.smax_list)
+        err_smax = np.std(mc.smax_list)
+        t3s = [mc.tobs[i][0].value
+                 for i in mc.id_3s_list
+                 if mc.tobs[i][0].value>=0]
+        t5s = [mc.tobs[i][0].value
+               for i in mc.id_5s_list
+               if mc.tobs[i][0].value>=0]
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
 
         fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,10))
         
@@ -149,7 +184,11 @@ def stat(mc, saveplots, outfile):
         ### Max significance
         ax1.errorbar(x    = np.mean(tmax), y    = smax,
                      xerr = np.std(tmax),  yerr = err_smax,
+<<<<<<< HEAD
                      fmt="+",color=colmx,
+=======
+                     fmt="o",color=colmx,
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                      label = "$\sigma_{max}$")
         ax1.vlines(np.mean(tmax), ymin = ymin, ymax = smax,
                    alpha=0.5,ls=":",color=colmx) 
@@ -182,6 +221,7 @@ def stat(mc, saveplots, outfile):
         ax1.set_xscale("log", nonposx='clip')
         ax1.grid(which='both',alpha=0.2)
         
+<<<<<<< HEAD
         if (mc.niter >1):
             ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
             ax11.hist(mc.smax_list,
@@ -194,6 +234,17 @@ def stat(mc, saveplots, outfile):
             ax11.set_xlabel(sig,fontsize=12)
             ax11.set_ylabel('Trials',fontsize=12)
         
+=======
+        ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
+        ax11.hist(mc.smax_list,
+                  bins  = max(int(mc.niter/2),1), # Cannot be < 1
+                  range = [smax-3*err_smax,smax+3*err_smax],
+                  color = "grey",
+                  label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
+
+        ax11.set_xlabel(sig,fontsize=12)
+        ax11.set_ylabel('Trials',fontsize=12)
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
         ax1.legend(loc="lower right")
     
         ### Non, Noff - Log
@@ -211,7 +262,10 @@ def stat(mc, saveplots, outfile):
         plot_on_off(ax2,mc.nex_smax_list,mc.nb_smax_list,
                     color=colmx,
                     desc = "$\sigma_{max}$",
+<<<<<<< HEAD
                     marker="+",
+=======
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                     log=logscale)
         
         if (logscale):
@@ -231,11 +285,16 @@ def stat(mc, saveplots, outfile):
     return
 
 ###############################################################################
+<<<<<<< HEAD
 def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
+=======
+def story(mc, saveplots, outfile,ref="VIS"):
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     """
     Show altitude versus time
     
     """
+<<<<<<< HEAD
     if (loc != "North" and loc!= "South"): return
     
     # Plot sigma versus time on the full
@@ -243,11 +302,18 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
     grb = mc.slot.grb
     
     coord = grb.pos_site[loc]
+=======
+    # Plot sigma versus time on the full
+    # GRB lifetime together with visibility
+
+    coord = mcf.pos_site[mc.where]
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     dtplot = 500*u.s # Add some space for the plot
 
     # Visibility altitude curve
     # This is the "visibility" related to the appairion of the GRB
     # i.e. in dark time it cannot start before the trigger
+<<<<<<< HEAD
     #tvis1 = grb.t_true[loc][0] # End of visibility
     #tvis2 = grb.t_true[loc][1] # End of visibility
     
@@ -255,16 +321,30 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
     # Allows seing trigger within the night
     tvis1 = grb.t_twilight[loc][0][0]
     tvis2 = grb.t_twilight[loc][0][1]
+=======
+    #tvis1 = mc.grb.t_true[mc.where][0] # End of visibility
+    #tvis2 = mc.grb.t_true[mc.where][1] # End of visibility
+    
+    # This is the visibility in the sense of the Dark time
+    # Allows seing trigger within the night
+    tvis1 = mc.grb.t_twilight[mc.where][0] + cf.day_after*u.d
+    tvis2 = mc.grb.t_twilight[mc.where][1] + cf.day_after*u.d
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     dtvis = (tvis2-tvis1).to(u.s)
     tvis = np.linspace(0,dtvis.value,100)*dtvis.unit
 
     # Set the reference time 
+<<<<<<< HEAD
     event_name = grb.name+" - " + loc
+=======
+    event_name = mc.grb.name+" - "+mc.where
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     if (ref=="VIS"):
         tref = tvis1
         #text_ref =event_name + " (Ref: vis. start)"
         text_ref =event_name + " (Ref: Dark time start)"
     else:
+<<<<<<< HEAD
         tref = grb.t_trig
         text_ref = event_name+ " (Ref: GRB trigger)"
 
@@ -292,11 +372,42 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
                                                     location=coord))
     
     # Get the max significancae and the detection time if they exist
+=======
+        tref = mc.grb.t_trig
+        text_ref = event_name+ " (Ref: GRB trigger)"
+
+    t_trig_rel = mc.grb.t_trig - tref
+
+    # Compute alt-az for visibility time sampling
+    tvis_abs = tvis1 + tvis
+    tvis_rel = tvis_abs - tref
+    altazvis = mc.grb.radec.transform_to( AltAz(obstime= tvis_abs,
+                                                  location=coord))
+
+    # Compute GRB measurement points from the given intervals
+    tgrb_abs   = mc.grb.t_trig + mc.grb.t_s # Absolute time
+    tgrb_rel   = tgrb_abs - tref
+    altazgrb   = mc.grb.radec.transform_to( AltAz(obstime= tgrb_abs,
+                                                    location=coord))
+
+    # Compute GRB observation points from the given intervals
+    tobs = [t[1].value for t in mc.tobs ]*mc.tobs[0][0].unit
+    tgrb_obs_abs   = mc.grb.t_trig + tobs # Absolute time
+    tgrb_obs_rel   = tgrb_obs_abs - tref
+    altazobs   = mc.grb.radec.transform_to( AltAz(obstime= tgrb_obs_abs,
+                                                    location=coord))
+    
+    # Compute the max significancae and the detection time if they exist
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     from mcsim_res import mean_values
     tmx,e_tmx,altmx,e_altmx,azmx, e_azmx = mean_values(mc,mc.id_smax_list)   
     t3s,e_t3s,alt3s,e_alt3s,az3s, e_az3s = mean_values(mc,mc.id_3s_list)
     t5s,e_t5s,alt5s,e_alt5s,az5s, e_az5s = mean_values(mc,mc.id_5s_list)
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
     with quantity_support():
         fig, ax1 = plt.subplots(nrows=1,ncols=1,figsize=(10,8))
         
@@ -343,11 +454,16 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
                     label="Stop dark time")
         
         # minimal altitude in simulation
+<<<<<<< HEAD
         ax1.axhline(y=mc.slot.grb.altmin,
+=======
+        ax1.axhline(y=10*u.deg,
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                     ls="dashdot",
                     color="grey")
         
         # Sig max
+<<<<<<< HEAD
         ax1.errorbar(tmx.to(u.s).value + t_trig_rel.sec,
              altmx.value,
              xerr=e_tmx.to(u.s).value,
@@ -396,6 +512,52 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
         ax1.hlines(alt5s.value,
                    xmin=xmin,
                    xmax=t5s.to(u.s).value + t_trig_rel.sec,
+=======
+        ax1.errorbar(tmx + t_trig_rel.sec,
+             altmx,
+             xerr=e_tmx,
+             yerr=e_altmx,
+             fmt='o',color=colmx,
+                     label="$\sigma_{max}$")
+        ax1.vlines(tmx + t_trig_rel.sec,
+                   ymin=0,
+                   ymax=altmx,
+                   alpha=0.5,lw=1,color=colmx)
+        ax1.hlines(altmx,
+                   xmin=xmin,
+                   xmax=tmx + t_trig_rel.sec,
+                   alpha=0.5,lw=1,color=colmx)
+        
+        # 3 sigma
+        ax1.errorbar(t3s + t_trig_rel.sec,
+                     alt3s,
+                     xerr=e_t3s,
+                     yerr=e_alt3s,
+                     fmt='o',color=col3,
+                     label="$3\sigma$")
+        
+        ax1.vlines(t3s + t_trig_rel.sec,
+                   ymin=0,
+                   ymax=alt3s,lw=1,color=col3)
+        ax1.hlines(alt3s,
+                   xmin=xmin,
+                   xmax=t3s + t_trig_rel.sec,
+                   alpha=0.5,lw=1,color=col3)
+
+        # 5 sigma
+        ax1.errorbar(t5s + t_trig_rel.sec,
+                     alt5s,
+                     xerr=e_t5s,
+                     yerr=e_alt5s,
+                     fmt='o',color=col5,
+                     label="$5\sigma$")
+        ax1.vlines(t5s + t_trig_rel.sec,
+                   ymin=0,
+                   ymax=alt5s,lw=1,color=col5)
+        ax1.hlines(alt5s,
+                   xmin=xmin,
+                   xmax=t5s + t_trig_rel.sec,
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
                    alpha=0.5,lw=1,color=col5)
 
         # Title and limits
@@ -441,9 +603,13 @@ def onetrial(mc):
     The plots can be rearranged giving the various axis values
     """
 
+<<<<<<< HEAD
     from fit_onoff import cumulative_OnOffstats   
     from gammapy.stats import excess_error
     stats = cumulative_OnOffstats(mc.simulations)
+=======
+    stats = mc.slice_cumulative_stats()
+>>>>>>> 735c550f8a1ddaf3003080a0cc90781d95a86a76
      
     fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(nrows=2,ncols=2,figsize=(18, 18))
     
