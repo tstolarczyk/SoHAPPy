@@ -643,3 +643,4 @@ analysis/.ipynb_checkpoints/Untitled-checkpoint.ipynb
 .pylint.d/SoHAPPy.test0.161.stats
 docs/api/visibility.Visibility.rst
 deltas.txt
+timeslot.log
