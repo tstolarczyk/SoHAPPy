@@ -312,7 +312,11 @@ class Slot():
             print("merge : site required -> ",self.grb.site_keys)
             print("Slot unchanged")
             return  
-        
+        if (self.site == slot.site): 
+            newsite = slot.site
+        else:
+            newsite = "Both"
+            
         # Check whether the two slots have all slices identical
         # This happens in particular for prompt simulations that fall 
         # within a single slice
@@ -321,7 +325,7 @@ class Slot():
                     warning("The two slots start at same moment and "
                         + "have same number of slices : considered IDENTICAL")         
                 self.name   = "Doubled"
-                self.site   = "Both"
+                self.site   = newsite
                 self.delay  = -1*u.s # Loose the delay information after merging 
                 for i, s in enumerate(self.slices): s.set_site(self.site)
                 return      
@@ -370,7 +374,7 @@ class Slot():
                 slotoverlap = slot1.copy(name="Overlap")
                 slotoverlap.__mask(slot2.tstart,
                                    slot1.tstop,
-                                   site="Both")
+                                   site=newsite)
                 
                 if self.dbg: print(" * Overlap -->",slotoverlap)            
                 
@@ -392,7 +396,7 @@ class Slot():
                 slotoverlap = slot1.copy(name="overlap")
                 slotoverlap.__mask(slot2.tstart,
                                  slot2.tstop,
-                                 site="Both")
+                                 site=newsite)
                 if self.dbg: print(" * First part overlap -->",slotoverlap)            
                 
                 # A remaing piece from slot1 slot.
@@ -413,7 +417,7 @@ class Slot():
         self.name   = "Merged"
         self.tstart = min(slot1.tstart,slot2.tstart)
         self.tstop  = max(slot1.tstop,slot2.tstop) 
-        self.site   = "Both"
+        self.site   = newsite
         self.delay  = -1*u.s # Loose the delay information after merging 
 
         # Renumber the slices
@@ -487,7 +491,7 @@ class Slot():
                 site = s.site()          
                 ax.plot(tobs,flux,
                         marker="o",
-                        markerfacecolor= color[site],
+                        markerfacecolor = color[site],
                         markeredgecolor = color[site],
                         markersize=8,
                         ls="",
@@ -496,21 +500,31 @@ class Slot():
                 ax.hlines(xmin=ts1,xmax=ts2,y=flux,ls="-",color="green",**kwargs)
     
         ax.set_xlabel("Time since trigger ("+ str(self.grb.tval[0].unit)+")")
-        ax.set_ylabel("Flux "+ str(self.grb.fluxval[0][0].unit))
+        ax.set_ylabel("Flux at " + str(Eref) + " - "
+                      + str(self.grb.fluxval[0][0].unit) )
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.axvline(self.tstart.value,ls=":",color="tab:green",label="Start")
-        ax.axvline(self.tstop.value,ls=":",color="tab:red",label="Stop")  
-        if(self.delay>=0): 
-            ax.axvline(self.tstart.value-self.delay.value,
-                       ls=":",color="tab:blue",
-                       label="Bef. delay")       
+        
+        tref = self.grb.t_trig
+        if (site == "Both"): sitelist = ["North","South"]
+        else: sitelist = [site]
+        
+        for loc in sitelist:
+            for elt in self.grb.t_true[loc]:
+                ax.axvline( (elt[0]- tref).sec,
+                           ls=":",color="tab:green",label="Start " + loc)
+                ax.axvline( (elt[1]- tref).sec,
+                           ls=":",color="tab:red",label="Stop " + loc)  
+            
+            if(self.delay.value >= 0): 
+                ax.axvline( (self.grb.t_true[loc][0][0] - tref + self.delay).sec,
+                           ls=":",color="tab:blue",
+                           label="Delay " + loc)       
         ax.grid("both")
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         ax.legend(by_label.values(), by_label.keys())
-        ax.set_title(self.name + " at " + str(Eref))
-
+        ax.set_title(self.grb.name + " - " + self.site + " - " + self.name)
         
         return
 
@@ -531,7 +545,7 @@ class Slot():
             
         return " "
     #------------------------------------------------------------
-    def single_site(self, site="None", day_after=0, delay=0*u.s, debug=False):
+    def single_site(self, site="None", delay=0*u.s, debug=False):
         """
         Compute the time slices from the GRB originals, taking into account
         the visbility windows and the detection delays.
@@ -552,40 +566,40 @@ class Slot():
         None.
 
         """
-                       
-        slot = self.copy(name=self.grb.name+"-"+site+"-naked") 
-        #print(slot)
-        
-        print("Implement here multi-visibility")       
-        tvis1 = (self.grb.t_true[site][0][0]-self.grb.t_trig).sec*u.s  
-        tvis2 = (self.grb.t_true[site][0][1]-self.grb.t_trig).sec*u.s   
-                  
-        if (day_after == 0):  # On first day, apply delay 
-            tvis1 = tvis1 + delay
+                                       
+        # Should check that the visibility window list is in the right order
+        # athough it had been build in that order
+        first = True
+        i = 0
+        for elt in self.grb.t_true[site]:
             
-        elif (day_after < 0): 
-            slot.delay = 0*u.s
-        
-        elif (day_after>0): 
-            sys.exit("Simulated up to following days not implemented yet")
-        
+            tvis1 = (elt[0]-self.grb.t_trig).sec*u.s 
+            tvis2 = (elt[1]-self.grb.t_trig).sec*u.s   
+            
+            if (first):
+                slot = self.copy(name=self.grb.name+"-"+site+"-naked") 
+                tvis1 = tvis1 + delay
+                slot.apply_visibility(tvis1,tvis2,site=site)  
+                first = False
+            else:
+                i+=1
+                slot1 = self.copy(name=self.grb.name+"-"+site+str(i)) 
+                slot1.apply_visibility(tvis1,tvis2,site=site)  
+                slot.merge(slot1,name=site)
+        #print(slot)
+            
         slot.delay = delay
-
-        slot.apply_visibility(tvis1,tvis2,site=site)
-        
         slot.dress(name=self.grb.name+"-"+site) # Dress the slot with physics
                                 
         return slot
     
     #------------------------------------------------------------    
-    def both_sites(self, day_after = 0, delay = 0*u.s, debug = False):
+    def both_sites(self, delay = 0*u.s, debug = False):
         """
         
 
         Parameters
         ----------
-        day_after : TYPE, optional
-            DESCRIPTION. The default is 0.
         delay : TYPE, optional
             DESCRIPTION. The default is 0*u.s.
         debug : TYPE, optional
@@ -597,48 +611,28 @@ class Slot():
 
         """            
         
-        slot_n = self.copy(name="North")
-        slot_s = self.copy(name="South")
-        
-        # Get visibilities           
-        tvis_n_1 = (self.grb.t_true["North"][0][0]-self.grb.t_trig).sec*u.s   
-        tvis_n_2 = (self.grb.t_true["North"][0][1]-self.grb.t_trig).sec*u.s
+        # Compute the delays to be applied to the sites
+        delta = (self.grb.t_true["North"][0][0] 
+                 -  self.grb.t_true["South"][0][0] ).sec*u.s
             
-        tvis_s_1 = (self.grb.t_true["South"][0][0]-self.grb.t_trig).sec*u.s
-        tvis_s_2 =( self.grb.t_true["South"][0][1]-self.grb.t_trig).sec*u.s
-            
-        # Add reaction delay on the first day
-        if (day_after == 0):                 
+        # Add delay to the first one plus the difference to the second 
+        if (delta.value < 0):
+            if debug: print("North is before South by ",-delta)
+            delay_n = delay
+            delay_s = max(0*u.s,delay-abs(delta))
+        elif (delta.value > 0):
+            if debug: print("South is before North by ",delta)
+            delay_n = max(0*u.s,delay-delta)
+            delay_s = delay
+        elif (delta.value == 0):
+            if debug: print("North and South are simultaneaous ",delta)
+            delay_n = delay
+            delay_s = delay
+       
+        # Get merged slots for both sites
+        slot_n = self.single_site(site="North",delay = delay_n)
+        slot_s = self.single_site(site="South",delay = delay_s)
 
-            delta = tvis_n_1 - tvis_s_1 # Betwween the sites
-            
-            # Add delay to the first one plus the difference to the second 
-            if (delta < 0):
-                if debug: print("North is before South by ",-delta)
-                delay_n = delay
-                delay_s = max(0*u.s,delay-abs(delta))
-            elif (delta>0):
-                if debug: print("South is before North by ",delta)
-                delay_n = max(0*u.s,delay-delta)
-                delay_s = delay
-            elif (delta==0):
-                if debug: print("North and South are simultaneaous ",delta)
-                delay_n = delay
-                delay_s = delay
-
-            tvis_n_1 = tvis_n_1 + delay_n
-            tvis_s_1 = tvis_s_1 + delay_s
-                     
-        elif (day_after>0): # Cumulate several days - not implemented
-            sys.exit("Simulated up to following days not implemented yet")
-            
-        # Apply visibility - restrict it to GRB data
-        slot_n.apply_visibility(tvis_n_1, tvis_n_2, site="North")
-        if debug: print(slot_n)
-        
-        slot_s.apply_visibility(tvis_s_1, tvis_s_2, site="South")
-        if debug: print(slot_s)
-        
         # Merge the two site slots
         slot = slot_n.copy()
         slot.merge(slot_s)
@@ -647,9 +641,10 @@ class Slot():
         # Dress with physics
         slot.dress(name="Both")
         if (debug): print(slot)   
-
                     
         return slot
+        
+ 
 ###---------------------------------------------------------------------------
 ### TESTS
 ###----------------------------------------------------------------------------
@@ -696,13 +691,18 @@ def test_flux(slotet):
 ###----------------------------------------------------------------------------
 if __name__ == "__main__":
 
-    
+    """
+    Create time slices collection for a series of GRB.
+    Print them, plot them, test visibility application, merging etc.
+    """
+
     import os
     os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
     
     import warnings
     import gammapy
-    from SoHAPPy import get_grb_fromfile, init
+    from SoHAPPy import get_grb_fromfile, init, get_delay
+    import grb_plot as gplt
     
     if (gammapy.__version__ == "0.12"):
         from   gammapy.spectrum.models import Absorption
@@ -710,21 +710,52 @@ if __name__ == "__main__":
         from gammapy.modeling.models import Absorption
     
     import ana_config as cf # Steering parameters
+    from utilities import Log
+    
+    
+    logfilename = "timeslot.log"  # Log file
+    log = Log(name  = logfilename,talk=True)
+    
+    
     cf.dbg_level  = 0
     
+    ifirst= [64]
+    ngrb = 1
     # GRB list to be analysed
-    if type(cf.ifirst)!=list:
-        grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
+    if type(ifirst)!=list:
+        grblist = list(range(ifirst,ifirst+ngrb))
     else:
-        grblist = cf.ifirst    
+        grblist = ifirst    
     
     # Loop over GRB list accordng to the config. file
+    import visibility as v
     for i in grblist:
 
         # Get GRBs
-        init("")
         grb = get_grb_fromfile(i)
+        print(grb)
+        # Create a slot 
+        #print(slot_original)
+        slot_original = Slot(grb,opt="end")
+
+        # Compute visibility - update GRB information
+        for loc in ["North","South"]:
+            vis = v.Visibility(grb,loc=loc) # Constructor    
+            vis.compute(altmin=cf.altmin,depth=10)
+            grb.update_visibility(vis)         
+            # grb.show_visibility(loc=loc,log=log)
+            # gplt.visibility_plot(grb,loc=loc)
+            
+            # if grb.vis_tonight[loc]:
+            #     slot = slot_original.single_site(site=loc)
+            #     slot.plot()
+            #     print(slot)
         
+        if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
+            slot_b = slot_original.both_sites(delay = get_delay(), debug =False)
+            slot_b.plot()
+            print(slot_b)
+                
         ### TO BE REWRITTEN
     
         # slot_original = Slot(grb,opt="end")
