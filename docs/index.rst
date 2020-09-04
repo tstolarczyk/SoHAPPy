@@ -17,7 +17,11 @@ Two analysis methods are implemented :
 
 .. comment automodapi:: SoHAPPy
 
-.. comment automodapi:: grb
+.. automodapi:: SoHAPPy
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: grb
        :no-inheritance-diagram:
 
 .. automodapi:: visibility
