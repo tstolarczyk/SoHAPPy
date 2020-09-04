@@ -16,7 +16,7 @@ from   astropy.visualization import quantity_support
 import matplotlib.dates as mdates
 
 # Bigger texts and labels
-# plt.style.use('seaborn-talk') 
+# plt.style.use('seaborn-talk')
 plt.style.use('seaborn-poster') # Bug with normal x marker !!!
 
 # If False, avoid scirpt to be paused when a plot is popped-up (plt.show)
@@ -61,19 +61,19 @@ def pause():
 def energy_and_time_packed(grb):
 
     with quantity_support():
-        
+
         ### Energy spectra for various measurement points in time
-        # Note: the plot methods handle the labels, should not be overwritten        
+        # Note: the plot methods handle the labels, should not be overwritten
         nspectra = len(grb.tval)-1
-        if (nspectra > n_E_2disp): 
+        if (nspectra > n_E_2disp):
             dnt = int(round(nspectra/n_E_2disp))
             tlist = list(range(0,nspectra,dnt))
             #tlist = [12, 13, 14, 15] + tlist # Typical Prompt times
         else:
             dnt=1
-        
+
         ymin = 1e-16
-        
+
         fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,12))
 
         for i in tlist:
@@ -90,7 +90,7 @@ def energy_and_time_packed(grb):
                      marker=".",
                      alpha=0.5,
                      color=c)
-            
+
         for i in range(0,nspectra):
             t = grb.tval[i]
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
@@ -98,11 +98,11 @@ def energy_and_time_packed(grb):
                                 alpha=0.2,
                                 color="grey",
                                 lw=1)
-            
+
         ax1.set_xscale("log")
         ax1.set_yscale("log")
         ax1.set_ylim(ymin=ymin)
-        
+
         ax1.axvline(10*u.GeV, color="grey",alpha=0.2)
         ax1.text(x=10*u.GeV,
                 y=ymin*50,
@@ -113,38 +113,38 @@ def energy_and_time_packed(grb):
         ax1.set_title(title,fontsize=12)
         if (n_E_2disp<=15): ax1.legend(fontsize=12) # Too many t slices
 
-        
+
         # Light curve for some energy bins
         nlightcurves = len(grb.Eval)
         if (nlightcurves> n_t_2disp):
             dnE = int(round(nlightcurves/ n_t_2disp))
         else:
             dnE=1
-            
-        
+
+
         for i in range(0,nlightcurves,dnE):
             flux = [f[i].value for f in grb.fluxval ]* grb.fluxval[0].unit
             ax2.plot(grb.tval,
                      flux,
                      marker=".",
                      label="E= {:>8.2f}".format(grb.Eval[i]))
-        
+
         ax2.axvline(30*u.s,color="grey",alpha=0.2)
         ax2.text(x=30*u.s,
-                 y=(flux[len(flux)-1]), 
+                 y=(flux[len(flux)-1]),
                  s="30 s",
                  rotation=0,
-                 fontsize=14)           
-        
+                 fontsize=14)
+
         ax2.set_xscale("log")
         ax2.set_yscale("log")
         ax2.set_xlabel("Time (s)")
         title = "{}: {:>2d} E points".format(grb.name,len(grb.Eval))
         ax2.set_title(title,fontsize=12)
-            
-        if (n_t_2disp<=8): 
+
+        if (n_t_2disp<=8):
             ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
-        
+
         plt.tight_layout()
         plt.show(block=block)
 
@@ -183,7 +183,7 @@ def energy_over_timeslices(grb):
     if (idxmax%ncols == 0): nrows=nrows-1
 
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15,15),
-                           sharex=True, 
+                           sharex=True,
                            sharey=True)
 
     for icol in range(0,ncols):
@@ -343,70 +343,69 @@ def animated_spectra(grb, emin=0.02 * u.TeV,
                          frames=len(grb.spectra))
     if savefig == True:
         if not os.path.exists(outdir): os.makedirs(outdir)
-        anim.save(outdir + '/' + grb.name + '_animate.gif', 
+        anim.save(outdir + '/' + grb.name + '_animate.gif',
                   writer='imagemagick')
     else:
         plt.draw()
-        
+
     return
 ###############################################################################
 #
 # Plot visibility
 #
 ###############################################################################
-def visibility_plot(grb, 
+def visibility_plot(grb,
                     ax=None, loc=None,
-                    depth = 1,
-                    dt_before   = 0.25*u.day, 
-                    dt_after    = 1.25*u.day, 
-                    nalt = 25, 
+                    dt_before   = 0.25*u.day,
+                    dt_after    = 2.25*u.day,
+                    nalt = 25,
                     inset= False):
     """
     Plot the night, above-the-horizon and visibility periods, the altitude
-    evolution with time as well as a lightcurve for a fixed reference 
+    evolution with time as well as a lightcurve for a fixed reference
     energy.
-    
+
     Parameters
     ----------
     ax : An axis instance
         Plots on this axis
     dt_before : astropy Quantity time, optional
-        Time period for plotting before the trigger. 
+        Time period for plotting before the trigger.
         The default is 0.25*u.day.
     dt_after : astropy Quantity time, optional
         Time period for plotting after the trigger.
         The default is 0.5*u.day.
     nalt : int, optional
-        Number of points to sample the altitude evolution with time. 
+        Number of points to sample the altitude evolution with time.
         The default is 25.
     inset : bool, optional
-        IfTrue, the figure will be plotted in an inset of the main plot. 
+        IfTrue, the figure will be plotted in an inset of the main plot.
         They are simplified and the time is referred to the trigger time.
-        
+
     """
     if (loc == None):
         print(" visibility_plot : A location should be defined")
         return
-    
+
     if (ax == None):
         fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(12,6))
-        
+
     ###-------------------------
-    def F(x): 
+    def F(x):
         if (inset): return x.sec
         return x.datetime
     ###-------------------------
-    
+
     if (inset): # To be corrected
         tshift = grb.t_trig
         tref  = grb.t_true[0][0]
-    else: 
+    else:
         tshift = 0*u.s
         tref = grb.t_trig - tshift
-    
+
     ### Plot limits
     tmin    = grb.t_trig - dt_before -tshift
-    tmax    = grb.t_trig + dt_after - tshift        
+    tmax    = grb.t_trig + dt_after - tshift
     ax.set_xlim([F(tmin),F(tmax)])
 
     ### Altitude
@@ -414,34 +413,34 @@ def visibility_plot(grb,
     dt = np.linspace(0,(dt_before+dt_after).value, nalt)
     t = grb.t_trig  - dt_before + dt*dt_before.unit
     where = grb.pos_site[loc]
-    altaz   = grb.radec.transform_to(AltAz(obstime  = t, 
+    altaz   = grb.radec.transform_to(AltAz(obstime  = t,
                                                 location = where))
     t = t - tshift # Change reference
-    
+
     ax.plot(F(t),altaz.alt.value,
             ls=":", color="darkblue",alpha=0.5, marker="+",label="Altitude")
     ax.axhline(y =grb.altmin.value,
               ls=":",color="tab:green",label="Min. Alt.")
 
     # Trigger
-    alttrig = grb.radec.transform_to(AltAz(obstime  = grb.t_trig, 
+    alttrig = grb.radec.transform_to(AltAz(obstime  = grb.t_trig,
                                                 location = where)).alt.value
     ax.plot(F(tref),alttrig,label="Trigger",marker="o",markersize=10,color="tab:orange")
     ax.axvline(F(tref),ls=":",color="tab:orange")
-    
+
     altend = grb.radec.transform_to(AltAz(obstime  = grb.t_trig
-                                               + depth*u.day, 
+                                               + 1*u.day,
                                                location = where)).alt.value
-    ax.plot(F(tref+depth*u.day),altend,
-            label="End of search",marker="o",markersize=10,color="black")
-    ax.axvline(F(tref+depth*u.day),ls=":",color="black")
-    
+    ax.plot(F(tref+1*u.day),altend,
+            label="Trigger + 1 day",marker="o",markersize=10,color="black")
+    ax.axvline(F(tref+1*u.day),ls=":",color="grey")
+
     ### FLux points
     if (not inset):
         axx = ax.twinx()
         Eref = 100 *u.GeV
         iref = np.argmin(np.abs(Eref-grb.Eval))
-        
+
         axx.plot((grb.t_trig + grb.tval -tshift).datetime,
                   grb.fluxval[:,iref],
                   marker=".",
@@ -451,11 +450,11 @@ def visibility_plot(grb,
                   label = r"$E \sim {}$".format(Eref))
         axx.set_yscale("log")
         axx.legend(loc='center left', bbox_to_anchor=(1.1, 0.9),fontsize=12)
-    
+
     ### Nights
     first=True
     for elt in grb.t_twilight[loc]:
-        if isinstance(elt[0],Time): 
+        if isinstance(elt[0],Time):
             t_dusk  = elt[0] - tshift
         else:
             t_dusk = tmin
@@ -467,28 +466,28 @@ def visibility_plot(grb,
             label="Night"
             first = False
         else: label= None
-        ax.axvspan(F(t_dusk),F(t_dawn), alpha=0.2,color="black",label=label)  
-    
+        ax.axvspan(F(t_dusk),F(t_dawn), alpha=0.2,color="black",label=label)
+
     ### Above horizon periods
     first=True
     for elt in grb.t_event[loc]:
-        if isinstance(elt[0],Time): 
+        if isinstance(elt[0],Time):
             t_rise = elt[0] - tshift
-        else: 
+        else:
             t_rise = tmin
         if isinstance(elt[1],Time):
             t_set   = elt[1] -tshift
         else:
             t_set = tmax
-            
+
         if (first):
             label="Above horizon"
             first = False
         else: label= None
         ax.axvspan(xmin=F(t_rise), xmax=F(t_set),
                    ymin=0.,     ymax= 0.5,
-                   alpha=0.2,color="tab:blue",label=label)  
-    
+                   alpha=0.2,color="tab:blue",label=label)
+
     ### Visibility windows
     if (grb.vis_tonight[loc]):
         first = True
@@ -501,8 +500,8 @@ def visibility_plot(grb,
                 first = False
             else: label1= label2 = None
             ax.axvline(F(t_start),label=label1,color="tab:green")
-            ax.axvline(F(t_stop),label=label2,color="tab:red")  
-    
+            ax.axvline(F(t_stop),label=label2,color="tab:red")
+
     if (inset==False):
         ax. set_title(grb.name + " -" + loc)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
@@ -516,4 +515,4 @@ def visibility_plot(grb,
         ax.set_ylim(ymax=1.05*alttrig)
         ax.set_xlabel("Time (s) wrt trigger")
 
-    return     
+    return
