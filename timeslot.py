@@ -329,7 +329,7 @@ class Slot():
         ### Show delay window
         if(self.delay.value >= 0):
             ax.axvspan( tmin, tmin + self.delay.to(u.s).value,
-                            alpha=0.5,color="grey",label="Delay")
+                            alpha=0.5,color="grey",label="Delay {}".format(self.delay))
 
         ### Slices and flux points
         if self.phys: # If dressed
