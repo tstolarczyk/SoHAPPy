@@ -149,7 +149,7 @@ def stat(mc, saveplots, outfile):
         ### Max significance
         ax1.errorbar(x    = np.mean(tmax), y    = smax,
                      xerr = np.std(tmax),  yerr = err_smax,
-                     fmt="+",color=colmx,
+                     fmt="o",color=colmx,
                      label = "$\sigma_{max}$")
         ax1.vlines(np.mean(tmax), ymin = ymin, ymax = smax,
                    alpha=0.5,ls=":",color=colmx)
@@ -183,7 +183,8 @@ def stat(mc, saveplots, outfile):
         ax1.grid(which='both',alpha=0.2)
 
         if (mc.niter >1):
-            ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
+            #ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
+            ax11 = ax1.inset_axes([0.3,0.05,0.3,0.5]) # lower corner x,y, w, l
             ax11.hist(mc.smax_list,
                       bins  = max(int(mc.niter/2),1), # Cannot be < 1
                       range = [smax-3*err_smax,smax+3*err_smax],
@@ -233,7 +234,7 @@ def stat(mc, saveplots, outfile):
 ###############################################################################
 def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
     """
-    Show altitude versus time
+    Show altitude versus time and points used for computation
 
     """
     if (loc != "North" and loc!= "South"): return
@@ -295,7 +296,7 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
     t5s,e_t5s,alt5s,e_alt5s,az5s, e_az5s = mean_values(mc,mc.id_5s_list)
 
     with quantity_support():
-        fig, ax1 = plt.subplots(nrows=1,ncols=1,figsize=(10,8))
+        fig, ax1 = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
 
         # Plot limits
         xmin = -dtplot
@@ -305,14 +306,15 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
         # Relative to reference
         ax1.plot(tvis_rel.sec, altazvis.alt,
                  linestyle="--",
-                 color="b",
+                 lw=1,
+                 color="tab:blue",
                  label="Altitude")
 
         ax1.plot(tgrb_rel.sec,altazgrb.alt,
                  linestyle="",
                  marker="*",
                  markerfacecolor="b",
-                 label="GRB end of intervals")
+                 label="End of intervals")
 
         ax1.plot(tgrb_obs_rel.sec,altazobs.alt,
                  linestyle="",
@@ -321,7 +323,7 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
                  markerfacecolor="none",
                  markeredgewidth = 1.5,
                  markeredgecolor ="r",
-                 label="GRB measurements")
+                 label="Measurements")
 
         # Trigger
         ax1.axvline(x=t_trig_rel.sec,
@@ -365,39 +367,41 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
                    xmax=tmx.to(u.s).value + t_trig_rel.sec,
                    alpha=0.5,lw=1,color=colmx)
 
-        # 3 sigma
-        ax1.errorbar(t3s.to(u.s).value + t_trig_rel.sec,
-                     alt3s.value,
-                     xerr=e_t3s.to(u.s).value,
-                     yerr=e_alt3s.value,
-                     fmt='o',color=col3,
-                     label="$3\sigma$")
+        # 3 sigma - if reached
+        if (t3s.to(u.s).value > 0):
+            ax1.errorbar(t3s.to(u.s).value + t_trig_rel.sec,
+                 alt3s.value,
+                 xerr=e_t3s.to(u.s).value,
+                 yerr=e_alt3s.value,
+                 fmt='o',color=col3,
+                 label="$3\sigma$")
 
-        ax1.vlines(t3s.to(u.s).value + t_trig_rel.sec,
-                   ymin=0,
-                   ymax=alt3s.value,lw=1,color=col3)
+            ax1.vlines(t3s.to(u.s).value + t_trig_rel.sec,
+                       ymin=0,
+                       ymax=alt3s.value,lw=1,color=col3)
 
-        ax1.hlines(alt3s.value,
-                   xmin=xmin,
-                   xmax=t3s.to(u.s).value + t_trig_rel.sec,
-                   alpha=0.5,lw=1,color=col3)
+            ax1.hlines(alt3s.value,
+                       xmin=xmin,
+                       xmax=t3s.to(u.s).value + t_trig_rel.sec,
+                       alpha=0.5,lw=1,color=col3)
 
-        # 5 sigma
-        ax1.errorbar(t5s.to(u.s).value + t_trig_rel.sec,
-                     alt5s.value,
-                     xerr=e_t5s.to(u.s).value,
-                     yerr=e_alt5s.value,
-                     fmt='o',color=col5,
-                     label="$5\sigma$")
+        # 5 sigma - if reached
+        if (t5s.to(u.s).value > 0):
+            ax1.errorbar(t5s.to(u.s).value + t_trig_rel.sec,
+                         alt5s.value,
+                         xerr=e_t5s.to(u.s).value,
+                         yerr=e_alt5s.value,
+                         fmt='o',color=col5,
+                         label="$5\sigma$")
 
-        ax1.vlines(t5s.to(u.s).value + t_trig_rel.sec,
-                   ymin=0,
-                   ymax=alt5s.value,lw=1,color=col5)
+            ax1.vlines(t5s.to(u.s).value + t_trig_rel.sec,
+                       ymin=0,
+                       ymax=alt5s.value,lw=1,color=col5)
 
-        ax1.hlines(alt5s.value,
-                   xmin=xmin,
-                   xmax=t5s.to(u.s).value + t_trig_rel.sec,
-                   alpha=0.5,lw=1,color=col5)
+            ax1.hlines(alt5s.value,
+                       xmin=xmin,
+                       xmax=t5s.to(u.s).value + t_trig_rel.sec,
+                       alpha=0.5,lw=1,color=col5)
 
         # Title and limits
         ax1.set_title(text_ref,fontsize=12,loc="right")
@@ -410,8 +414,8 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
             ax1.set_xlabel("Elapsed time since Trigger (s)")
         ax1.set_ylabel("Altitude")
 
-
-        ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        #ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        ax1.legend(fontsize=10)
 
         # Display second axis
         ax = ax1.twiny()
