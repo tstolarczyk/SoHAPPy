@@ -218,10 +218,10 @@ class Slice():
 
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
 
-            irf_file = IRF.get_irf_file(theta   = 90*u.degree-altaz.alt,
-                                        phi     = altaz.az,
+            irf_file = IRF.get_irf_file(zenith  = 90*u.degree-altaz.alt,
+                                        azimuth = altaz.az,
                                         obstime = obstime,
-                                        khem    = site)
+                                        loc    = site)
             if (debug>1): print(self.__idt,"/",site,"-->",irf_file)
 
             perfi        = CTAPerf_onaxis.read(irf_file)
