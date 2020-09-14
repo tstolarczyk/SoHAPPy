@@ -15,8 +15,8 @@ from astropy.time import Time
 from astroplan import Observer, FixedTarget
 
 # Refresh...
-# from astroplan import download_IERS_A
-# download_IERS_A
+#from astroplan import download_IERS_A
+#download_IERS_A
 
 __all__ = ["Visibility"]
 ###------------------------------------------------------------------------
