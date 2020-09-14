@@ -5,6 +5,7 @@ from astropy.table import Table
 from gammapy.utils.scripts import make_path
 
 # # Avoid deprecation Astropy warnings in gammapy.maps
+import gammapy
 import warnings
 with warnings.catch_warnings():
     #from gammapy.utils.nddata import NDDataArray, BinnedDataAxis # Gammapy 0.9
