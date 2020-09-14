@@ -150,7 +150,6 @@ def init(argv):
     if (cf.niter == 1): cf.do_fluctuate=False
     if (cf.dbg>0): cf.silent = False
 
-
     # Check that the output folder exist, otherwise create it
     if (cf.res_dir[-1] != "/"): cf.res_dir = cf.res_dir+"/"
     if not os.path.isdir(cf.res_dir):
@@ -194,11 +193,12 @@ def summary(log=None):
     log.prt("     *Number of trials   : {:>5d}".format(cf.niter))
     log.prt(" EBL model               : {}".format(cf.EBLmodel))
     log.prt(" Input/output :")
-    log.prt("     *Debug mode         : {:>5d}".format(cf.dbg))
-    log.prt("     *Show plots         : {:>5d}".format(cf.show))
+    log.prt("      Debug mode*        : {:>5d}".format(cf.dbg))
+    log.prt("      Show plots*        : {:>5d}".format(cf.show))
     log.prt("      Analysing files in : {}".format(cf.grb_dir))
     log.prt("      IRF files in       : {}".format(cf.irf_dir))
-    log.prt("     *Result folder      : {}".format(cf.res_dir))
+    log.prt("      Result folder*     : {}".format(cf.res_dir))
+    log.prt(" Minimum altitude        : {}".format(cf.altmin))
     if (cf.lkhd ==0):
         method = "On-Off"
     else:
@@ -276,7 +276,7 @@ def main(argv):
 
     """
 
-    init(argv)           # Steering parametets and welcome message
+    init(argv)           # Steering parameters and welcome message
     if (cf.ngrb<=0):
         print(" NO ANALYSIS REQUIRED (ngrb<=0)")
         sys.exit(2)
@@ -354,7 +354,7 @@ def main(argv):
                 if (cf.dbg>2) :
                     gplt.animated_spectra(grb,savefig=True,outdir=cf.res_dir)
 
-    #            plt.show(block=True)
+                #plt.show(block=True)
 
             # Save GRB to file if requested
             if (cf.save_grb):
@@ -386,6 +386,7 @@ def main(argv):
                     slot = origin.copy(name="loc")
                     slot.apply_visibility(delay     = get_delay(),
                                           site      = loc)
+                    #print(slot)
                     mc.run(slot)
 
                 # Get information and results even if not visible
