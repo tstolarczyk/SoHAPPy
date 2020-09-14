@@ -21,12 +21,56 @@ Two analysis methods are implemented :
    :include-all-objects:
    :no-inheritance-diagram:
 
+.. automodapi:: ana_config
+   :include-all-objects:
+   :no-inheritance-diagram:
+
 .. automodapi:: grb
+       :no-inheritance-diagram:
+
+.. automodapi:: grb_plot
        :no-inheritance-diagram:
 
 .. automodapi:: visibility
    :include-all-objects:
    :no-inheritance-diagram:
 
+.. automodapi:: timeslot
+   :include-all-objects:
+   :no-inheritance-diagram:
 
+.. automodapi:: obs_slice
+   :include-all-objects:
+   :no-inheritance-diagram:
 
+.. automodapi:: mcsim
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: mcsim_config
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: mcsim_res
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: mcsim_plot
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: irf
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: irf_onaxis
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: fit_onoff
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: fit_3d
+   :include-all-objects:
+   :no-inheritance-diagram:
