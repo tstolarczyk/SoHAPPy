@@ -37,7 +37,7 @@ if (gammapy.__version__ == "0.12"):
     from gammapy.spectrum.models import TableModel
     from gammapy.image.models    import SkyPointSource
 
-if (gammapy.__version__ == "0.16"):
+if (gammapy.__version__ == "0.17"):
     from gammapy.modeling.models import Absorption, AbsorbedSpectralModel
     from gammapy.modeling.models import TemplateSpectralModel
     from gammapy.modeling.models import PointSpatialModel
@@ -343,17 +343,20 @@ class GammaRayBurst(object):
                              values       = grb.fluxval[i],
                              norm         = 1.,
                              values_scale = 'lin')
-            if (gammapy.__version__ == "0.16"):
+                if (grb.eblabs != None):
+                    absmodel = AbsorbedSpectralModel(spectral_model = tab,
+                                                 absorption    = grb.eblabs,
+                                                 parameter     = grb.z)
+                    grb.spectra.append(absmodel)
+ 
+            if (gammapy.__version__ == "0.17"):
                 tab = TemplateSpectralModel(energy       = grb.Eval,
                              values       = grb.fluxval[i],
                              norm         = 1.,
                              interp_kwargs={"values_scale": "linear"})
-
-            if (grb.eblabs != None):
-                absmodel = AbsorbedSpectralModel(spectral_model = tab,
-                                                 absorption    = grb.eblabs,
-                                                 parameter     = grb.z)
-                grb.spectra.append(absmodel)
+                if (grb.eblabs != None):
+                    absmodel = AbsorbedSpectralModel(tab,grb.eblabs,grb.z)
+                    grb.spectra.append(absmodel)
 
 
         return grb
@@ -666,8 +669,8 @@ class GammaRayBurst(object):
         """
 
         if (loc == None):
-            self.show_visibility(loc="North",log=log)
-            self.show_visibility(loc="South",log=log)
+            self.print_visibility(loc="North",log=log)
+            self.print_visibility(loc="South",log=log)
         else:
 
             if (alt==None):
@@ -729,28 +732,23 @@ if __name__ == "__main__":
     A standalone functionto read a GRB and make various tests
     """
     import os
-    from utilities import Log
-    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
     import pickle
 
-    import grb_plot as gplt
+    from utilities import Log
+    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
+
     import gammapy
     from SoHAPPy import get_grb_fromfile, init
 
-    if (gammapy.__version__ == "0.12"):
-        from   gammapy.spectrum.models import Absorption
-    if (gammapy.__version__ == "0.16"):
-        from gammapy.modeling.models import Absorption
-
-    import ana_config as cf # Steering parameters
+    import ana_config as cf # Steering parameters  
 
     cf.dbg  = 0
-    cf.day_after  = 0
     #cf.altmin = 10.2*u.deg
     cf.ngrb = 1 # 250
     cf.niter = 10# 110
-    cf.ifirst = [85]
-
+    cf.ifirst = [1]
+    cf.save_grb = True # (False) GRB saved to disk -> use grb.py main
+    cf.newvis = False
 
     log_filename    = cf.res_dir  + cf.logfile
     log = Log(name  = log_filename, talk=not cf.silent)
@@ -762,6 +760,8 @@ if __name__ == "__main__":
         grblist = cf.ifirst
 
 
+
+    print("running... with gammapy ",gammapy.__version__)
     out = None
     if (cf.altmin == 10*u.deg): out = open("deltas.txt", 'w')
 
@@ -770,12 +770,28 @@ if __name__ == "__main__":
 
         # Get GRBs
         init("")
-        cf.niter = 10 # to avoid debugging when checking visibility
         grb = get_grb_fromfile(i,log=log)
-        if (cf.newvis):
-            grb.update_visibility(altmin=cf.altmin, debug=True)
         print(grb)
-        grb.show_visibility(log=log)
+        # Recompute and show visibility
+        if (cf.newvis):
+            import visibility as v
+            cf.niter = 10 # to avoid debugging when checking visibility
+            vis = v.Visibility(grb,loc="North") # Constructor
+            vis.compute(altmin = cf.altmin,
+                        depth  = cf.depth,
+                        skip   = cf.skip)
+            grb.update_visibility(vis)
+            grb.print_visibility(log=log)
+
+        # Save GRB to file if requested
+        if (cf.save_grb):
+            grb_class_file = cf.res_dir + "/" \
+                           + grb.name + ".bin"
+            outfile  = open(grb_class_file,"wb")
+            pickle.dump(grb,outfile)
+            outfile.close()
+            print(" Saving grb {} to file : {}"
+                  .format(grb.name,grb_class_file))
 
     if out: out.close()
 
