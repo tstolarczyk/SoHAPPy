@@ -4,7 +4,8 @@ roma version (gammapy 0.12)
 
 Installation
 ============
-SoHAPPy will easy run under an anaconda environement, requiring essentially the gammapy package.
+SoHAPPy will easily run under an anaconda environement, requiring essentially
+the gammapy package.
 The Roma and Sofia versions are compatible with gammapy 0.12.
 
 To create and activate the proper environment do :
@@ -96,8 +97,14 @@ from several site or several days. It has also to take in charge the Gammapy 0.1
 version and the use of a likelihood analysis.
 Developement started on March 24, 2020.
 
+2020 09 07 : The IRF valifity windows in zenith have been changed, following
+             the recommandations. In particular no IRF are made avaialble above
+             66° (24° of altitude). The time validity of the IRF have also
+             be changed to reflect the logarithmic binning of the IRF sampling
+             in observation time.
+
 2020 09 04 : The multi-window visibility computation is completed. The
-             day_after (skip the firs day and compute detection adding 1 day
+             day_after (skip the first day and compute detection adding 1 day
              to all dates) has become useless.
              It is some how replaced bythe varaible depth that fix the number
              of days after the trigger the visibility windows are searched for,
