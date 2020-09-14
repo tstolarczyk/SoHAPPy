@@ -20,15 +20,15 @@ if (gammapy.__version__=="0.12"):
     from gammapy.spectrum.models import PowerLaw
     from gammapy.cube.models import SkyModel, BackgroundModel
     from gammapy.spectrum import SpectrumDatasetOnOffStacker
+    from gammapy.irf import load_cta_irfs
+    from gammapy.cube import MapDataset
+    from gammapy.data import Observations
 if (gammapy.__version__=="0.16"):
     from gammapy.modeling.models import PowerLawSpectralModel
     from gammapy.modeling.models import SkyModel
     from gammapy.spectrum import SpectrumDatasetOnOff
 
 
-from gammapy.irf import load_cta_irfs
-from gammapy.cube import MapDataset
-from gammapy.data import Observations
 
 from fit_onoff import mc_onoff, cumulative_OnOffstats
 from fit_3d import fit_3d, DataSetShow
