@@ -4,7 +4,7 @@
 
 """
 # from . import __version__ # does not work
-__version__ = "Sofia"
+__version__ = "Sofia dev"
 
 import os
 import sys, getopt
@@ -147,7 +147,7 @@ def init(argv):
     else: cf.show = abs(cf.dbg)
 
     if (cf.do_fluctuate == False): cf.niter = 1
-    #if (cf.niter == 1): cf.do_fluctuate=False
+    if (cf.niter == 1): cf.do_fluctuate=False
     if (cf.dbg>0): cf.silent = False
 
     # Check that the output folder exist, otherwise create it
@@ -175,7 +175,7 @@ def summary(log=None):
     """
 
     log.prt("")
-    log.prt("+---------------------------------------------------------------+")
+    log.prt("+----------------------------------------------------------------+")
     log.prt("|                                                                |")
     log.prt("|                    SoHAPPy with GammaPy {:4s}                   |"
           .format(gammapy.__version__))
@@ -384,15 +384,10 @@ def main(argv):
                 if grb.vis_tonight[loc]:
 
                     slot = origin.copy(name="loc")
-                    still_visible = slot.apply_visibility(delay = get_delay(),
-                                                          site  = loc)
-                    if (still_visible):
-                        slot.dress(irf_dir = cf.irf_dir)
-                        #print(slot)
-                        mc.run(slot)
-                    else:
-                        warning(" Not visible because of delays")
-                        grb.vis_tonight[loc] = False
+                    slot.apply_visibility(delay     = get_delay(),
+                                          site      = loc)
+                    #print(slot)
+                    mc.run(slot)
 
                 # Get information and results even if not visible
                 first = mcres.result(mc, grb, log=log, header=first, pop=pop)
@@ -423,8 +418,7 @@ def main(argv):
             if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
 
                 slot = origin.both_sites(delay   = get_delay(),
-                                         debug =(cf.dbg>1))
-                slot.dress(irf_dir = cf.irf_dir)
+                                           debug =(cf.dbg>1))
                 mc.run(slot)
 
             # Get information and results even if not visible
