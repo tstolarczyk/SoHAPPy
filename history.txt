@@ -1,0 +1,493 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 16 14:30:15 2021
+
+@author: Stolar
+"""
+
+To-do list
+==========
+2020 07 01:
+    - check that simulation stops beyong the last available point
+    - Check coherence of the alt-az computation with the flux -> the same
+    - Stack the prompt with the afterglow
+    - handle the various sub-arrays slewing times.
+
+    - Can we suppress simulation for large S and B
+    - Can we protect output files that are being written ?
+
+    - use pytable to write out the result () ?
+
+    - Extrapolate Fermi GRBs to CTA, compute response
+	- Inject Fermi data and IRF, compute response
+    - Compute the fluence ?
+    - Interpolate time counts within the time slices;
+
+    - create test units and run them (e.g. a dummy simplistic GRB)
+    - make a how-to run SoHAPPy for production
+    - check new production version can run without matplotlib
+
+History
+=======
+Since Feb. 2020
+
+Hybrid version - Moon ready
+--------------
+
+2021 04 20:
+The visibility class is now attached directly to the GRB object, i.e. all
+information of the GammaRayBurst class that concerns visibility is now solely
+in the Visibility class (beforehand the visibility content was copied to the
+GammaRayBusrt related mebers).
+A GRB has now a visibility for all avalailbe sites.
+
+The visibility class has been reorganised. It now handles a series of veto
+periods from the Moon, and specfic functions related to the moon light.
+So far, tests have been perfomed with a Moon altitude veto of 90 degrees, i.e.
+no moon veto at all.
+The code is therefore "Moon ready" but not used as such.
+
+2021 04 13:
+Changed interpolation from "linear" to "log" in the creation of the template
+model (grb.py)
+     tab = TemplateSpectralModel(energy = grb.Eval.astype(float),
+                             values       = grb.fluxval[i],
+                             norm         = 1.,
+                             interp_kwargs={"values_scale": "log"})
+On event 815 (the brigtest GRB) it changes the siginificance from 4316 to 4275.
+
+The code includes the possibnility to have different subarrays used in North and South (e.g. Full Array in North, MST only in South). This induces changes in many variables, starting from ana_config.py where the slewing times are given with respect to the subarray type. This also has required to pass the subarry to the irf object, as well as the on-size radius and the offset the on region tothe source.
+This also requires the on_region and on_pointing tobe defined at ech slice in mcsimp.py (when datasets are created for each slice). This make the code more general and prepare it to accept to have offets not only varying with site but also with the time slice, depending on the IRF used (for the moment the offset is identical for any zenith angle or observation duration)
+
+2021 03 24:
+The slewing time can now be different in North and South. This allows testing the abscence of LST in SOuth for instance, whihc isplanned in the first contruction
+plan of CTA.
+
+2021 03 17:
+A bug found in mcsimp_plot.stat where the max significance shown was the
+maximum in the iteratited list whereas the mean value is expected (bug hidden
+when the number of iteration is one and/or the counts are not fluctuated)
+
+2021 03 15:
+Major change in the IRF handling.
+Th IRF files are now stored along the path  "Subarray, hemisphere" on disk and
+the IRF arrays can be different in North and South, and are required to be
+explictely declared in the config file. This is intenede to study the
+performance, with/without LST on a site.
+The ana_config fiel defines the IRF main directory and the array subfolder (array can be FullArray, LST, MST...)
+
+2021 03 12:
+The "offline" analysis tools are now included in SoHAPPy (analysis subfolder)
+as they share some of the functionnalities with the main code.
+
+2021 03 10:
+At this date the Hybrid version is installed on both Windows and Ubuntu and
+works fine with gammapy0.12 and gammapy 0.17
+Re-installing gammapy0.12 on Windows:
+Since the Hybrid version works also with gammapy  0.12, we wanted to use it,
+but this required some clean-up.
+We have deleted the gammapy0.12 environment, and have done the following:
+1. install gammapy 0.12 from the yaml file (just change the package name to
+gpy0.12 in the yaml file, it is shorter)
+2. the install spyder (optional, version 3 is ok). A tentative run shows that
+astroplan is missing (as expected).
+3. install astroplan 0.8-dev
+Just do "python setup.py install" in the astroplan folder.
+Note that Installing the previous 0.7-dev1236 version lead to an  error now
+("File "setup.py", line 8, in <module> import ah_bootstrap)
+The version 0.8-dev can be installed as soon as the astropy_helpers are
+manually (as indicated by the initial error message):
+pip install astropy_helpers.
+
+Installing gammapy 0.17 on ubuntu:
+1. Install gamapy from the yaml file, install sppyder (optionnal)
+2. Install astroplan 0.8-dev o running SoHappy will give :
+- cannot import name '_get_download_cache_locs'  from 'astropy.utils.data'
+
+2021 03 9:
+After many trials and in particular the development of new tools for the
+analyis, it becomes clear that the gammapy stacking is used to re-assemble
+independent observations of the same object with the same physicial asumptions
+therein. In particular it cannot handle simultaneous observations of the same
+object with two instruments (or on 2 sites).
+As a consequence it is decided to have the SoHAPPy code running the aperture
+photometry analysis, which is suited to determine which subpopulation of GRB
+can be detected at a certain confidence level.
+Then for indiviaul GRB of interest, the simulation is saved, which is
+preferred to saving the created dataset list alone. The simulation is then
+reopened from a standalone code (e.g. a notebook) and the E-dependent analysis
+is done for indivual sources (i.e. spectrum extraction). In particuluer this
+allows managing stacking of observations on two sites in a proper way.
+
+
+2021 01 14:
+A technical problem led me to reisntall anaconada and gammapy 0.17.  The new
+version os Astropy is not compatible with de dev version of astroplan
+installed so far (0.7.dev0 see issue #). I downloaded the last astroplan
+master version (0.8.dev0) and reinstalled it. This has fixed this problem.
+
+2021 01 11 :
+After development of the spectrum extraction in SoHappy-analysis, it became
+obvious that the energy thresholds handling requires great care. In particuer
+the masking removes completly the bin which is affected by the maskins. This
+can lead to an artificially lower low E threshold (or a higher high energy
+treshold, but with a negligible importance be given the flux decrease).
+In the IRF module, the common Ereco data axis is now tuned by hand to be sure
+to have the IRF energy thresholds as edges of the axis, and therefore have the
+full first bin above threshold taken into account. This means that, with the
+present IRf version, the edges 30, 40 and 110 GeV have been added to an
+initial list generated as 4 bins per decade between 10 GeV and 100 TeV. Edges
+that have been considered to close to the specific values have been removed by
+hand.
+See the code for more details.
+The enegies for the masking are slightly shifted (0.99999*Emin, and
+1.00001*Emax) to be sure to not miss the relevant bins because of rounding
+errors. The correct behaviour of the implementation has been tested on a few
+slices of Event 3 at 20 and 60 degrees.
+
+2020 11 30 : Frome the dataset list, trying to save (Datasets.write()) leads
+to an error due to the fact that two (or more ?) consecutive slices can have
+the same spectrum model. This comes from the fact that when a slice is
+shortened, e.g. when applying a visibility window, the sllice is dressed with
+the closes in time energy spectrum which is then identical to the previous or
+next slice energy spectrum. The solution is to track the repetition and merge
+the two slices. The merged slice as the original E spectrim (that was common
+to both slices by defintion), and the observation time of the newly created
+slice is recomputed (i.e. in case the chosen option is to use the end time of
+the slices it become the end time of the second shortened slice, or the end
+time of the unshortened following slice)
+
+2020 10 30 : The Hybrid version is intended to handle both 0.12 implementation
+(inherited from Julien Lefaucheur), and the brand new gammapy 0.17. It appears
+that the former simulation structure is not optimised to handle datasets that
+have to be recomputed at each monte carlo iteration. It s therefore decided to
+keep a working version of mcsim for gammapy0.12 (renamed mcsim12) and to work
+on a new mcsim.py version. The fitonoff.py module becomes fitonoff12.py and
+fitonoff17.py is renamed fitonoff.py.
+Backward compatibility will be kept as long as possible.
+
+SOFIA version
+-------------
+The So-called SOFIA version, named after the cancelled CTA meeing in Sofia (May 2020)
+intends to add to the Roma version the functionnalities requested to stack observations
+from several site or several days. It has also to take in charge the Gammapy 0.16
+version and the use of a likelihood analysis.
+Developement started on March 24, 2020.
+
+2020 10 13 : new iers module to handle iers requests
+
+2020 09 30 : the output tar.gz file have now the date of creation in their
+             name. The start and end dates ar written in analysis.log. This
+             helps finding when and with which code the output files were
+             produced.
+
+2020 09 25 : First implemntation of the SpectrumDataSetOnOff functionalities
+             in a new module call fit_onoff17. Comparing results with the
+             former gammapy 0.12 version seems difficult since now boundaries
+             in energy, either true or reconstrcuted, where explcited, whereas
+             in the new version they are defined in irf.py.
+
+2020 09 15 : Two major bug found with event 197 North:
+             - When delays are at zero, using the new visibility, the unique
+             unique slice has a number of On events below the minimum of 10.
+             The unique slice has therefore a sigmax at Nan. In mcsim.fill_stat
+             a test is done but was wrongly using sigmax = Nan whihc returns
+             False, and has been replaced by np.isnan(sigmax) that retruns
+             True.
+             - When delays are greater than the unique slice (4s), there is no
+             slice left after applying the visibility that takes into account
+             the delay. Apply_visibility has been updated to check the
+             number of remianing slices, and return False if it is zero.
+             In that case the simulation is not run and the vis_tonight[loc]
+             variable is set to False.
+2020 09 15 : Started the real migration to Gammapy 0.17. requires to work on
+             a new fitting module fit_onoff17 in order to compare the results
+             between the two verions. In particular a ceratin number of
+             functions have been replaced and it seems hard to be able to
+             adapt Julien's method to Gammap 0.17
+
+2020 09 07 : The IRF valifity windows in zenith have been changed, following
+             the recommandations. In particular no IRF are made avaialble above
+             66° (24° of altitude). The time validity of the IRF have also
+             be changed to reflect the logarithmic binning of the IRF sampling
+             in observation time.
+
+2020 09 04 : The multi-window visibility computation is completed. The
+             day_after (skip the first day and compute detection adding 1 day
+             to all dates) has become useless.
+             It is some how replaced bythe varaible depth that fix the number
+             of days after the trigger the visibility windows are searched for,
+             and the variable skip that defines the number of first nights to
+             be skipped (skip=0 to consider first night, skip=1, to consider
+             from first night on).
+
+2020 08 27 : Following the discrepancies found on visibility, MGB has rerun
+             his code for the GRB that have a very short period seen at the end
+             of the day. The repository has been updated on :
+             https://drive.google.com/drive/folders/1sFYlG0ZFa2GpDOh-MuM_a5c2_Sn-6Jes
+             and the agreement is obtained except for 197 N for whihc a 4
+             second long time window is not seen by MGB.
+
+2020 08 26 : The GammaRayBurst t_start and t_stop dictionnaries now become a
+             list in order to handle lore than one visibility period.
+
+2020 08 25 : Create a "docs" file to generate a SPHINX documentation
+             This folder contains :
+             - conf.py : general configuration
+             - index.rst: Is the seed for the forthcoming index.html entry
+             page. It lists the modules to be added to the documentation
+             - make.bat, the main engine for the documentation creation
+             - Makefile
+             - README.rst
+
+             The documentation is generated as follows from the docs
+             folder:
+             cmd.exe /c .\make.bat html
+
+             In order to handle the numpydoc style of function documentation,
+             numpydc has to be added to the extension list in conf.py
+
+2020 08 25 : BUG in Astroplan
+             An issue has been opened on the Astroplan github to report a
+             misbehaviour in the search of the rise-time.
+             For three events, 233 S, 644 N and 769 S, the correct rise
+             period is missed because it s very close to th etrigger time
+             and falls into a first time slice in Astroplan whihch is
+             systematiccally and wrongly discarded.
+             See : https://github.com/astropy/astroplan/issues/464
+
+2020 08 25 : Further studies investigate the discrepancies between the default
+             visibilities provided by Maria Grazia. The situation is explained
+             in the text below, adapted from a from a mail sent to MGB.
+
+             *** Short windows missed by MGB
+
+             Using the same site coordinate as LMGB (see earlier comments), and
+             a search limited to 24h (end of visibility)), some missed short
+             windows of are found that make some GRB becomint Observable
+             tonight:
+
+             North (14): 129, 174, 197, 214, 309, 380, 381, 479, 488, 502, 609,
+                         673, 933, 965
+             South (14): 24, 30, 182, 186, 319, 338, 444, 475, 734, 772, 826,
+                         879, 917, 986
+
+             *** The search of one day after the trigger should be applied to
+             the start date
+
+             The event 522 N was not considered visible in SoHAPPy because the
+             depth (duration afte rthe trigger) to accept a window was on the
+             end. It has been changed to the beginning (i.e. a visibility
+             window can extend much after the "depth", typically one day)
+
+            *** Some events have 2 visibility windows in one night
+            There are 19 events in which the GRB is above the horizon at dusk,
+            goes below during the night but rise again before dawn. They were
+            not expected by MGB that looked for the first window only.
+            The list is the following:
+            North : 75, 137, 139, 151, 153, 239, 270, 353, 507, 727, 859, 906,
+                    923, 948
+            South : 85*, 115, 414, 754, 755
+            Event 85 has even 3 visibility windows !
+
+-
+2020 07 30 : Add scale="utc" to all Time definitions.
+2020 07 28 : Using the dedicate function check_visibility in grb.py, one check
+        the visibilities of the GRB for the delault altitude of 10°.
+        The defauly values were obtained by maria Grazia Bernardini (MGB).
+        A few discrepancies were found an understood (MGB, July 2020).
+
+        The observatory coordinates
+        ---------------------------
+        In SoHAPPy they are obtained from EarthLocation.of_site() at the sites
+        'Roque de los Muchachos' and  'Paranal Observatory'. In order to
+        avoid accessing the external database, the coordinates have been
+        copied and harcoded as follows.
+
+        SoHAPPy uses, (x,y,z) from geocentric :
+        North : ( 5327448.9957829, -1718665.73869569, 3051566.90295403) m
+        South : ( 1946404.34103884,-5467644.29079852,-2642728.20144425) m
+
+        MGB uses (lon,lat,elevation) from geodetic :
+        North : ('342.1184', '28.7606', 2326. * u.meter)
+        South : (289.5972',  '-24.6253', 2635. * u.meter)
+        or after applying EarthLocation_from_geodetic :
+        North :  (5327285.09211954, -1718777.11250295, 3051786.7327476) m
+        South : (1946635.7979987, -5467633.94561753, -2642498.5212285) m
+
+        The distance discrepancy between the positions is 296 and 326 m.
+
+        This creates variation in the rise/set time of the target which is
+        usually at the level of a few seconds. Note that the discrepancy can be
+        bigger of the numbr of grid step in Astroplan is not at default (150).
+        When  using MGB values, I still find discrepancies at the
+        level of second or less for a very few GRBs.
+
+
+2020 07 02 : - Astroplan 0.7 dev version is used because of a bug in the
+               released astroplan v0.6 (see astroplan issue #460 on Astroplan
+               github).
+               Installation was done from the github repository, see here :
+               https://astroplan.readthedocs.io/en/latest/installation.html#id2
+
+2020 07 01 : - New function visibility that compute the start and stop of the
+               visibility taking into account any horizonand any number of days
+               after the trigger. In particular it complies wuth the native
+               visibility values given by Maria Grazia Bernardini that are stored
+               in the fits file.
+               New variables t_start and t_stop are added to the GammaRayBusrt
+               class and store the start and end point of the vsisbility in
+               seconds (time relative to the GRB trigger)
+2020 06 18 : - the function creating the time slices are moved from SoHAPPy.py to
+               timeslot.py and become slot methods.
+2020 06 12 : - new flag "silent" to avoid any print on screen (output
+               redirected ot the log file)
+2020 06 11 : - The output data, configuration and log files have now a fixed
+               name, and the results are tarred in a single file identified
+               from the output folder name.
+2020 06 09 : - MAJOR bug found. In the core of the program, when the signal
+               count is computed, the ith spectrum is used. The slice concerned
+               is the ith slice of the selected time window. The bug was that i
+               does not refer to this but to the ith spectrum in the list,
+               i.e. whathever the time slice organisation is, the first slice
+               is always the first grb slice, the one with the highest flux.
+               This had obviously dramatic consequences on the counting rate.
+2020 05 26 : - Add a function that restruit the visibilty to the GRB avalaible
+               data points when masking the slices.
+2020 05 25 : - Prompt file reading and corresponding flag are added for tests.
+               The GRB information is obtained from the afterglow files.
+2020 05 21 : - EBL model in ana_config is passed to the GRB class (instead of
+               the Absorption object)
+2020 05 18 : - The copy of the config file is moved from SoHAPPy.py to
+               utilities.py and is more general.
+             - A log file is now created that replace the screen output to
+               a text file. A class, Log, is created in utilities.py to
+               dump messaged on both the screen and the log file
+             - A log file is now created, sensible message are sent to it.
+2020 05 04 : - Add back the possibility to simulate the ith day after the first
+               one.
+2020 04 27 : - After re-implementaion of the chain to have the possibility to
+               merge sites and subsequent days, a slight difference in results
+               was found(initially on GRB 188) between the present code and
+               the Roma version. This has been believed to be due to the fact
+               that the slewing delay was strictly apply to the GRB trigger
+               time (i.e. GRB observation starts at t_trig + 30 s in case of
+               a fixed slew duration), whereas in the Roma version the delay
+               was applied from he first measurement point.
+               (===> But this was not the reason ! See the bug corrected in the
+               Roma version on April 27th in the corresponding Readme file).
+               In the cases studied, the first observation slice was
+               31.02-37.20 s for the Roma version and 30.00-37.20 for the Sofia
+               version. The difference in start time is exacltly the time of
+               the first measurement point : (1.02e+00, folowed by 1.27e+00,
+               1.60e+00).
+               This difference leads to several comments :
+
+               1. The flux at zero is not known. The first measurement is here
+               a bit more than 1 s.
+               This was commented by Lara Nava in a mail on December 18th 2019:
+
+               "In GRB afterglow modeling, t=0 is the time a ‘’virtual'' photon
+                emitted at R=0 reaches the observer. So no photons can arrive
+                at t=0. Arrival times can be 10^ minus something. However, to
+                start simulations from very small times, such as 0.0001 or so
+                increases a lot the computation time. Since there is a delay
+                due to the notice arrival + repointing time, I guess that to
+                start simulations at 0.01, 0.1 or 1-2 seconds is irrelevant for
+                 the simulations of detectability with CTA. Am I correct?
+                In any case, the starting time of simulations is calculated by
+                the simulation for each GRB, accounting for its specific
+                parameters, by requiring that simulations start well before the
+                 deceleration time, when the flux is small (and then
+                 negligible)."
+
+               As a consequence, in the case of a null slewing time, the
+               minimal delay cannot be less than the time at which the first
+               measurement point is know.
+
+               2. Even in the case of a GRB immediately in the field-of-view,
+               which can be only very rare, there is a minimal time between
+               the GRB aws detected by SWIFT and the alert was received on
+               ground. The time distribution of these delays was received from
+               Maria Grazia Bernardini on March 2nd, 2020. The mean Swift
+               delay is 77 seconds.
+
+               The Sofia version takes into account these delays and
+               limitation.
+
+2020 04 09 : - Now that stacked site observations are possible, the simulation
+               is no more related to a unique altiute and azimuth start and
+               stop. These should be recomputed at the analysis time from
+               the tstart and tstop variables, although this can be problematic
+               when several days are stacked, in particular when it exceeds the
+               maximulm GRB simulation time (tstop would then correspond to
+               the lighcurve end).
+
+2020 04 08 : - Because iof dates more than 30 years in the future, astropy
+               generate Erfa warnings (unable to ensure precisionon leap
+               seconds on time beyond 30 years). For that reason, warning are
+               remporarily disabled where needed :
+                       with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore")
+                            'code generating the warning'
+2020 04 03 : - Modifies grb.py and grbplot.py so that is odes not refer anymore
+               to measurement points, that are an analysis decision; The GRB
+               GammaRayBurst class now contains monly information obtained from
+               the input files.
+
+2020 03 27 : - change the position of the Astropy cache to avoid warning when
+               the cache data are written in a protected directory.
+               The error is reported below :
+
+[...] astropy\config\configuration.py:557: ConfigurationMissingWarning:
+Configuration defaults will be used due to FileExistsError:17 on None  warn(ConfigurationMissingWarning(msg))
+WARNING: CacheMissingWarning: Remote data cache could not be accessed due to FileExistsError: [WinError 183]
+WARNING: CacheMissingWarning: Not clearing data cache - cache inaccessible due to FileExistsError: [WinError 183]
+WARNING: CacheMissingWarning: ('Cache directory cannot be read or created,
+providing data in temporary file instead.',
+'C:\\Users\\stolar\\AppData\\Local\\Temp\\astropy-download-6212-out__lab') [astropy.utils.data]
+
+2020 03 24 : - Start to implement the posibility to havethe code running with
+               bioth gammapy 0.12 and 0.16 using a test on gammapy.__version__
+ROMA version
+------------
+
+This version has for basis the code used to produce the results at the Roma face-to-face meeting.
+It got a few modifications as below. This is essentially a code missing the essential features:
+- stacking North and South simulations, second and later days contributions,
+and possibly a second spectrum due to the prompt.
+- Using Gammapy 0.16 and in particular Full enclosure off-axis IRF, requiring
+a major change in the fitting process.
+
+History of changes between Feb. 2020 and 2020 03 23
+
+2020 03 18 : - The 'analysis' folder, that contain a series of notebook to
+               analyse the data, is removed from the SoHAPPy folder.
+               It is moved one level up, next to the 'input' and 'output'
+               folders.  This requires a few changes in the path of certain notebooks.
+               It is intended that the analysis folder is not part of the
+               SoHAPPy distribution anymore (in particular its development
+               speed has nothing to do with the SoHAPPy ones))
+             - Minor changes and clean-up made to remove the dependency to matplotlib
+			   when the run does not require it (debug flag less or equal to zero). This
+			   is required to run SoHAPPy with non graphical environements like for
+			   GRID productions (where matplotlib is not installed in principle).
+2020 03 14 : - when running SoHappy from a shell script and requesting plot to be
+			   shown, the script does not pause anymore at each plot
+			   (use of plt.show(block=False).
+2020 04 22 : - Class ObservationParameter removed. Most of the information is
+               in the MonteCarlo class. The alpha parameter becomes an
+               internal parameter of fit_onoff and cannot be changed
+             - Protection agains GERB for whihc all sigma would be Nan
+             - On-Off siginificance are Nan if non or noff below limit (e.g. 10)
+2020 02 04 : - Changed cta_irf_onaxis in irf_onaxis
+2020 02 03 : - MC specific parameters now in mcsim_config.
+             - Changes made on variables
+             - Parameters removed from the MonteCarlo class as they are not
+             MC dependent
+             - Add a global boolean variable to fit_onoff to force S=0
+             - Add config files to mcsim and grb to handle global variables and
+             options
+             - Improve grb display with fewer selected spectra and LC displayed
+
+

@@ -11,8 +11,13 @@ import warnings
 
 import astropy.units as u
 from   astropy.coordinates   import AltAz
+from   astropy.coordinates import get_moon
+
 from astropy.time import Time
 from   astropy.visualization import quantity_support
+
+
+
 import matplotlib.dates as mdates
 
 # Bigger texts and labels
@@ -36,6 +41,11 @@ __all__ = ['energy_and_time_packed',
            'animated_spectra',
            'visibility_plot'
            ]
+
+###-------------------------
+def F(x):
+    return x.datetime
+###-------------------------
 
 ###############################################################################
 def pause():
@@ -306,7 +316,7 @@ def animated_spectra(grb, emin=0.02 * u.TeV,
     """
     Create a gif animation of time slices,
     """
-    print(" grb_plot.animated_spectra seems corrupted ")
+    #print(" grb_plot.animated_spectra seems corrupted ")
     return
 
     from matplotlib.animation import FuncAnimation
@@ -354,12 +364,139 @@ def animated_spectra(grb, emin=0.02 * u.TeV,
 # Plot visibility
 #
 ###############################################################################
-def visibility_plot(grb,
-                    ax=None, loc=None,
+
+###---------------------------------------------------------------------------
+def period_plot(twindow,
+                ax=None,
+                alpha = 0.2, color="black", color2="black",tag="?",
+                tshift=0*u.s,
+                **kwargs):
+
+    ax = plt.gca() if ax is None else ax
+
+    if (len(twindow[0]) == 0): return ax
+    for elt in twindow:
+        if elt[0].value >= 0 and elt[1].value >=0 :  # Check if -9, i.e. undefined
+                t1  = (elt[0] - tshift).datetime
+                t2  = (elt[1] - tshift).datetime
+                if isinstance(tag, list):
+                    ax.axvline(t1,color=color,label=tag[0])
+                    ax.axvline(t2,color=color2,label=tag[1])
+                else:
+                    ax.axvspan(t1,t2,
+                               alpha = alpha, color=color,label=tag,**kwargs)
+
+    return ax
+
+###---------------------------------------------------------------------------
+def grb_alt_and_flux(vis, times, site="None", tshift=0*u.s,
+                     ax=None):
+
+    grb = vis.grb
+
+    ax = plt.gca() if ax is None else ax
+
+    ### Altitude sampling for plots - absolute time
+    altaz   = grb.radec.transform_to(AltAz(obstime  = times,
+                                           location = site))
+
+    ### Change time reference if requested
+    tref = grb.t_trig - tshift
+    times = times - tshift # Change reference
+
+    ### GRB altitude and minimum
+    ax.plot(F(times),altaz.alt.value, color="darkblue",alpha=0.5, marker="+",label="Altitude")
+    ax.axhline(y =vis.altmin.value,
+               ls=":",color="tab:green",label="Min. Alt.")
+
+    ### FLux points
+    axx  = ax.twinx()
+    Eref = 100 *u.GeV
+    iref = np.argmin(np.abs(Eref-grb.Eval))
+
+    axx.plot((grb.t_trig + grb.tval -tshift).datetime,
+              grb.fluxval[:,iref],
+              marker=".",
+              ls = "--",
+              lw = 1,
+              color="tab:purple",
+              label = r"$E \sim {}$".format(Eref))
+    axx.set_yscale("log")
+    axx.legend(loc='center left', bbox_to_anchor=(1.1, 0.9),fontsize=12)
+
+
+    ### Trigger (dot and vertical line)
+    alttrig = grb.radec.transform_to(AltAz(obstime  = grb.t_trig,
+                                           location = site)).alt.value
+    ax.plot(F(tref),alttrig,label="Trigger",marker="o",markersize=10,
+            color="tab:orange")
+    ax.axvline(F(tref),ls=":",color="tab:orange")
+
+    ### Trigger + 1 day (dot and vertical line)
+    altend = grb.radec.transform_to(AltAz(obstime  = grb.t_trig + 1*u.day,
+                                          location = site)).alt.value
+    ax.plot(F(tref+1*u.day),altend,
+            label="Trigger + 1 day",marker="o",markersize=10,color="black")
+    ax.axvline(F(tref+1*u.day),ls=":",color="grey")
+
+    ax.set_ylim(ymin=0,ymax=1.2*max(altaz.alt.value))
+    ax.set_ylabel("altitude (°)")
+
+    return ax
+
+###---------------------------------------------------------------------------
+def moon_alt_plot(times, site="None", ax=None, color="darkblue"):
+
+    if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
+
+    radec = get_moon(times,site)
+    altaz = radec.transform_to(AltAz(location=site, obstime=times))
+
+    with quantity_support():
+        ax.plot(times.datetime,altaz.alt,color=color,label="Moon altitude")
+        ax.axhline(y=0*u.deg,color=color, ls=":")
+    ax.set_ylabel("Alt.(°)")
+    ax.legend()
+
+    return ax
+###---------------------------------------------------------------------------
+def moon_dist_plot(grb,times, site="None", ax=None, color="tab:green"):
+
+    if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
+
+    moon_radec = get_moon(times,site)
+    dist = moon_radec.separation(grb.radec)
+
+    with quantity_support():
+        ax.plot(times.datetime,dist,color=color,label="Moon distance")
+    ax.set_ylabel("Dist.")
+    ax.legend()
+
+    return ax
+
+###---------------------------------------------------------------------------
+def moonlight_plot(grb,times, site="None", ax=None, color="tab:orange"):
+
+    from   astroplan import moon_illumination
+
+    if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
+
+    brightness = brightness = moon_illumination(times)
+
+    with quantity_support():
+        ax.plot(times.datetime,brightness,color=color,label="Brightness")
+    ax.set_ylabel("Brightness")
+    ax.set_ylim(ymin=0,ymax=1.)
+    ax.legend(loc="bottom")
+
+    return ax
+###---------------------------------------------------------------------------
+def visibility_plot(vis,
+                    moon =True,
+                    ax = None,
                     dt_before   = 0.25*u.day,
-                    dt_after    = 2.25*u.day,
-                    nalt = 25,
-                    inset= False):
+                    dt_after    = 2.25*u.day, # After trigger
+                    nalt=250):
     """
     Plot the night, above-the-horizon and visibility periods, the altitude
     evolution with time as well as a lightcurve for a fixed reference
@@ -383,136 +520,84 @@ def visibility_plot(grb,
         They are simplified and the time is referred to the trigger time.
 
     """
-    if (loc == None):
-        print(" visibility_plot : A location should be defined")
+    if not vis.vis:
+        print(" Not visible - plot not shown")
         return
 
-    if (ax == None):
-        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(12,6))
-
-    ###-------------------------
-    def F(x):
-        if (inset): return x.sec
-        return x.datetime
-    ###-------------------------
-
-    if (inset): # To be corrected
-        tshift = grb.t_trig
-        tref  = grb.t_true[0][0]
+    if (moon):
+        fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True,
+                               gridspec_kw={'height_ratios': [5,2,2]},
+                               figsize=(25, 14))
     else:
-        tshift = 0*u.s
-        tref = grb.t_trig - tshift
+        ax = plt.gca() if ax is None else ax
+        ax[0] = ax
 
-    ### Plot limits
-    tmin    = grb.t_trig - dt_before -tshift
-    tmax    = grb.t_trig + dt_after - tshift
-    ax.set_xlim([F(tmin),F(tmax)])
+    site = vis.grb.pos_site[vis.loc]  # Current site
 
-    ### Altitude
-    # Altaz sampling for plots - absolute time
-    dt = np.linspace(0,(dt_before+dt_after).value, nalt)
-    t = grb.t_trig  - dt_before + dt*dt_before.unit
-    where = grb.pos_site[loc]
-    altaz   = grb.radec.transform_to(AltAz(obstime  = t,
-                                                location = where))
-    t = t - tshift # Change reference
+    with warnings.catch_warnings() and quantity_support() :
+        warnings.filterwarnings("ignore")
 
-    ax.plot(F(t),altaz.alt.value,
-            ls=":", color="darkblue",alpha=0.5, marker="+",label="Altitude")
-    ax.axhline(y =grb.altmin.value,
-              ls=":",color="tab:green",label="Min. Alt.")
+        dt      = np.linspace(0,(dt_before+dt_after).value, nalt)
+        t       = vis.grb.t_trig  - dt_before + dt*dt_before.unit
 
-    # Trigger
-    alttrig = grb.radec.transform_to(AltAz(obstime  = grb.t_trig,
-                                                location = where)).alt.value
-    ax.plot(F(tref),alttrig,label="Trigger",marker="o",markersize=10,color="tab:orange")
-    ax.axvline(F(tref),ls=":",color="tab:orange")
+        ### GRB (main plot)
+        grb_alt_and_flux(vis,t,site=site,ax=ax[0])
+        ax[0]. set_title(vis.grb.name + " -" + vis.loc)
 
-    altend = grb.radec.transform_to(AltAz(obstime  = grb.t_trig
-                                               + 1*u.day,
-                                               location = where)).alt.value
-    ax.plot(F(tref+1*u.day),altend,
-            label="Trigger + 1 day",marker="o",markersize=10,color="black")
-    ax.axvline(F(tref+1*u.day),ls=":",color="grey")
+        ### GRB above horizon
+        period_plot(vis.t_event,
+                    ax = ax[0],color="tab:blue",alpha=0.2, tag="Above horizon",
+                    ymin=0.,  ymax= 0.5,)
 
-    ### FLux points
-    if (not inset):
-        axx = ax.twinx()
-        Eref = 100 *u.GeV
-        iref = np.argmin(np.abs(Eref-grb.Eval))
+        ### Nights on all plots
+        for axis in ax:
+            period_plot(vis.t_twilight,
+                        ax =axis,color="black",alpha=0.2, tag="Night")
 
-        axx.plot((grb.t_trig + grb.tval -tshift).datetime,
-                  grb.fluxval[:,iref],
-                  marker=".",
-                  ls = "--",
-                  lw = 1,
-                  color="tab:purple",
-                  label = r"$E \sim {}$".format(Eref))
-        axx.set_yscale("log")
-        axx.legend(loc='center left', bbox_to_anchor=(1.1, 0.9),fontsize=12)
+        ### Moon if requested
+        if (moon):
 
-    ### Nights
-    first=True
-    for elt in grb.t_twilight[loc]:
-        if isinstance(elt[0],Time):
-            t_dusk  = elt[0] - tshift
-        else:
-            t_dusk = tmin
-        if isinstance(elt[1],Time):
-            t_dawn  = elt[1] - tshift
-        else:
-            t_dawn = tmax
-        if (first):
-            label="Night"
-            first = False
-        else: label= None
-        ax.axvspan(F(t_dusk),F(t_dawn), alpha=0.2,color="black",label=label)
+            ### Moon veto periods
+            period_plot(vis.t_moon_veto,
+                        ax =ax[1],color="tab:orange",alpha=0.2, tag="Moon veto")
+            period_plot(vis.t_moon_veto,
+                        ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
 
-    ### Above horizon periods
-    first=True
-    for elt in grb.t_event[loc]:
-        if isinstance(elt[0],Time):
-            t_rise = elt[0] - tshift
-        else:
-            t_rise = tmin
-        if isinstance(elt[1],Time):
-            t_set   = elt[1] -tshift
-        else:
-            t_set = tmax
+            ### Moon altitude
+            moon_alt_plot(t,site=site,ax = ax[1])
 
-        if (first):
-            label="Above horizon"
-            first = False
-        else: label= None
-        ax.axvspan(xmin=F(t_rise), xmax=F(t_set),
-                   ymin=0.,     ymax= 0.5,
-                   alpha=0.2,color="tab:blue",label=label)
+            ### Moon distance and brigthness
+            moon_dist_plot(vis.grb,t,site=site,ax = ax[2]) # Distance
+            axx = ax[2].twinx()
+            moonlight_plot(vis,t,site=site,ax=axx) # Brightness
 
-    ### Visibility windows
-    if (grb.vis_tonight[loc]):
-        first = True
-        for elt in grb.t_true[loc]:
-            t_start = elt[0] -tshift
-            t_stop  = elt[1] -tshift
-            if (first):
-                label1="Start"
-                label2= "Stop"
-                first = False
-            else: label1= label2 = None
-            ax.axvline(F(t_start),label=label1,color="tab:green")
-            ax.axvline(F(t_stop),label=label2,color="tab:red")
 
-    if (inset==False):
-        ax. set_title(grb.name + " -" + loc)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
-        ax.set_xlabel("Date (DD-HH:MM) UTC")
-        ax.tick_params(axis='x', rotation=70)
-        ax.set_ylabel("altitude (°)")
-        ax.set_ylim(ymin=0,ymax=1.2*max(altaz.alt.value))
-        ax.legend(loc='center left', bbox_to_anchor=(1.1, 0.5),fontsize=12)
+        ### Visibility windows - if the GRB is visible
+        if vis.vis:
+            for axis in ax:
+                period_plot(vis.t_true,
+                            ax=axis,color="tab:green",color2="red",
+                            tag=["Start","Stop"])
 
-    else:
-        ax.set_ylim(ymax=1.05*alttrig)
-        ax.set_xlabel("Time (s) wrt trigger")
 
+
+        # Reduce legends on all plots
+        import collections
+        for axis in ax:
+            handles, labels = axis.get_legend_handles_labels()
+            by_label = collections.OrderedDict(zip(labels, handles))
+            axis.legend(by_label.values(), by_label.keys(),
+                      loc='center left', bbox_to_anchor=(1.1, 0.5),fontsize=12)
+
+        if (moon): axis = ax[2]
+        else: axis = ax[0]
+
+        axis.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
+        axis.set_xlabel("Date (DD-HH:MM) UTC")
+        axis.tick_params(axis='x', rotation=45)
+        axis.set_xlabel("Date")
+
+        axis.set_xlim([F(min(t)),F(max(t))])
+
+    fig.tight_layout(h_pad=0, w_pad=0)
     return
