@@ -17,25 +17,23 @@ with warnings.catch_warnings():
         from gammapy.spectrum import SpectrumDatasetOnOff
         from gammapy.spectrum import SpectrumEvaluator
         from gammapy.spectrum.core import PHACountsSpectrum
-        from gammapy.utils.random import get_random_state
         from gammapy.stats.poisson import significance_on_off
-
 
 ###########################################################################
 def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
-    
+
     """
     Simulate one observation (slice idx) with given parameters.
 
-    Compute predicted number of signal and background counts in an observation 
+    Compute predicted number of signal and background counts in an observation
     region, from the livetime.
-    Fluctuate the count numbers (except if requested to not to do so).    
-    
+    Fluctuate the count numbers (except if requested to not to do so).
+
     Accept to specific flags:
-        - :math:`set_signal_to_zero` will simulate background only 
+        - :math:`set_signal_to_zero` will simulate background only
         (signal stricltly force to zero, no fluctuations)
         - math:`do_fluctuate` will apply the Poisson fluctuation
-        
+
     Return the on-region and off-region respective counts as an observation
 
     Parameters
@@ -57,63 +55,62 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
         Passed to `~gammapy.utils.random.get_random_state`.
 
     """
-    if (gammapy.__version__ == "0.16"): return
-    
+    if (gammapy.__version__ != "0.12"): return
+
     #debug=True
-        
+
     obstime      = aslice.ts2()-aslice.ts1()
     idx          = aslice.idt()
     spectrum     = mc.slot.grb.spectra[aslice.fid()]
     #spectrum     = mc.slot.grb.spectra[idx] # This has been like this :-()
-    random_state = get_random_state(mc.rnd_seed) # Randomise counts later
-    
+
     # Note : the number of on/off counts versus energy is strictly related to
     # background energy bins (=energy egdes -1)
-    perf_list   = aslice.perf()
-    reco_energy = perf_list[0].bkg.energy.edges
-    nEbins      = len(reco_energy) -1    
-    
+    perf_list   = aslice.irf()
+    reco_energy = aslice.irf()[0].irf.bkg.energy.edges
+    nEbins      = len(reco_energy) -1
+
     tot_on_counts  = np.zeros(nEbins)
     tot_off_counts = np.zeros(nEbins)
-    
+
     if (debug):
         if (idx==0):
             print("\n")
             print("{:>2s} {:>8s} {:>4s} {:>4s} {:>10s} {:>10s} {:>10s} {:>10s} {:>s}"
-                  .format("","dt (s)","perf","flux","on","off","tot_on","tot_off","Alt")  )      
+                  .format("","dt (s)","perf","flux","on","off","tot_on","tot_off","Alt")  )
 
     for ip,perf in enumerate(perf_list):
-        
-        if (len(perf.bkg.energy.edges)-1 != nEbins):
+
+        if (len(perf.irf.bkg.energy.edges)-1 != nEbins):
             print(" Perf E-bins assumed is ",nEbins,
-                  "actual is ",len(perf.bkg.energy.edges))
+                  "actual is ",len(perf.irf.bkg.energy.edges))
             sys.exit("Fatal error in the IRF E binning")
-    
+
         ### BACKGROUND / OFF COUNTS
-        bkg_mean_values = perf.bkg.data.data * obstime.to('s')
-        if (cf.do_fluctuate):
-            bkg_counts = random_state.poisson(bkg_mean_values.value)
-            off_counts = random_state.poisson(bkg_mean_values.value / alpha)
+        bkg_mean_values = perf.irf.bkg.data.data * obstime.to('s')
+        if (mc.fluctuate):
+            bkg_counts = mc.rnd_state.poisson(bkg_mean_values.value)
+            off_counts = mc.rnd_state.poisson(bkg_mean_values.value / alpha)
         else:
             bkg_counts = bkg_mean_values.value
             off_counts = bkg_counts / alpha
-                
+
         ### SIGNAL / EXCESS / ON COUNTS
 
         if (cf.signal_to_zero == False):
         # Compute signal
-        
+
             predicted_counts = SpectrumEvaluator(model    = spectrum,
-                                                 aeff     = perf.aeff,
+                                                 aeff     = perf.irf.aeff,
                                                  livetime = obstime,
-                                                 edisp    = perf.rmf) 
+                                                 edisp    = perf.irf.rmf)
             npred = predicted_counts.compute_npred()
 
             # set negative values to zero (interpolation issues)
             npred.data.data[ np.where(npred.data.data < 0.) ] = 0
-        
-            if (cf.do_fluctuate) : 
-                on_counts  = random_state.poisson(npred.data.data.value)
+
+            if (mc.fluctuate) :
+                on_counts  = mc.rnd_state.poisson(npred.data.data.value)
             else:
                 on_counts = npred.data.data.value
         else:
@@ -122,21 +119,21 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
 
         #on_counts += bkg_counts  # counts in ON region
         on_counts = on_counts + bkg_counts  # counts in ON region
-        
+
         # CUMULATE the counts of both sites if it is the case (perf)
         # tot_on_counts += on_counts
         # tot_off_counts += off_counts
         tot_on_counts  = tot_on_counts  + on_counts
         tot_off_counts = tot_off_counts + off_counts
-        
-        if(debug):        
-            if (ip == 0):  
+
+        if(debug):
+            if (ip == 0):
                 print("{:2d} {:8.2f} ".format(idx,obstime.value),end="")
-            else: 
+            else:
                 print("{:2s} {:8s} ".format("",""),end="")
             if (mc.slot.site != "Both"):
                 alt = mc.slot.grb.altaz(loc=mc.slot.site,dt=aslice.tobs()).alt
-            else: 
+            else:
                 alt = -99
             print("{:4d} {:3d} {:10.2f} {:10.2f} {:10.2f} {:10.2f} {:5.2f}  {}"
                   .format(ip,
@@ -147,16 +144,16 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
                           sum(tot_off_counts),
                           alt,
                           os.path.basename(perf.name)))
-                 
+
         # End of loop over performance - cumulate on/off count is the slice
-        
+
     on_vector = PHACountsSpectrum(data      = tot_on_counts,
                                   backscal  = 1,
                                   energy_lo = reco_energy[:-1],
                                   energy_hi = reco_energy[1:],
                                   )
     on_vector.livetime = obstime
- 
+
     off_vector = PHACountsSpectrum(energy_lo=reco_energy[:-1],
                                     energy_hi=reco_energy[1:],
                                     data=tot_off_counts,
@@ -164,15 +161,15 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
                                     is_bkg=True,
                                     )
     off_vector.livetime = obstime
- 
+
     # We take as perf the firts one - this is wrong when more than site
     # will have to be investigated
-    obs = SpectrumDatasetOnOff(counts      = on_vector,
+    sim_obs = SpectrumDatasetOnOff(counts      = on_vector,
                                 counts_off = off_vector,
-                                aeff       = perf_list[0].aeff,
-                                edisp      = perf_list[0].rmf,
+                                aeff       = perf_list[0].irf.aeff,
+                                edisp      = perf_list[0].irf.rmf,
                                 livetime   = obstime )
- 
+
     #obs.obs_id = idx
 
     # Set threshold according to the closest energy reco from bkg bins
@@ -180,9 +177,9 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
     emax = max(reco_energy)
     idx_min = np.abs(reco_energy - emin).argmin()
     idx_max = np.abs(reco_energy - emax).argmin()
-    obs.lo_threshold = reco_energy[idx_min]
-    obs.hi_threshold = reco_energy[idx_max]
-    
+    sim_obs.lo_threshold = reco_energy[idx_min]
+    sim_obs.hi_threshold = reco_energy[idx_max]
+
     #debug=False
     if (debug):
         import matplotlib.pyplot as plt
@@ -190,16 +187,16 @@ def mc_onoff(aslice, mc = None, alpha   = 0.2, debug=False):
         on_vector.plot( ax=ax,show_energy=emin,label="On "+str(idx))
         off_vector.plot(ax=ax,show_energy=emin,label="Off "+str(idx))
         ax.legend()
-        
-        
-    return obs
-    
+
+
+    return sim_obs
+
 ###########################################################################
 def cumulative_OnOffstats(simulations,n_min=10,alpha=0.2,debug=False):
     """
-    Get cumulative statistics of the current MC simulation, composed of 
+    Get cumulative statistics of the current MC simulation, composed of
     observations corresponding to the GRB time slices.
-    If math:`non` or math:`noff` are below the chosen limit, the significance is not 
+    If math:`non` or math:`noff` are below the chosen limit, the significance is not
     trustable and set to math:`nan` (Not a number).
     """
 
@@ -219,7 +216,7 @@ def cumulative_OnOffstats(simulations,n_min=10,alpha=0.2,debug=False):
         n_off = obs.total_stats_safe_range.n_off
         # Possible only if a model is set
         # obs.plot_counts()
-        
+
         if idx == 0:
             tot_time[idx]  = obs.total_stats_safe_range.livetime.value
             tot_n_on[idx]  = n_on
@@ -232,18 +229,18 @@ def cumulative_OnOffstats(simulations,n_min=10,alpha=0.2,debug=False):
             tot_alpha[idx]  = obs.total_stats_safe_range.alpha
 
             delta_t[idx] =  obs.total_stats_safe_range.livetime.value
-            
+
     # Find problematic slices if any
     idon  = np.where(tot_n_on  <= n_min)[0] # Indices with problem
     idoff = np.where(tot_n_off <= n_min)[0] # Indices with problem
     idrm  = np.hstack([idon,idoff])        # Concatenate
     idrm  = np.asarray(list(set(idrm)))    # Sort, simplify
-    
+
     # Compute excess,background and significance from the cumulated counts
     tot_excess       = tot_n_on - alpha * tot_n_off
     tot_bkg          = alpha * tot_n_off
     tot_significance = significance_on_off(tot_n_on,tot_n_off,tot_alpha)
-    
+
     # Set significiance to nan if not trustable
     if (len(idrm) != 0): tot_significance[idrm] = np.nan
 #            print("Li&Ma not applicable at slices :",idrm)
@@ -258,4 +255,4 @@ def cumulative_OnOffstats(simulations,n_min=10,alpha=0.2,debug=False):
                 n_on     = tot_n_on,
                 n_off    = tot_n_off,
                 alpha    = tot_alpha,
-                delta_t  = delta_t)    
+                delta_t  = delta_t)
