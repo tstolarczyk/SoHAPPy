@@ -17,10 +17,12 @@ import astropy.units as u
 from   astropy.visualization import quantity_support
 from   astropy.coordinates   import AltAz
 
-from gammapy.stats import background_error
+import gammapy
+if (gammapy.__version__ == "0.12"):
+    from gammapy.stats import background_error
 
-import mcsim_config as mcf
 import ana_config as cf
+import mcsim_config as mcf
 
 # from utilities import MyLabel, stamp
 
@@ -42,7 +44,7 @@ def pause():
     Used to pause plot display in interactive mode on a shell script. In the
     abscence of a call to that function figures will stack on the screen during
     the run and all disappear at the end of the run.
-    Usingthis, figures will be stacked on screen and displayed for each event
+    Using this, figures will be stacked on screen and displayed for each event
     until they are closed by the user.
 
     Returns
@@ -72,9 +74,8 @@ def plot_on_off(ax,nex,nb,
     Plot Non versus Noff from the background and excess counts.
     Draw the error bars from the variances
     """
-    non       = np.add(nex,nb)
-    noff      = np.true_divide(nb,mcf.alpha)
-
+    non      = np.add(nex,nb)
+    noff     = np.true_divide(nb,mcf.alpha)
     non_mean  = np.mean(non)
     non_std   = np.std(non)
     noff_mean = np.mean(noff)
@@ -113,36 +114,43 @@ def stat(mc, saveplots, outfile):
     """
 
     if (saveplots == 0): return
-    if (mc.ndof != 0):
+    if (mc.method != 0):
         sig = '$\sigma_{\sqrt{TS}}$'
+        if (mc.slot.site == "Both"):
+            Warning(" No Stat plot with Both site")
+            return
     else:
         sig = '$\sigma_{Li&Ma}$'
 
+
+    ###
+    ### Compute relevant quantities
+    ###
+
+    # Measurement points
+    t_s = np.asarray([s.tobs().value for s in mc.slot.slices])
+
+    # Max siginificance and error and time
+    tmax     = [mc.slot.slices[i].tobs().value
+                for i in mc.id_smax_list]
+    smax     = np.mean(mc.smax_list)
+    err_smax = np.std(mc.smax_list)
+
+    # 3 sigma and 5 sigma times
+    t3s = [mc.slot.slices[i].tobs().value
+             for i in mc.id_3s_list]
+    t5s = [mc.slot.slices[i].tobs().value
+             for i in mc.id_5s_list]
+
+    fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,10))
+
     with quantity_support():
-
-        # Compute relevant quantities
-        eventid = mc.name
-        t_s = [s.tobs() for s in mc.slot.slices]
-
-        tmax = [mc.slot.slices[i].tobs().value
-                 for i in mc.id_smax_list
-                 if mc.slot.slices[i].tobs().value>=0]
-        smax = np.max(mc.smax_list)
-        err_smax = np.std(mc.smax_list)
-        t3s = [mc.slot.slices[i].tobs().value
-                 for i in mc.id_3s_list
-                 if mc.slot.slices[i].tobs().value>=0]
-        t5s = [mc.slot.slices[i].tobs().value
-                 for i in mc.id_5s_list
-                 if mc.slot.slices[i].tobs().value>=0]
-
-        fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,10))
 
         ### Mean significance at each slice
         ax1.errorbar(t_s,
                      mc.sigma_mean,
-                     yerr=mc.sigma_std,
-                     fmt='o')
+                     yerr = mc.sigma_std,
+                     fmt  ='o')
         xmin, xmax = ax1.get_xlim()
         ymin, ymax = ax1.get_ylim()
 
@@ -178,27 +186,29 @@ def stat(mc, saveplots, outfile):
 
         ax1.set_xlabel('Observation duration (s)')
         ax1.set_ylabel(sig)
-        ax1.set_title(eventid +' ('+str(mc.niter)+' iter.)')
+        ax1.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
         ax1.set_xscale("log", nonposx='clip')
         ax1.grid(which='both',alpha=0.2)
 
         if (mc.niter >1):
             #ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
-            ax11 = ax1.inset_axes([0.3,0.05,0.3,0.5]) # lower corner x,y, w, l
-            ax11.hist(mc.smax_list,
-                      bins  = max(int(mc.niter/2),1), # Cannot be < 1
-                      range = [smax-3*err_smax,smax+3*err_smax],
-                      alpha=0.5,
-                      color = "grey",
-                      label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
+            ax11 = ax1.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
+            n, bins,_ = ax11.hist(mc.smax_list,
+                        bins  = max(int(mc.niter/2),1), # Cannot be < 1
+                        range = [smax-3*err_smax,smax+3*err_smax],
+                        alpha=0.5,
+                        color = "grey",
+                        label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
+            ax11.tick_params(axis='x', labelsize=10,pad=0.)
+            ax11.tick_params(axis='y', labelsize=10,pad=0.)
+            ax11.set_xlabel(sig,fontsize=12,labelpad=0)
+            ax11.set_ylabel('Trials',fontsize=12,labelpad=0)
 
-            ax11.set_xlabel(sig,fontsize=12)
-            ax11.set_ylabel('Trials',fontsize=12)
-
-        ax1.legend(loc="lower right")
+        ax1.legend(loc="upper right")
 
         ### Non, Noff - Log
         logscale = True
+
         plot_on_off(ax2,mc.nex_3s_list,mc.nb_3s_list,
                     color=col3,
                     desc = "$3\sigma$",
@@ -232,7 +242,7 @@ def stat(mc, saveplots, outfile):
     return
 
 ###############################################################################
-def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
+def story(mc, saveplots, outfile, loc="nowhere", ref="VIS"):
     """
     Show altitude versus time and points used for computation
 
@@ -251,10 +261,10 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
     # Allows seing trigger within the night
     # Create points from the stat of teh firts night
     # to the end of the last night
-    tvis1 = grb.t_twilight[loc][0][0]
-    tvis2 = grb.t_twilight[loc][-1][1]
+    tvis1 = grb.vis[loc].t_twilight[0][0]
+    tvis2 = grb.vis[loc].t_twilight[-1][1]
     dtvis = (tvis2-tvis1).to(u.s)
-    tvis = np.linspace(0,dtvis.value,100)*dtvis.unit
+    tvis  = np.linspace(0,dtvis.value,100)*dtvis.unit
 
     # Set the reference time
     event_name = grb.name+" - " + loc
@@ -284,9 +294,9 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
 
     # Compute GRB observation points
     t_s = [s.tobs() for s in mc.slot.slices]*mc.slot.slices[0].tobs().unit
-    tgrb_obs_abs   = grb.t_trig + t_s # Absolute time
-    tgrb_obs_rel   = tgrb_obs_abs - tref
-    altazobs   = grb.radec.transform_to( AltAz(obstime= tgrb_obs_abs,
+    tgrb_obs_abs = grb.t_trig + t_s # Absolute time
+    tgrb_obs_rel = tgrb_obs_abs - tref
+    altazobs     = grb.radec.transform_to( AltAz(obstime= tgrb_obs_abs,
                                                     location=coord))
 
     # Get the max significancae and the detection time if they exist
@@ -334,7 +344,7 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
         # Dark time
         first = True
 
-        for elt in grb.t_twilight[loc]:
+        for elt in grb.vis[loc].t_twilight:
             if (first):
                 label="Night"
                 first= False
@@ -346,7 +356,7 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
 
 
         # minimal altitude in simulation
-        ax1.axhline(y=mc.slot.grb.altmin,
+        ax1.axhline(y=mc.slot.grb.vis[loc].altmin,
                     ls="dashdot",
                     color="grey")
 
@@ -437,7 +447,90 @@ def story(mc, saveplots, outfile,loc="nowhere",ref="VIS"):
 # Plot one trial
 #
 ###############################################################################
-def onetrial(mc):
+def onetrial(dsets, slot):
+    from gammapy.estimators import FluxPointsEstimator
+
+
+
+    print(" One trial plots")
+    nplots = len(dsets)
+    ncols = 5
+    nrows = int((nplots)/ncols)+1
+    fig, ax = plt.subplots(ncols=ncols,nrows=nrows,figsize=(20,5*nrows))
+
+    iplot = 0
+    for jrow in range(nrows):
+        for icol in range(ncols):
+        #print("col=",i," row=",j)
+            if (iplot < nplots):
+                ax0 = ax[jrow][icol]
+                dsets[iplot].plot_counts(ax=ax0)
+                ax0.legend()
+                if (jrow<nrows-1):
+                    ax0.axes.get_xaxis().set_visible(False)
+                iplot+=1
+    fig.tight_layout(h_pad=0)
+    plt.show()
+
+    fig, ax = plt.subplots(ncols=ncols,nrows=nrows,figsize=(15,5*nrows))
+    iplot = 0
+    for jrow in range(nrows):
+        for icol in range(ncols):
+        #print("col=",i," row=",j)
+            if (iplot < nplots):
+                dset = dsets[iplot]
+                slice = slot.slices[iplot]
+                ax0 = ax[jrow][icol]
+
+                fpe = FluxPointsEstimator(
+                    e_edges=slice.irf()[0].ereco.edges)
+                flux_points = fpe.run(datasets=dset)
+                flux_points.table["is_ul"] = flux_points.table["ts"] < 4
+                flux_points.plot(energy_power=2,
+                          flux_unit="erg-1 cm-2 s-1",
+                          color="tab:blue",ax=ax0)
+                spectrum = slot.grb.spectra[slice.fid()]
+                t = slice.tobs().to(u.s)
+                if (t.value > 3600):
+                    t = t.to(u.h)
+                if (t.value > 3600*24):
+                    t = t.to(u.day)
+                tobs = str( round(t.value,2)) + str(t.unit)
+                spectrum.plot(energy_range=dset.energy_range,
+                                  flux_unit='cm-2 s-1 erg-1',
+                                  energy_power=2,
+                                  energy_unit='TeV',
+                                  n_points=10,
+                                  ax=ax0,ls=":",color="red",marker="",
+                                  label=tobs)
+                ax0.legend()
+                if (jrow<nrows-1):
+                    ax0.axes.get_xaxis().set_visible(False)
+                iplot+=1
+                if (icol !=0): ax0.set_ylabel(None)
+    fig.tight_layout(h_pad=0)
+    plt.show()
+    # for dset, slice in zip(dsets, slot.slices):
+    #     fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols= 3, figsize=(16,5))
+
+    #     # Extract spectrum
+    #     # flux_points.to_sed_type("e2dnde").plot_ts_profiles(ax=ax3,
+    #     #                                                    cmap="Blues",
+    #     #                                                    alpha=0.5)
+    #     spectrum = slot.grb.spectra[slice.fid()]
+    #     spectrum.plot(energy_range=dset.energy_range,
+    #                               flux_unit='cm-2 s-1 erg-1',
+    #                               energy_power=2,
+    #                               energy_unit='TeV',
+    #                               n_points=10,
+    #                               ax=ax3,ls=":",color="red",marker="",
+    #                               label="Theory")
+    #     ax3.legend()
+
+    return
+
+###############################################################################
+def onetrial12(stats):
 
     """
     Plot some detection statistics for the current trials
@@ -445,10 +538,7 @@ def onetrial(mc):
 
     The plots can be rearranged giving the various axis values
     """
-
-    from fit_onoff import cumulative_OnOffstats
     from gammapy.stats import excess_error
-    stats = cumulative_OnOffstats(mc.simulations)
 
     fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(nrows=2,ncols=2,figsize=(18, 18))
 
