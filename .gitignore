@@ -16,3 +16,4 @@ docs/api/*
 *.pyc
 .spyproject/*
 *.stats
+timeslot.log
