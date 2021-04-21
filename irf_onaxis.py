@@ -1,13 +1,11 @@
 # Imported by hand from https://github.com/gammapy/gammapy-extra/blob/master/valhalla/cta_simulation/cta_irf.py
-import astropy.units as u
+from __future__ import absolute_import, division, print_function, unicode_literals
 from astropy.io import fits
 from astropy.table import Table
-
-import gammapy
-
 from gammapy.utils.scripts import make_path
 
 # # Avoid deprecation Astropy warnings in gammapy.maps
+import gammapy
 import warnings
 with warnings.catch_warnings():
     #from gammapy.utils.nddata import NDDataArray, BinnedDataAxis # Gammapy 0.9
@@ -15,74 +13,16 @@ with warnings.catch_warnings():
     from gammapy.maps import MapAxis
     from gammapy.irf import EffectiveAreaTable2D, EffectiveAreaTable, Background3D
     from gammapy.irf import EnergyDispersion2D, EnergyDependentMultiGaussPSF
-    if (gammapy.__version__ == "0.12"):
-        from gammapy.cube import make_map_exposure_true_energy, make_map_background_irf
-        from gammapy.cube import PSFKernel
 
 import numpy as np
 __all__ = [
-    'get_irf_components',
     'CTAIrf',
     'BgRateTable',
     'Psf68Table',
     'SensitivityTable',
     'CTAPerf_onaxis',
 ]
-###############################################################################
-def get_irf_components(self,obs_param, pointing, irfs, debug=False):
 
-    """Get the IRf components"""
-
-    axis = obs_param.axis
-    duration = obs_param.livetime
-    geom = obs_param.geom
-    fov = obs_param.fov
-
-    offset = 0*u.deg
-
-    ### Compute the exposure map
-    exposure = make_map_exposure_true_energy(
-                pointing = pointing.galactic, # does not accept SkyCoord altaz
-                livetime = duration,
-                aeff     = irfs["aeff"],
-                geom     = geom)
-
-    ### Compute the background map
-    background = make_map_background_irf(
-                    pointing = pointing.galactic, # does not accept SkyCoord altaz
-                    ontime   = duration,
-                    bkg=irfs["bkg"],
-                    geom=geom
-                    )
-
-    ### Point spread function
-    psf = irfs["psf"].to_energy_dependent_table_psf(theta=offset)
-    psf_kernel = PSFKernel.from_table_psf(psf, geom, max_radius=fov/2) # Why this max_radius ?
-
-    ### Energy dispersion
-    edisp = irfs["edisp"].to_energy_dispersion(offset,
-                e_reco=axis.edges,
-                e_true=axis.edges)
-
-    if (debug>2):
-        # Maybe this could go into a irf_plot module
-        import matplotlib.pyplot as plt
-        islice = 3
-
-        exposure.slice_by_idx({"energy": islice-1}).plot(add_cbar=True)
-        plt.title("Exposure map")
-
-        background.slice_by_idx({"energy": islice}).plot(add_cbar=True)
-        plt.title("Background map")
-
-        psf_kernel.psf_kernel_map.sum_over_axes().plot(stretch="log")
-        plt.title("point spread function")
-
-        edisp.plot_matrix()
-        plt.title("Energy dispersion matrix")
-        plt.show()
-
-    return exposure, background, psf_kernel, edisp
 ###############################################################################
 #
 ###############################################################################
@@ -127,11 +67,11 @@ class CTAIrf(object):
 
 
     ###########################################################################
-    def __init__(self,
-                 aeff =None,
-                 edisp=None,
-                 psf  =None,
-                 bkg  =None,
+    def __init__(self, 
+                 aeff =None, 
+                 edisp=None, 
+                 psf  =None, 
+                 bkg  =None, 
                  ref_sensi=None,
                  name =None):
         self.aeff = aeff
@@ -504,7 +444,7 @@ class CTAPerf_onaxis(object):
     """
 
     ###########################################################################
-    def __init__(self, aeff=None, edisp=None, psf=None,
+    def __init__(self, aeff=None, edisp=None, psf=None, 
                  bkg=None, sens=None, rmf=None, name=None):
         self.aeff = aeff
         self.edisp = edisp
@@ -552,11 +492,7 @@ class CTAPerf_onaxis(object):
 #        e_true_axis = EnergyBounds.equal_log_spacing(
 #            e_true_min, e_true_max, e_true_bin, 'TeV',
 #        )
-        if (gammapy.__version__ == "0.12"):
-            e_true_axis = aeff.data.axis("energy").edges
-        if (gammapy.__version__ == "0.17"):
-            e_true_axis = aeff.data.axis("energy_true").edges
-
+        e_true_axis = aeff.data.axis("energy").edges
         rmf = edisp.to_energy_dispersion(
             offset=offset, e_reco=e_reco_axis, e_true=e_true_axis,
         )

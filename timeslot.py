@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-This code handle the observation windows in CTA North and South sites and
-combine observation of both site and/or on several days
+This script is a development and test code for manupulating the observation
+windows in CTA North and South sites and in particular to to combine
+observation of both site and/or on several days
 
 Created on Mon Mar 30 10:36:09 2020
 
@@ -12,9 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
 from copy import deepcopy
-import warnings
 
 from obs_slice import Slice
+#from utilities import warning
 
 vis_keys = ["North","South","Both"]
 
@@ -81,7 +82,7 @@ class Slot():
         """
 
         self.grb   = grb
-        self.name  = grb.name
+        self.name  = name
         self.site  = site
         self.delay = delay # Has so far no sense if merged sites
         self.opt   = opt
@@ -100,9 +101,9 @@ class Slot():
         return
 
     #------------------------------------------------------------
-    def dress(self, name="dressed", irf_dir="./", arrays=None, debug=False):
+    def dress(self,name="dressed"):
         """
-        Dress slices with physics information
+        Dress a slice with physiscs information
 
         Returns
         -------
@@ -111,45 +112,7 @@ class Slot():
         """
 
         self.phys = True
-        for s in self.slices: s.dress(self.grb,
-                                      irf_dir = irf_dir,
-                                      arrays  = arrays,
-                                      opt=self.opt)
-
-        # After dressing, two consecutives slices can be associated to the
-        # same spectrum id and should be merged
-        to_be_compacted = True
-        while (to_be_compacted):
-
-            fidlist = [s.fid() for s in self.slices]
-            if (len(fidlist) != len(set(fidlist))):
-                #print(" Go to compacting\n", self)
-                self.compact()
-                #print("compacted!!!")
-            else:
-                to_be_compacted = False
-
-        return
-
-    #------------------------------------------------------------
-    def compact(self):
-
-        prev_fid = -999
-        newslices = []
-        idt = 0
-        for i, s in enumerate(self.slices):
-            fid = s.fid()
-            if (fid == prev_fid):
-                # Change end-time of prev-spec to this spec
-                # print(" Slice ",i," merged with slice ",i-1)
-                self.slices[i-1].merge(s)
-            else:
-                s.set_id(idt)
-                newslices.append(s)
-                idt+=1
-            prev_fid = fid
-
-        self.slices = newslices
+        for s in self.slices: s.dress(self.grb,opt=self.opt)
 
         return
 
@@ -163,20 +126,18 @@ class Slot():
         return slot_copy
 
     #------------------------------------------------------------
-    def apply_visibility(self, site="?",delay = 0*u.s,debug=False):
+    def apply_visibility(self, site="?",delay = 0*u.s):
         """
 
-        Apply visibility window and delay to the slot, i.e. change time
-        boundaries and re-dress when needed.
 
         Parameters
         ----------
-        site : String, optional
-            The site identifier. The default is "?".
-        delay : Quantity, optional
-            The delay before detection can start. The default is 0*u.s.
-        debug : Boolean, optional
-            Verbose mode if True. The default is False.
+        t1 : TYPE
+            DESCRIPTION.
+        t2 : TYPE
+            DESCRIPTION.
+        site : TYPE, optional
+            DESCRIPTION. The default is None.
 
         Returns
         -------
@@ -188,7 +149,7 @@ class Slot():
         unit = self.grb.tval[0].unit
 
         #------------------------------------------
-        ### Check if t is within a visibility window
+        ### Checkif t is within a visibility window
         def visible(t):
             ok = False
             for t1, t2 in zip(tstart,tstop):
@@ -207,26 +168,16 @@ class Slot():
 
         # Create visibility start and stop time and store
         shift = True
-        tstart =[]
-        tstop = []
-        for tvis in self.grb.vis[self.site].t_true:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore")
-                t0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
-                t1 = (tvis[1] - self.grb.t_trig).sec
-            if (t1 < t0):
-                print(" Delay made this slice vanished, duration =",t1-t0)
-            else:
-                tstart.append(t0)
-                tstop.append(t1)
-                ticks.append(t0)
-                ticks.append(t1)
-                if shift : shift=False
-
-        if (len(tstart) == 0):
-            # If delays are such that all slices disappear, then
-            # the GRB become not visible
-            return False
+        tstart = []
+        tstop  = []
+        for tvis in self.grb.t_true[self.site]:
+           t0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
+           t1 = (tvis[1] - self.grb.t_trig).sec
+           tstart.append(t0)
+           tstop.append(t1)
+           ticks.append(t0)
+           ticks.append(t1)
+           if shift : shift=False
 
         ticks=list(set(ticks)) # FIRST remove duplicated entries
         ticks.sort() # THEN Sort (because 'set' change the order)
@@ -248,11 +199,10 @@ class Slot():
         self.tstart = self.slices[0].ts1()
         self.tstop  = self.slices[-1].ts2()
         self.delay  = delay # Loose the delay information after merging
-        #self.dress(name = self.name)
-        return True
+        self.dress(name = self.name)
+        return
     #------------------------------------------------------------
     def merge(self,slot,name="Merged",debug=False):
-
         """
         Merge current slot (self) with another slot.
 
@@ -290,7 +240,6 @@ class Slot():
         ticks.sort() # THEN Sort (because 'set' change the order)
 
         newslices = []
-        icount=0
         for i in range(len(ticks)-1):
             t1 = ticks[i]
             t2 = ticks[i+1]
@@ -303,16 +252,15 @@ class Slot():
             else:
                 if (idxb >=0): loc = slot.site
                 else:          loc = None
-            # Append only if associated to one or two sites
             if (loc != None):
-                s  = Slice(icount,t1*unit,t2*unit,site=loc)
-                s.set_id(icount)
-                icount+=1
-                newslices.append(s)
+                s  = Slice(i,t1*unit,t2*unit,site=loc)
+                s.set_id(i)
+
+            newslices.append(s)
 
         # Create a slot from existing and replace content
         self.slices = newslices
-        #self.dress(name="Merged")
+        self.dress(name="Merged")
         self.tstart = min(ticks)*unit
         self.tstop  = max(ticks)*unit
         self.site   = "Both"
@@ -380,9 +328,8 @@ class Slot():
 
         ### Show delay window
         if(self.delay.value >= 0):
-            label = "Delay {}".format(self.delay)
             ax.axvspan( tmin, tmin + self.delay.to(u.s).value,
-                            alpha=0.5,color="grey",label=label)
+                            alpha=0.5,color="grey",label="Delay {}".format(self.delay))
 
         ### Slices and flux points
         if self.phys: # If dressed
@@ -413,13 +360,13 @@ class Slot():
         tref = self.grb.t_trig
 
         if (self.site == "North" or self.site == "Both"):
-            for elt in self.grb.vis["North"].t_true:
+            for elt in self.grb.t_true["North"]:
                 ax.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
                             alpha=0.2,color="tab:blue",label="vis. North")
 
         if (self.site == "South" or self.site=="Both"):
-            for elt in self.grb.vis["South"].t_true:
+            for elt in self.grb.t_true["South"]:
                 ax.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
                             alpha=0.2,color="tab:red",label="vis. South")
@@ -438,7 +385,6 @@ class Slot():
         """
         Print our the content of a slice set.
         """
-
         print(" Observation set : ",self.name," site=",self.site)
         print("   Visibility : ",self.tstart," to ",self.tstop)
         print("    including : ",self.delay, "of delay")
@@ -450,19 +396,16 @@ class Slot():
         return " "
 
     #------------------------------------------------------------
-    def both_sites(self,delay = {"North":0*u.s, "South":0*u.s},debug = False):
+    def both_sites(self, delay = 0*u.s, debug = False):
         """
-        Find the vibilities in N and S be given the delays for observation.
-        In particular in many case the delay will be applied to the first
-        in time site (except if the original visibilities differ by a time
-        difference less than the delay).
+
 
         Parameters
         ----------
-        delay : Time Quantity, optional
-            Delay for observation. The default is 0*u.s.
-        debug : Boolean, optional
-            Verbose mode if True. The default is False.
+        delay : TYPE, optional
+            DESCRIPTION. The default is 0*u.s.
+        debug : TYPE, optional
+            DESCRIPTION. The default is False.
 
         Returns
         -------
@@ -471,22 +414,22 @@ class Slot():
         """
 
         # Compute the delays to be applied to the sites
-        delta = (self.grb.vis["North"].t_true[0][0]
-                 -  self.grb.vis["South"].t_true[0][0] ).sec*u.s
+        delta = (self.grb.t_true["North"][0][0]
+                 -  self.grb.t_true["South"][0][0] ).sec*u.s
 
         # Add delay to the first one plus the difference to the second
         if (delta.value < 0):
             if debug: print("North is before South by ",-delta)
-            delay_n = delay["North"]
-            delay_s = max(0*u.s,delay["South"]-abs(delta))
+            delay_n = delay
+            delay_s = max(0*u.s,delay-abs(delta))
         elif (delta.value > 0):
             if debug: print("South is before North by ",delta)
-            delay_n = max(0*u.s,delay["North"]-delta)
-            delay_s = delay["South"]
+            delay_n = max(0*u.s,delay-delta)
+            delay_s = delay
         elif (delta.value == 0):
             if debug: print("North and South are simultaneaous ",delta)
-            delay_n = delay["North"]
-            delay_s = delay["South"]
+            delay_n = delay
+            delay_s = delay
 
         # Get slots for both sites and merge
         slot_n = self.copy()
@@ -494,11 +437,6 @@ class Slot():
         slot_s = self.copy()
         slot_s.apply_visibility(site="South",delay = delay_s)
         slot_n.merge(slot_s)
-
-        # Should not we check that one of the two is still visible after
-        # the delays are applied ? In fact invisbility is very rare: this
-        # would require the two sites to be quasi-simultaneous, with a short
-        # initial visibility window
 
         # Dress with physics
         if (debug): print(slot_n)
@@ -561,6 +499,7 @@ if __name__ == "__main__":
 
     import gammapy
     from SoHAPPy import get_grb_fromfile
+    import grb_plot as gplt
 
     if (gammapy.__version__ == "0.12"):
         from   gammapy.spectrum.models import Absorption
@@ -574,13 +513,9 @@ if __name__ == "__main__":
     log = Log(name  = logfilename,talk=True)
 
 
-    cf.dbg_level = 2
-    cf.newvis    = True
-    cf.altmin    = 10*u.deg # Minimum altitude (original default is 10 degrees)
-
-    delay = 0*u.s
-    ifirst= [85] # 1, 85, 204
-    # ifirst = 100
+    cf.dbg_level  = 0
+    delay = 30*u.s
+    ifirst= [64]
     ngrb = 1
 
     # GRB list to be analysed
@@ -590,54 +525,65 @@ if __name__ == "__main__":
         grblist = ifirst
 
     # Loop over GRB list
+    import visibility as v
     for i in grblist:
 
+
         grb = get_grb_fromfile(i) # Get GRBs
-
-        # Recompute visbility windows
-        if (cf.newvis):
-            grb.vis["North"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
-            grb.vis["South"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
-
-        # Printout grb and visibility windows
-        if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
-            log.prt(grb)
-            grb.vis["North"].print(log=log)
-            grb.vis["South"].print(log=log)
-
+        print(grb)
         # Create the GRB  slot
-        origin = Slot(grb,opt="end")
-        #print(origin)
-        origin.plot(ax=plt.subplots()[1])
+        slot_original = Slot(grb,opt="end")
+        #print(slot_original)
+        #slot_original.plot(ax=plt.subplots()[1])
 
+        ###
+        # Time slot plotting and visibility tests
+        ###
+        plot = True
+        if plot:            # Compute visibility - update GRB information
+            for loc in ["North","South"]:
 
-        for loc in ["North","South"]:
-            if grb.vis[loc].vis_tonight:
-                slot = origin.copy(name="loc")
-                still_vis = slot.apply_visibility(delay = delay,                                             site  = loc)
-                #print(slot)
-                if (still_vis):
-                    slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
-                else:
-                    print(" Slot vanished after aplying delays")
-                print(slot)
+                vis = v.Visibility(grb,loc=loc) # Constructor
+                vis.compute(altmin=cf.altmin,depth=10)
+                grb.update_visibility(vis)
+                #grb.show_visibility(loc=loc,log=log)
+                gplt.visibility_plot(grb,loc=loc)
 
-        if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
-            slot = origin.both_sites(delay   = delay,
-                                       debug =(cf.dbg>1))
-            slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
+            #     if grb.vis_tonight[loc]:
+            #         slot = slot_original.copy()
+            #         slot.apply_visibility(site=loc, delay=delay)
+            #         slot.plot()
+            #         print(slot)
 
-            print(slot)
+            if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
+                slot_b = slot_original.both_sites(delay = delay, debug =False)
+                slot_b.plot()
+                print(slot_b)
 
-    log.close()
+        ### Merging test
+        merge = False
+        if merge:
+            if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
+
+                slot_n = slot_original.copy()
+                slot_n.apply_visibility(delay= delay)
+                slot_s =slot_original.single_site(site="South",
+                                                  delay= delay)
+                slot_n.plot()
+                slot_s.plot()
+                print(slot_n)
+                print(slot_s)
+
+                slot_b2 = slot_n.copy()
+                slot_b2.merge_old(slot_s,name="old merging")
+                print(slot_b2)
+                slot_b2.plot(ax=plt.subplots()[1])
+
+                slot_b = slot_n.copy()
+                slot_b.merge(slot_s,debug=False)
+                print(slot_b)
+                slot_b.plot(ax=plt.subplots()[1])
+
     print("c'est fini")
 
 

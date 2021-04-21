@@ -2,63 +2,40 @@
 * Create a GRB list to be analysed from the config file or the command line (:func:`init`)
 
 
-seed= 'random-seed'
-Advanced usage:
-In SoHappy.py, change warnings.filterwarnings('ignore') into
-warnings.filterwarnings('error') to have the code stopped in case of warning,
-and be able to identify its origin.
-The 'ignore' option is motivated by to warning in astropy (deprecation or
-too distant dates).
-
 """
-from __init__ import __version__
-
+# from . import __version__ # does not work
+__version__ = "Sofia dev"
 
 import os
 import sys, getopt
 
-import gammapy
-if (gammapy.__version__ == "0.12"):
-    from   mcsim12 import MonteCarlo
-else:
-    from   mcsim  import MonteCarlo
+import numpy as np
+import time, datetime
+import pickle
+
+from   pathlib import Path
+import astropy.units as u
+
+import ana_config as cf # Steering parameters
+
+# Transform warnings into errors - useful to find who is guilty !
+# import warnings
+# warnings.filterwarnings('error')
+
+import gammapy # Just for the version number
+
+from grb            import GammaRayBurst
+from timeslot       import Slot
+from   mcsim        import MonteCarlo
+import mcsim_res    as mcres
+
+from utilities import backup_file, Log, warning
+import visibility as v
 
 os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
 os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
 #print(os.getenv('GAMMAPY_EXTRA'))
 #print(os.listdir(os.getenv('GAMMAPY_EXTRA')))
-
-# Transform warnings into errors - useful to find who is guilty !
-import warnings
-#warnings.filterwarnings('error')
-warnings.filterwarnings('ignore')
-
-import numpy as np
-import time
-import pickle
-
-from   datetime import datetime
-from   pathlib  import Path
-import astropy.units as u
-
-import ana_config as cf # Steering parameters
-
-from grb            import GammaRayBurst
-from timeslot       import Slot
-
-import mcsim_res  as mcres
-from utilities    import backup_file, Log, warning, success
-
-# Do not refresh IERS data
-from astropy.utils import iers
-iers.conf.auto_download = False
-
-# For refreshing
-# print(" Refreshing IERS")
-# from astroplan import download_IERS_A
-# download_IERS_A
-# print(" ->Done")
-
 
 __all__ = ["main", "init", "summary", "get_grb_fromfile", "get_delay"]
 ###############################################################################
@@ -94,22 +71,20 @@ def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
             # use afterglow characteristics
             loc_glow = Path(cf.grb_dir + "/Event"+str(i)+".fits")
             glow = GammaRayBurst.read(loc_glow, ebl = cf.EBLmodel)
-            grb = GammaRayBurst.read_prompt(loc,
-                                            glow=glow,
-                                            ebl = cf.EBLmodel,
-                                            magnify = cf.magnify)
+            grb = GammaRayBurst.read_prompt(loc, glow=glow, ebl = cf.EBLmodel)
         else:
             # use default visibility
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=None,
                                             ebl = cf.EBLmodel,
-                                            z=cf.redshift,
-                                            magnify = cf.magnify)
+                                            z=cf.redshift)
     else:
-        loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
-        grb = GammaRayBurst.read(loc,
-                                 ebl = cf.EBLmodel,
-                                 magnify = cf.magnify)
+        if (cf.old_file):
+            loc = Path(cf.grb_olddir + "LGRB"+str(i))
+            grb = GammaRayBurst.read_old(loc,ebl = cf.EBLmodel)
+        else:
+            loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
+            grb = GammaRayBurst.read(loc, ebl = cf.EBLmodel)
 
     return grb
 
@@ -172,18 +147,14 @@ def init(argv):
     else: cf.show = abs(cf.dbg)
 
     if (cf.do_fluctuate == False): cf.niter = 1
-    #if (cf.niter == 1): cf.do_fluctuate=False
+    if (cf.niter == 1): cf.do_fluctuate=False
     if (cf.dbg>0): cf.silent = False
 
-    # Check that the output folder exists, otherwise create it
+    # Check that the output folder exist, otherwise create it
     if (cf.res_dir[-1] != "/"): cf.res_dir = cf.res_dir+"/"
     if not os.path.isdir(cf.res_dir):
         warning("Creating {}".format(cf.res_dir))
         os.mkdir(cf.res_dir)
-
-    # Avoid writing mutliple datasets when iteration number > 1
-    if (cf.niter > 1):
-        cf.save_dataset = False
 
     return
 
@@ -203,7 +174,7 @@ def summary(log=None):
 
     """
 
-    log.prt(datetime.now())
+    log.prt("")
     log.prt("+----------------------------------------------------------------+")
     log.prt("|                                                                |")
     log.prt("|                    SoHAPPy with GammaPy {:4s}                   |"
@@ -228,26 +199,16 @@ def summary(log=None):
     log.prt("      IRF files in       : {}".format(cf.irf_dir))
     log.prt("      Result folder*     : {}".format(cf.res_dir))
     log.prt(" Minimum altitude        : {}".format(cf.altmin))
-    log.prt(" Site sub-arrays         : N:{} S:{}"
-            .format(cf.arrays["North"],cf.arrays["South"]))
-    log.prt(" Slewing time            : N:{} S:{}"
-            .format(cf.dtslew["North"],cf.dtslew["South"]))
-    log.prt("      Fixed              : {}".format(cf.fixslew))
-    log.prt("   SWIFT delay fixed     : {}".format(cf.fixswift))
-    if (cf.fixswift):
-        log.prt("                value : {}".format(cf.dtswift))
+    if (cf.lkhd ==0):
+        method = "On-Off"
     else:
-        log.prt("            Read from : {}".format(cf.swiftfile))
-    # if (cf.method ==0):
-    #     method = "On-Off Aperture photometry"
-    # elif (cf.method == 1):
-    #     method = "On-off Energy dependent"
-    log.prt(" Analysis (ndof)         : {}".format(cf.method))
+        method = "{}D likelihood".format(cf.lkhd)
+    log.prt(" Analysis (ndof)         : {}".format(method))
     if (cf.newvis):
-        log.prt(" Vis. computed up to     : {}".format(cf.depth))
+        log.prt(" Vis. computed up to : {}".format(cf.depth))
     else:
-        log.prt(" Visibility                  : default")
-    log.prt(" Skip up to night            : {}".format(cf.skip))
+        log.prt(" Visibility          : default")
+    log.prt(" Skip up to night        : {}".format(cf.skip))
 
     log.prt("+----------------------------------------------------------------+")
     log.prt("|                 *: can be changed with command line (use -h)   |")
@@ -255,26 +216,17 @@ def summary(log=None):
     log.prt(" Developments:")
     if (cf.save_grb == True):
         log.highlight("Simulation saved to disk save_grb (save_grb = True)       ")
-
     if (cf.write_slices == True):
         log.highlight("Slice information saved to disk (write_slices=True)       ")
-
     if (cf.signal_to_zero == True):
         log.warning(  "Signal set to zero (signal_to_zero==True)                 ")
-
     if (cf.do_fluctuate == False):
         log.warning(  "No fluctuation in simulation (do_fluctuate==False)        ")
-
     if (cf.do_accelerate  == False):
         log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
-
     if (cf.fixed_zenith != False):
         log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
                .format(cf.fixed_zenith))
-    if (cf.magnify !=1):
-        log.warning(  "GRB flux values are multiplied by {}"
-                .format(cf.magnify))
-
     if (cf.niter == 0):
         log.failure(  " Cannot run simulation with ZERO trials")
         log.warning(  " Use other main specific scripts for tests")
@@ -290,7 +242,7 @@ def summary(log=None):
 def get_delay():
     """
     Compute the overall delay to be applied to the start of detection
-    (satellite and telescope slewing), according to the user parameters.
+    (satelite and telescope slewing), according to the user parameters
 
     Returns
     -------
@@ -298,47 +250,20 @@ def get_delay():
         Delay before the detection can start.
 
     """
-    delay = {"North":0*u.s, "South":0*u.s}
 
-    for loc in ["North", "South"]:
+    dt = 0*u.s
+    if (cf.fixslew):  dt = cf.dtslew
+    else:             dt = cf.dtslew*np.random.random()
 
-        dt = 0*u.s
-        if (cf.fixslew):  dt = cf.dtslew[loc]
-        else:             dt = cf.dtslew[loc]*np.random.random()
+    if (cf.fixswift): dt = dt + cf.dtswift # don't do += !!!
+    else: sys.exit("Variable SWIFT delay not implemented)")
 
-        if (cf.fixswift): dt = dt + cf.dtswift # don't do += !!!
-        else: sys.exit("Variable SWIFT delay not implemented)")
-        delay[loc] = dt.to(u.s)
-
-    return delay
+    return dt.to(u.s)
 
 ###############################################################################
 def main(argv):
     """
-    1. Manage input/output
-        - GRB data identifier list
-        - open output simulation and log files
-
-    2. Loop over input identifier list
-        - get GRB data from the identifier
-        - create original time slot form the GRB data
-        - update vibilities in N and S if requested
-        - save GRB if requested
-        - Check individual sites (N and S)
-            - Create a MC object
-            - Modify the time slot fopr the visibility including the delays
-            - If GRB is still vsisible:
-                - Dress the GRB slot with physics (IRF and spectra)
-                - Run the simulation
-            - Display results even if not visible
-        - Check the N+S case if GRB visible on both sites
-            - Create a MC object
-            - Modify the time slot fopr the visibility including the delays
-            - Dress the GRB slot with physici (IRF and spectra)
-            - Run the simulation
-            - Display results
-
-    3. Close files, terminate
+    This is the main and it should be seriously documented
 
     Parameters
     ----------
@@ -352,7 +277,6 @@ def main(argv):
     """
 
     init(argv)           # Steering parameters and welcome message
-
     if (cf.ngrb<=0):
         print(" NO ANALYSIS REQUIRED (ngrb<=0)")
         sys.exit(2)
@@ -373,8 +297,6 @@ def main(argv):
     log = Log(name  = log_filename, talk=not cf.silent)
     conf_filename   = "config.py"
     conf_filename   = backup_file(folder=cf.res_dir,dest=conf_filename)
-    if (cf.write_slices): dump_dir = cf.res_dir
-    else: dump_dir = None
 
     # Print Summary
     summary(log=log)
@@ -400,30 +322,32 @@ def main(argv):
                           name  = grb.name,
                           debug = bool(cf.dbg>1))
 
-            # Recompute visbility windows if requested
+            # Recompute visbility windows
             if (cf.newvis):
-                grb.vis["North"].compute(altmin  = cf.altmin,
-                                         altmoon = cf.altmoon,
-                                         depth   = cf.depth,
-                                         skip    = cf.skip,
-                                         debug   = False)
-                grb.vis["South"].compute(altmin  = cf.altmin,
-                                         altmoon = cf.altmoon,
-                                         depth   = cf.depth,
-                                         skip    = cf.skip,
-                                         debug   = False)
+                vis = v.Visibility(grb,loc="North") # Constructor
+                vis.compute(altmin = cf.altmin,
+                            depth  = cf.depth,
+                            skip   = cf.skip)
+                grb.update_visibility(vis)
+
+                vis = v.Visibility(grb,loc="South") # Constructor
+                vis.compute(altmin = cf.altmin,
+                            depth  = cf.depth,
+                            skip   = cf.skip)
+                grb.update_visibility(vis)
+
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
                 log.prt(grb)
-                grb.vis["North"].print(log=log)
-                grb.vis["South"].print(log=log)
+                grb.print_visibility(loc="North",log=log)
+                grb.print_visibility(loc="South",log=log)
 
             # Plot grb spectra and lightcurve and visibility windows
             if (cf.show >0):
                 import grb_plot     as gplt
                 gplt.spectra(grb,opt="Packed")
-                gplt.visibility_plot(grb.vis["North"])
-                gplt.visibility_plot(grb.vis["South"])
+                gplt.visibility_plot(grb,loc="North")
+                gplt.visibility_plot(grb,loc="South")
 
                 gplt.pause()
 
@@ -439,7 +363,7 @@ def main(argv):
                 outfile  = open(grb_class_file,"wb")
                 pickle.dump(grb,outfile)
                 outfile.close()
-                success(" Saving grb {} to file : {}"
+                print(" Saving grb {} to file : {}"
                       .format(grb.name,grb_class_file))
 
             ###--------------------------------------------###
@@ -449,31 +373,21 @@ def main(argv):
 
                 name = grb.name + "-" + loc
 
-
-                log.banner(" SIMULATION  : {:<50s} ".format(name))
                 # Create a MC object
-                mc = MonteCarlo(niter     = cf.niter,
-                                method    = cf.method,
-                                fluctuate = cf.do_fluctuate,
-                                seed      = cf.seed,
-                                debug     = cf.dbg,
-                                name      = name)
+                log.banner(" SIMULATION  : {:<50s} ".format(name))
+                mc = MonteCarlo(niter  = cf.niter,
+                                ndof   = cf.lkhd,
+                                debug  = cf.dbg,
+                                name   = name)
 
                 # If visible, run simulation
-                if grb.vis[loc].vis_tonight:
+                if grb.vis_tonight[loc]:
+
                     slot = origin.copy(name="loc")
-
-                    # Simulate delay
-                    still_vis = slot.apply_visibility(delay = get_delay()[loc],
-                                                      site  = loc)
-
-                    # If still visible add IRF feature and run
-                    if (still_vis):
-                        slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
-                        if (cf.dbg > 2): print(slot)
-                        mc.run(slot,boost    = cf.do_accelerate,
-                                    savedset = cf.save_dataset,
-                                    dump_dir = dump_dir)
+                    slot.apply_visibility(delay     = get_delay(),
+                                          site      = loc)
+                    #print(slot)
+                    mc.run(slot)
 
                 # Get information and results even if not visible
                 first = mcres.result(mc, grb, log=log, header=first, pop=pop)
@@ -495,32 +409,24 @@ def main(argv):
 
             # Create a MC object
             log.banner(" SIMULATION  : {:<50s} ".format(name))
-            mc = MonteCarlo(niter     = cf.niter,
-                            method    = cf.method,
-                            fluctuate = cf.do_fluctuate,
-                            seed      = cf.seed,
-                            debug     = cf.dbg,
-                            name      = name)
+            mc = MonteCarlo(niter  = cf.niter,
+                            ndof   = cf.lkhd,
+                            debug  = cf.dbg,
+                            name   = name)
 
-            # If visible on both sites, run simulation
-            if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
+            # If visible, run simulation
+            if grb.vis_tonight["North"] and grb.vis_tonight["South"]:
 
-                slot = origin.both_sites(delay  = get_delay(),
-                                         debug  = (cf.dbg>1))
-                slot.dress(irf_dir = cf.irf_dir, arrays=cf.arrays)
-                if (cf.dbg > 2): print(slot)
-
-                mc.run(slot,boost    = cf.do_accelerate,
-                            savedset = cf.save_dataset,
-                            dump_dir = dump_dir)
+                slot = origin.both_sites(delay   = get_delay(),
+                                           debug =(cf.dbg>1))
+                mc.run(slot)
 
             # Get information and results even if not visible
             first= mcres.result(mc, grb, log=log, header=first, pop = pop)
 
-            # If simulation was not aborted, plot some results
+            # If Simulation was not aborted, plot some results
             if (mc.err == mc.niter) and (cf.show > 0):
-                if (cf.show>0):
-                    slot.plot()
+                if (cf.show>0): slot.plot()
                 import mcsim_plot as mplt
                 mplt.show(mc,loc="Both")
 
@@ -534,25 +440,25 @@ def main(argv):
     end_pop = time.time()
     end_all = time.time()
     elapsed = end_pop-start_pop
-
     log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
     log.prt(" Duration   = {:8.2f} (s)".format(elapsed))
     log.prt("  per GRB   = {:8.2f} (s)".format( (elapsed)/cf.ngrb))
     log.prt("  per trial = {:8.3f} (s)".format( (elapsed)/cf.ngrb/cf.niter))
-    log.prt("-*-*-*-*-*-*-*-*- End of population simulation -*-*-*-*-*-*-*-*-*\n")
+    log.prt("-*-*-*-*-*-*-*- End of full population simulation -*-*-*-*-*-*-*-*\n")
     log.prt(" ******* End of job - Total time = {:8.2f} min *****"
                  .format((end_all-start_all)/60))
-    log.prt("")
-    log.prt(datetime.now())
-
 
     # Close log file
     log.close()
 
     # tar gzip outputs, delete originals if requested
-    nw = datetime.now()
+    nw = datetime.datetime.now()
+    from pathlib import Path
     outprefix = Path(cf.res_dir).parts[-1]
-    filename  = outprefix + "_" + nw.strftime("%Y%m%d_%H%M%S") \
+    filename  = outprefix + "_" \
+                                + str(nw.hour) \
+                                + str(nw.minute) \
+                                + str(nw.second) \
                                 +".tar.gz"
     import tarfile
     tar = tarfile.open(cf.res_dir + filename, "w:gz")

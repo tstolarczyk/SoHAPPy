@@ -5,9 +5,13 @@ Created on Mon Apr  6 17:04:35 2020
 @author: Stolar
 """
 import numpy as np
+
 import astropy.units as u
+from astropy.utils import iers
 
 from irf import IRF
+from irf_onaxis import CTAPerf_onaxis
+
 ###----------------------------------------------------------------------------
 class Slice():
     """
@@ -49,13 +53,13 @@ class Slice():
 
         """
 
-        self.__idt    = idt       # Slice identifier
-        self.__ts1    = t1        # Slice start
-        self.__ts2    = t2        # Slice stop
-        self.__tobs   = 0*u.s     # Observation point
-        self.__f_id   = -1        # Spectrum slice id in the grb object
-        self.__irf    = []        # Detector IRFs at obs. point
-        self.__site   = site      # Sites North, South, Both
+        self.__idt    = idt    # Slice identifier
+        self.__ts1    = t1     # Slice start
+        self.__ts2    = t2     # Slice stop
+        self.__tobs   = 0*u.s  # Observation point
+        self.__f_id   = -1     # Spectrum slice id in the grb object
+        self.__perf   = []     # Detector performance(s) irf at obs. point
+        self.__site   = site   # Sites North, South, Both
 
         return
     #--------------------------------------------------------------------------
@@ -65,7 +69,7 @@ class Slice():
     def tobs(self): return self.__tobs
     def fid(self) : return self.__f_id
     def site(self): return self.__site
-    def irf(self): return self.__irf
+    def perf(self): return self.__perf
 
     #--------------------------------------------------------------------------
     def set_id(self,idt):
@@ -104,7 +108,7 @@ class Slice():
         self.__site = site
         return
     #--------------------------------------------------------------------------
-    def dress(self,grb,irf_dir = "./",arrays=None,opt="end",debug=False):
+    def dress(self,grb,opt="end",debug=False):
         """
         Add physical information to the slice
 
@@ -124,17 +128,9 @@ class Slice():
         """
         self.obs_point(opt)
         self.get_flux(grb,self.__tobs)
-        self.get_perf(grb,irf_dir= irf_dir,arrays=arrays)
+        self.get_perf(grb,debug)
         return
 
-    #------------------------------------------------------------
-    def merge(self, next_slice):
-        # Set end time of current slice to end time of another slce
-        # Leaves the rest unchanged
-        self.__ts2 = next_slice.ts2()
-        self.__tobs = next_slice.tobs()
-
-        return
     #------------------------------------------------------------
     def obs_point(self,opt):
         """
@@ -186,7 +182,7 @@ class Slice():
         return
 
     #--------------------------------------------------------------------------
-    def get_perf(self,grb,irf_dir="./",arrays=None,debug=False):
+    def get_perf(self,grb,debug=False):
         """
         Obtain the best performance for a given slice, indpendently of
         the observation point that was chosen.
@@ -206,7 +202,6 @@ class Slice():
         None.
 
         """
-        # debug=2
 
         # Observation window duration
         obstime = self.__ts2 - self.__ts1 # Duration (not cumulated !)
@@ -223,21 +218,19 @@ class Slice():
 
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
 
-            irf = IRF.from_observation(zenith   = 90*u.degree-altaz.alt,
-                                       azimuth  = altaz.az,
-                                       obstime  = obstime,
-                                       loc      = site,
-                                       irf_dir  = irf_dir,
-                                       subarray = arrays[site])
-            if (debug>1):
-                print(self.__idt,"/",site,"-->",irf)
+            irf_file = IRF.get_irf_file(zenith  = 90*u.degree-altaz.alt,
+                                        azimuth = altaz.az,
+                                        obstime = obstime,
+                                        loc    = site)
+            if (debug>1): print(self.__idt,"/",site,"-->",irf_file)
 
+            perfi        = CTAPerf_onaxis.read(irf_file)
 
-            self.__irf.append(irf)
+            self.__perf.append(perfi)
 
         if (debug):
             print("                       ===> {} IRF found"
-              .format(len(self.__irf)),end="\n")
+              .format(len(self.__perf)),end="\n")
 
         return
 
@@ -276,8 +269,5 @@ class Slice():
                 self.__tobs.value,
                 self.__f_id,
                 self.__site,
-                len(self.__irf)),end="")
-        for perf in self.__irf:
-            print(" ",perf.filename.parts[-2],end="")
-        print()
+                len(self.__perf)))
         return
