@@ -559,13 +559,7 @@ if __name__ == "__main__":
     import os
     os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
 
-    import gammapy
     from SoHAPPy import get_grb_fromfile
-
-    if (gammapy.__version__ == "0.12"):
-        from   gammapy.spectrum.models import Absorption
-    if (gammapy.__version__ == "0.16"):
-        from gammapy.modeling.models import Absorption
 
     import ana_config as cf # Steering parameters
     from utilities import Log
@@ -622,7 +616,8 @@ if __name__ == "__main__":
         for loc in ["North","South"]:
             if grb.vis[loc].vis_tonight:
                 slot = origin.copy(name="loc")
-                still_vis = slot.apply_visibility(delay = delay,                                             site  = loc)
+                still_vis = slot.apply_visibility(delay = delay,
+                                                  site  = loc)
                 #print(slot)
                 if (still_vis):
                     slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)

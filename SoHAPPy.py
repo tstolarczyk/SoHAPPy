@@ -13,15 +13,10 @@ too distant dates).
 """
 from __init__ import __version__
 
-
 import os
 import sys, getopt
 
-import gammapy
-if (gammapy.__version__ == "0.12"):
-    from   mcsim12 import MonteCarlo
-else:
-    from   mcsim  import MonteCarlo
+from   mcsim  import MonteCarlo
 
 os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
 os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
@@ -202,6 +197,7 @@ def summary(log=None):
     None.
 
     """
+    import gammapy
 
     log.prt(datetime.now())
     log.prt("+----------------------------------------------------------------+")

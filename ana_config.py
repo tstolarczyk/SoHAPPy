@@ -5,7 +5,6 @@ Created on Tue Jan 22 11:41:34 2019
 @author: Stolar
 """
 import astropy.units as u
-import gammapy
 """
 This module contains most of the steering parameters of SoHAPPy.
 "SoHAPPy -h" in a shell gives the list of parameters that can be superseded
@@ -30,7 +29,7 @@ on the command line
 # ifirst=398
 # ifirst = 751 - sent for comparison with ctools
 #ifirst  = 54
-ifirst = 2
+ifirst = 54
 ngrb    = 1 # Number of GRB to be read - if 1 specific actions on one grb
 seed    = 'random-seed' # use a fix number to get a fixed sequence sequence
 #res_dir = "../output/testnew" # Output directory for results
@@ -51,18 +50,15 @@ do_accelerate  = True  # (True) Simulation skipped if no detection in first 10%
 # if negative or zero : no plot
 # 0: evt counting, 1: + some results, 2: + event details
 # 3: Plots for each trials - create an animated gif - heavy
-dbg    = 0
+dbg    = 3
 silent = False # If True, nothing written on screen (output to log)
 
 #-----------------------------------------------------------------------------#
 # Input
 #-----------------------------------------------------------------------------#
 grb_dir    = '../input/lightcurves/LONG_FITS/'
-if (gammapy.__version__ == "0.12"):
-    irf_dir = "../input/irf/OnAxis/prod3-v2"
-if (gammapy.__version__ == "0.17"):
-    # irf_dir    = "../input/irf/Full/prod3-v2"
-    irf_dir = "D:\CTA\Analyse\SoHAPPY-IRF\prod3-v2"
+# irf_dir    = "../input/irf/Full/prod3-v2"
+irf_dir = "D:\CTA\Analyse\SoHAPPY-IRF\prod3-v2"
 
 # prompt tests
 # redshift = 4.0 # Prompt test
@@ -74,7 +70,7 @@ datafile   = "data.txt" # Main output file (population study)
 logfile    = "analysis.log"
 
 # Special outout action
-save_simu      = False  # (False) Simulation saved to file for offline use
+save_simu      = True  # (False) Simulation saved to file for offline use
 save_grb       = False # (False) GRB saved to disk -> use grb.py main
 save_dataset   = False  # Will be set to False if more than one MC trial
 write_slices   = False # (False) Store detailed information on slices if True
@@ -90,10 +86,10 @@ remove_tarred  = False # Remove tarred files, otherwise keep for faster access
 EBLmodel  = "dominguez" # Extragalactic Background Light model
 #EBLmodel  = "built-in" # Default built-in EBL model
 
-#arrays    = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
-arrays   = {"North":"FullArray", "South":"MST"} # "FullArray", "LST",...
-#dtslew  = {"North":30*u.s, "South":30*u.s} # Maximum slewing time delay
-dtslew  = {"North":30*u.s, "South":60*u.s} # Maximum slewing time delay
+arrays    = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
+#arrays   = {"North":"FullArray", "South":"MST"} # "FullArray", "LST",...
+dtslew  = {"North":30*u.s, "South":30*u.s} # Maximum slewing time delay
+#dtslew  = {"North":30*u.s, "South":60*u.s} # Maximum slewing time delay
 dtswift = 77*u.s # Fixed SWIFT latency (The mean value is 77*u.s)
 
 fixslew   = True   # If False,generate a random delay < dtslew

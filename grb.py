@@ -30,17 +30,9 @@ from   astropy.coordinates   import AltAz
 
 from visibility import Visibility
 
-import gammapy
-
-if (gammapy.__version__ == "0.12"):
-    from gammapy.spectrum.models import Absorption, AbsorbedSpectralModel
-    from gammapy.spectrum.models import TableModel
-    from gammapy.image.models    import SkyPointSource
-
-if (gammapy.__version__ == "0.17"):
-    from gammapy.modeling.models import Absorption, AbsorbedSpectralModel
-    from gammapy.modeling.models import TemplateSpectralModel
-    from gammapy.modeling.models import PointSpatialModel
+from gammapy.modeling.models import Absorption, AbsorbedSpectralModel
+from gammapy.modeling.models import TemplateSpectralModel
+from gammapy.modeling.models import PointSpatialModel
 
 
 # The following information can be obtained from EarthLocation.of_site
@@ -187,13 +179,7 @@ class GammaRayBurst(object):
         # GRB spectral and spatial model
         self.spectra = [] # Gammapy models (one per t slice)
 
-        if (gammapy.__version__=="0.12"):
-            self.spatial  =  SkyPointSource(lon_0=0*u.deg,lat_0=0*u.deg)
-        if (gammapy.__version__=="0.16"):
-            self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
-
-        # Stacked obs
-        # useless self.stack_obs = None
+        self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
 
         return
 
@@ -280,12 +266,6 @@ class GammaRayBurst(object):
 
         for i,t in enumerate(grb.tval):
             # Note that TableModel makes an interpolation
-            if (gammapy.__version__ == "0.12"):
-                tab = TableModel(energy   = grb.Eval,
-                             values       = grb.fluxval[i],
-                             norm         = 1.,
-                             values_scale = 'lin')
-
             # Following a question on the Slack gammapy channel on
             # November 27th, and the answer by Axel Donath:
             # The foloowing statemetn later in the code gave an error
@@ -300,11 +280,10 @@ class GammaRayBurst(object):
             #    grb.Eval.astype(float)
             # (A Quantity is passed as requested but the underlying numpy
             # dtype is not supported by energy.data.tolist()
-            if (gammapy.__version__ == "0.17"):
-                tab = TemplateSpectralModel(energy = grb.Eval.astype(float),
-                             values       = grb.fluxval[i],
-                             norm         = 1.,
-                             interp_kwargs={"values_scale": "log"})
+            tab = TemplateSpectralModel(energy = grb.Eval.astype(float),
+                                        values = grb.fluxval[i],
+                                        norm   = 1.,
+                                        interp_kwargs={"values_scale": "log"})
 
             if (grb.eblabs != None) and (ebl != "built-in"):
                 model = AbsorbedSpectralModel(tab,grb.eblabs,grb.z)
@@ -386,16 +365,10 @@ class GammaRayBurst(object):
 
         for i,t in enumerate(grb.tval):
             # Note that TableModel makes an interpolation
-            if (gammapy.__version__ == "0.12"):
-                tab = TableModel(energy   = grb.Eval,
-                             values       = grb.fluxval[i],
-                             norm         = 1.,
-                             values_scale = 'lin')
-            if (gammapy.__version__ == "0.17"):
-                tab = TemplateSpectralModel(energy = grb.Eval.astype(float),
-                             values       = grb.fluxval[i],
-                             norm         = 1.,
-                             interp_kwargs={"values_scale": "linear"})
+            tab = TemplateSpectralModel(energy  = grb.Eval.astype(float),
+                                         values = grb.fluxval[i],
+                                         norm   = 1.,
+                                         interp_kwargs={"values_scale": "log"})
 
             if (grb.eblabs != None) and (ebl != "built-in"):
                 absmodel = AbsorbedSpectralModel(spectral_model = tab,
@@ -489,9 +462,10 @@ if __name__ == "__main__":
     import ana_config as cf # Steering parameters
 
     cf.dbg  = 0
-    cf.altmin = 10*u.deg
+    cf.altmin = 54*u.deg
+    cf.altmoon = 90*u.deg
     cf.ngrb = 1 # 250
-    cf.ifirst = [1]
+    cf.ifirst = [815]
     cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
     cf.newvis = True
 
@@ -527,11 +501,11 @@ if __name__ == "__main__":
         if (cf.newvis):
             print("\n .................... RECOMPUTING ...............\n")
             grb.vis["North"].compute(altmin  = cf.altmin,
-                                     altmoon = 0*u.deg,
+                                     altmoon = cf.altmoon,
                                      depth   = cf.depth,
                                      skip    = cf.skip, debug=True)
             grb.vis["South"].compute(altmin  = cf.altmin,
-                                     altmoon = 0*u.deg,
+                                     altmoon = cf.altmoon,
                                      depth   = cf.depth,
                                      skip    = cf.skip, debug=True)
             grb.vis["North"].print(log=log)

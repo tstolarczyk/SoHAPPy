@@ -5,22 +5,14 @@ Created on Thu Dec 12 09:01:41 2019
 
 @author: Stolar
 
-
-
-
 """
-import os
 import sys
 import numpy as np
 from pathlib import Path
 import astropy.units as u
 from astropy.visualization import quantity_support
-from utilities import warning, failure
 from gammapy.maps import MapAxis
 
-import gammapy
-
-from irf_onaxis import CTAPerf_onaxis
 from gammapy.irf import load_cta_irfs
 
 import mcsim_config as mcf
@@ -195,30 +187,26 @@ class IRF():
         self.ereco_min = ereco_min # For further masking
         self.ereco_max = ereco_max # For further masking
 
-        if (gammapy.__version__ == "0.17"):
-            erec = self.ereco.center
-            radii = irf['psf'].containment_radius(energy   = erec,
-                                                  theta    = mcf.offset[subarray],
-                                                  fraction = mcf.containment)[0]
-            f  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[subarray]))
-            # If factor is too large above threshold, error
-            idx = np.where(erec[np.where(f>1 )] >= self.ereco_min)
-            if (np.size(idx)):
-                # Get guilty energies
+        erec = self.ereco.center
+        radii = irf['psf'].containment_radius(energy   = erec,
+                                              theta    = mcf.offset[subarray],
+                                              fraction = mcf.containment)[0]
+        f  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[subarray]))
+        # If factor is too large above threshold, error
+        idx = np.where(erec[np.where(f>1 )] >= self.ereco_min)
+        if (np.size(idx)):
+            # Get guilty energies
 
-                print(" E = ",self.ereco.center[idx])
-                print(" R = ",radii[idx].value," max = ",
-                              mcf.on_size[array].value)
-                print(" F = ",f[idx])
-                #sys.exit("IRF : Initial region too small")
+            print(" E = ",self.ereco.center[idx])
+            print(" R = ",radii[idx].value," max = ",
+                          mcf.on_size[array].value)
+            print(" F = ",f[idx])
+            #sys.exit("IRF : Initial region too small")
 
-            f = f.value.reshape((-1, 1, 1))
-            self.factor = f
-        else:
-            self.factor = 1.
+        f = f.value.reshape((-1, 1, 1))
+        self.factor = f
 
         return
-
 
     ###------------------------------------------------------------------------
     def find_best_keys(zenith, azimuth, obstime,
@@ -351,92 +339,42 @@ class IRF():
         # Find base folder from the keys
         folder = Path(irf_dir,subarray,loc,kzen)
 
-        # Complete Path depending on the case
-        #---------------------------#
-        # Gammapy 0.12 On-Axis IRF  #
-        #---------------------------#
-        if (gammapy.__version__ == "0.12") : # Build the file name
+        # Build the filename, get the IRF
+        if (subarray != "FullArray"):
+            kaz = kaz+"_"+subarray
+        subfolder = loc+"_z"+kzen[:2]+"_"+kaz+"_"+kdt
+        irf_file = Path(folder,subfolder,"irf_file.fits.gz")
 
-            # In the on-axis case, some South IRF have not been extracted
-            # In that case, use the North one.
-            if folder.exists() != True:
-                loc = "North"
-                warning(" Folder not found {} -> Trying North".format(folder))
-                folder = Path(irf_dir,loc,array,kzen)
-                if folder.exists() != True:
-                    failure(" Impossible to find a suitable IRF folder")
-                    sys.exit("Stopped")
+        irf = load_cta_irfs(irf_file)
 
-            irffile = []
-            for file in os.listdir(folder): # Fin files in IRF folder
-                if (file.find(loc) != -1) and \
-                    (file.find(kzen) != -1) and \
-                    (file.find(kaz)  != -1) and \
-                    (file.find(kdt)  != -1):
-                        irffile.append(file)
+        # True energy axis
+        eirf_min    = min(irf["aeff"].data.axis("energy_true").edges)
+        etrue_axis  = MapAxis.from_energy_bounds(eirf_min,
+                                                 etrue_max[kzen],
+                                                 nbin = nbin_per_decade,
+                                                 per_decade=True,
+                                                 name="energy_true")
 
-            if (len(irffile)>1):
-                sys.exit(" More than one IRF file found - ERROR")
-            if (len(irffile)==0):
-                sys.exit(" Missing: {} {} {} {}".format(loc,kzen,kaz,kdt))
+        # Reconstructed energy axis
+        # Stacking requires same original binning -> uses largest interval
+        # Ensure that all possible edges are in, later apply masking
+        # Use the Optimised binning
+        # There is a bug in 0.17 (unit not taken into account
+        # correctly)preventig from simply writing
+        # erec_axis = MapAxis.from_edges(erec_edges,name="energy")
 
-            irf_file  = Path(folder,irffile[0])
-            irf       = CTAPerf_onaxis.read(irf_file)
+        erec_axis = MapAxis.from_edges(erec_edges.to("TeV").value,
+                                       unit="TeV",
+                                       name="energy",
+                                       interp="log")
 
-            # True energy axis is not used (uses the IRF boundaries)
-            etrue_axis = []
-
-            # Reco energy axis : get the IRF related boundaries
-            elow       = erec_min[kzen].to(u.TeV).value
-            ehigh      = erec_max[kzen].to(u.TeV).value
-
-            # Create 10 log bins
-            erec_axis  = MapAxis.from_edges(np.logspace(np.log10(elow),
-                                                        np.log10(ehigh),10),
-                                                        unit="TeV",
-                                                        name="energy",
-                                                        interp="log")
-        #---------------------------#
-        # Gammapy 0.17 Off-Axis IRF #
-        #---------------------------#
-        if(gammapy.__version__ == "0.17"): # Complete the path
-
-            # Build the filename, get the IRF
-            if (subarray != "FullArray"):
-                kaz = kaz+"_"+subarray
-            subfolder = loc+"_z"+kzen[:2]+"_"+kaz+"_"+kdt
-            irf_file = Path(folder,subfolder,"irf_file.fits.gz")
-
-            irf = load_cta_irfs(irf_file)
-
-            # True energy axis
-            eirf_min    = min(irf["aeff"].data.axis("energy_true").edges)
-            etrue_axis  = MapAxis.from_energy_bounds(eirf_min,
-                                                     etrue_max[kzen],
-                                                     nbin = nbin_per_decade,
-                                                     per_decade=True,
-                                                     name="energy_true")
-
-            # Reconstructed energy axis
-            # Stacking requires same original binning -> uses largest interval
-            # Ensure that all possible edges are in, later apply masking
-            # Use the Optimised binning
-            # There is a bug in 0.17 (unit not taken into account
-            # correctly)preventig from simply writing
-            # erec_axis = MapAxis.from_edges(erec_edges,name="energy")
-
-            erec_axis = MapAxis.from_edges(erec_edges.to("TeV").value,
-                                           unit="TeV",
-                                           name="energy",
-                                           interp="log")
-
-            # Alternatively, this is not optimal for masking except if the
-            # number of bins is very large:
-            # erec_axis  = MapAxis.from_energy_bounds(min(erec_min.values()),
-            #                                         max(erec_max.values()),
-            #                                         nbin = nbin_per_decade,
-            #                                         per_decade=True,
-            #                                         name="Rec. energy")
+        # Alternatively, this is not optimal for masking except if the
+        # number of bins is very large:
+        # erec_axis  = MapAxis.from_energy_bounds(min(erec_min.values()),
+        #                                         max(erec_max.values()),
+        #                                         nbin = nbin_per_decade,
+        #                                         per_decade=True,
+        #                                         name="Rec. energy")
 
         # This leads to
         # OSError: [WinError 1251] Cette opération n’est prise en charge que
@@ -453,7 +391,7 @@ class IRF():
                    ereco_max = erec_max[kzen])
 
     ###------------------------------------------------------------------------
-    def containment_plot(self,eunit="GeV",ax=None):
+    def containment_plot(self,eunit="GeV",subarray=None,ax=None):
 
         import matplotlib.pyplot as plt
         plt.style.use('seaborn-poster') # Bug with normal x marker !!!
@@ -463,7 +401,7 @@ class IRF():
         irfname =  self.filename.parts[-2]
 
         radii = self.irf['psf'].containment_radius(energy=self.ereco.edges,
-                                                 theta = mcf.offset,
+                                                 theta = mcf.offset[subarray],
                                                  fraction=mcf.containment)[0]
 
         ax.plot(self.ereco.edges.to(eunit).value,radii.value,
@@ -725,32 +663,33 @@ if __name__ == "__main__":
     """
 
     import matplotlib.pyplot as plt
+    import gammapy
 
     # irf_dir = "../input/irf/OnAxis/"
     irf_dir = "D:\CTA\Analyse\SoHAPPY-IRF\prod3-v2"
 
-    #array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
-    array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
+    array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
+    #array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
 
 
     print(" Running with gammapy ",gammapy.__version__)
 
     # Show containment radii
-    # for loc in ["North","South"]:
-    #     fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(20,10))
-    #     fig.suptitle(array[loc]+" "+loc,fontsize=30)
-    #     for z, axi in zip([20, 40,57],ax):
-    #         for dt in [10*u.s,0.5*u.h, 10*u.h, 20*u.h]:
-    #             irf = IRF.from_observation(loc       = loc,
-    #                                         subarray = array[loc],
-    #                                         zenith   = z*u.deg,
-    #                                         azimuth  = 123*u.deg,
-    #                                         obstime  = dt,
-    #                                         irf_dir  = irf_dir )
-    #             print(" Found : ",irf.filename)
-    #             irf.containment_plot(ax=axis)
-    #     plt.tight_layout()
-    #     plt.subplots_adjust(top=0.95)
+    for loc in ["North","South"]:
+        fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(20,10))
+        fig.suptitle(array[loc]+" "+loc,fontsize=30)
+        for z, axi in zip([20, 40,57],ax):
+            for dt in [10*u.s,0.5*u.h, 10*u.h, 20*u.h]:
+                irf = IRF.from_observation(loc       = loc,
+                                            subarray = array[loc],
+                                            zenith   = z*u.deg,
+                                            azimuth  = 123*u.deg,
+                                            obstime  = dt,
+                                            irf_dir  = irf_dir )
+                print(" Found : ",irf.filename)
+                irf.containment_plot(ax=axi,subarray=array[loc])
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.95)
 
     #Show on-off sketch
     for loc in ["North","South"]:
