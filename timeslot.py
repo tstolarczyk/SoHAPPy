@@ -490,20 +490,19 @@ class Slot():
 
         # Get slots for both sites and merge
         slot_n = self.copy()
-        slot_n.apply_visibility(site="North",delay = delay_n)
+        still_vis_n = slot_n.apply_visibility(site="North",delay = delay_n)
+
         slot_s = self.copy()
-        slot_s.apply_visibility(site="South",delay = delay_s)
-        slot_n.merge(slot_s)
+        still_vis_s = slot_s.apply_visibility(site="South",delay = delay_s)
 
-        # Should not we check that one of the two is still visible after
-        # the delays are applied ? In fact invisbility is very rare: this
-        # would require the two sites to be quasi-simultaneous, with a short
-        # initial visibility window
-
-        # Dress with physics
-        if (debug): print(slot_n)
-
-        return slot_n
+        if still_vis_s and still_vis_n:
+            slot_n.merge(slot_s)
+            return slot_n
+        else:
+            from utilities import failure
+            failure(" N and/or S vanished because of delays")
+            failure(" Combined analysis not possible")
+            return None
 
 ###---------------------------------------------------------------------------
 ### TESTS
