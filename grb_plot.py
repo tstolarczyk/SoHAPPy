@@ -13,10 +13,9 @@ import astropy.units as u
 from   astropy.coordinates   import AltAz
 from   astropy.coordinates import get_moon
 
-from astropy.time import Time
 from   astropy.visualization import quantity_support
 
-
+from   astroplan import moon_illumination, moon_phase_angle
 
 import matplotlib.dates as mdates
 
@@ -389,10 +388,8 @@ def period_plot(twindow,
     return ax
 
 ###---------------------------------------------------------------------------
-def grb_alt_and_flux(vis, times, site="None", tshift=0*u.s,
+def source_alt_and_flux(grb, vis, times, site="None", tshift=0*u.s,
                      ax=None):
-
-    grb = vis.grb
 
     ax = plt.gca() if ax is None else ax
 
@@ -445,55 +442,63 @@ def grb_alt_and_flux(vis, times, site="None", tshift=0*u.s,
     return ax
 
 ###---------------------------------------------------------------------------
-def moon_alt_plot(times, site="None", ax=None, color="darkblue"):
+def moon_alt_plot(times, alt, ax=None, color="darkblue"):
 
     if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
 
-    radec = get_moon(times,site)
-    altaz = radec.transform_to(AltAz(location=site, obstime=times))
-
     with quantity_support():
-        ax.plot(times.datetime,altaz.alt,color=color,label="Moon altitude")
+        ax.plot(times.datetime,alt,color=color,label="Moon altitude")
         ax.axhline(y=0*u.deg,color=color, ls=":")
     ax.set_ylabel("Alt.(°)")
     ax.legend()
 
     return ax
 ###---------------------------------------------------------------------------
-def moon_dist_plot(grb,times, site="None", ax=None, color="tab:green"):
+def moon_dist_plot(grb,times, radec, site="None", ax=None, color="tab:green"):
 
     if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
 
-    moon_radec = get_moon(times,site)
-    dist = moon_radec.separation(grb.radec)
+    dist = radec.separation(grb.radec)
 
     with quantity_support():
-        ax.plot(times.datetime,dist,color=color,label="Moon distance")
+        ax.plot(times.datetime,dist,color=color,ls=":",label="Moon distance")
     ax.set_ylabel("Dist.")
     ax.legend()
 
     return ax
 
 ###---------------------------------------------------------------------------
-def moonlight_plot(grb,times, site="None", ax=None, color="tab:orange"):
-
-    from   astroplan import moon_illumination
+def moonlight_plot(times, ax=None, color="tab:orange"):
 
     if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
 
-    brightness = brightness = moon_illumination(times)
-
     with quantity_support():
-        ax.plot(times.datetime,brightness,color=color,label="Brightness")
+        ax.plot(times.datetime, moon_illumination(times),
+                color=color,label="Brightness")
+
     ax.set_ylabel("Brightness")
     ax.set_ylim(ymin=0,ymax=1.)
-    ax.legend(loc="bottom")
+    ax.legend(loc="lower right")
 
     return ax
 ###---------------------------------------------------------------------------
-def visibility_plot(vis,
-                    moon =True,
-                    ax = None,
+def moonphase_plot(times, ax=None, color="red"):
+
+    if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
+
+    with quantity_support():
+        ax.plot(times.datetime, moon_phase_angle(times),
+                color=color,label="Brightness")
+    ax.set_ylabel("Brightness")
+    ax.set_ylim(ymin=0,ymax=1.)
+    ax.legend(loc="upper right")
+
+    return ax
+###---------------------------------------------------------------------------
+def visibility_plot(grb,
+                    loc=None,
+                    moon = True,
+                    ax   = None,
                     dt_before   = 0.25*u.day,
                     dt_after    = 2.25*u.day, # After trigger
                     nalt=250):
@@ -520,9 +525,11 @@ def visibility_plot(vis,
         They are simplified and the time is referred to the trigger time.
 
     """
-    if not vis.vis:
-        print(" Not visible - plot not shown")
-        return
+    # if not vis.vis:
+    #     print(" Not visible - plot not shown")
+    #     return
+
+    vis = grb.vis[loc]
 
     if (moon):
         fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True,
@@ -532,17 +539,15 @@ def visibility_plot(vis,
         ax = plt.gca() if ax is None else ax
         ax[0] = ax
 
-    site = vis.grb.pos_site[vis.loc]  # Current site
-
     with warnings.catch_warnings() and quantity_support() :
         warnings.filterwarnings("ignore")
 
-        dt      = np.linspace(0,(dt_before+dt_after).value, nalt)
-        t       = vis.grb.t_trig  - dt_before + dt*dt_before.unit
+        dt   = np.linspace(0,(dt_before+dt_after).value, nalt)
+        tobs = vis.tstart  - dt_before + dt*dt_before.unit
 
         ### GRB (main plot)
-        grb_alt_and_flux(vis,t,site=site,ax=ax[0])
-        ax[0]. set_title(vis.grb.name + " -" + vis.loc)
+        source_alt_and_flux(grb, vis, tobs, site=vis.site, ax=ax[0])
+        ax[0]. set_title(vis.name)
 
         ### GRB above horizon
         period_plot(vis.t_event,
@@ -552,25 +557,31 @@ def visibility_plot(vis,
         ### Nights on all plots
         for axis in ax:
             period_plot(vis.t_twilight,
-                        ax =axis,color="black",alpha=0.2, tag="Night")
+                        ax =axis,color="black",alpha=0.1, tag="Night")
 
         ### Moon if requested
         if (moon):
+            radec = get_moon(tobs, vis.site) # Moon position along time
 
             ### Moon veto periods
-            period_plot(vis.t_moon_veto,
+            period_plot(vis.t_moon_alt,
                         ax =ax[1],color="tab:orange",alpha=0.2, tag="Moon veto")
-            period_plot(vis.t_moon_veto,
+            period_plot(vis.t_moon_alt,
                         ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
 
             ### Moon altitude
-            moon_alt_plot(t,site=site,ax = ax[1])
+            alt = radec.transform_to(AltAz(location=vis.site, obstime=tobs)).alt
+            moon_alt_plot(tobs,alt, ax = ax[1])
+
 
             ### Moon distance and brigthness
-            moon_dist_plot(vis.grb,t,site=site,ax = ax[2]) # Distance
+            moon_dist_plot(grb,tobs, radec,site=vis.site,ax = ax[2]) # Distance
             axx = ax[2].twinx()
-            moonlight_plot(vis,t,site=site,ax=axx) # Brightness
-
+            moonlight_plot(tobs,ax=axx) # Brightness
+            #moonphase_plot(tobs,ax=axx) # Phase (correlated to Brightness)
+            with quantity_support():
+                ax[2].axhline(y=vis.moon_maxalt,color="blue", ls=":")
+                axx.axhline(y=vis.moon_maxlight,color="tab:orange", ls=":")
 
         ### Visibility windows - if the GRB is visible
         if vis.vis:
@@ -597,7 +608,7 @@ def visibility_plot(vis,
         axis.tick_params(axis='x', rotation=45)
         axis.set_xlabel("Date")
 
-        axis.set_xlim([F(min(t)),F(max(t))])
+        axis.set_xlim([F(min(tobs)),F(max(tobs))])
 
     fig.tight_layout(h_pad=0, w_pad=0)
     return
