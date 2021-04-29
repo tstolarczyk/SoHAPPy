@@ -173,8 +173,11 @@ class GammaRayBurst(object):
         self.fluxval        = [0]*u.Unit("1 / (cm2 GeV s)")
 
         # Visibility (requires GRB points interavl)
-        self.vis      = { "North": Visibility(self,loc="North"),
-                          "South": Visibility(self,loc="South")}
+        self.vis  = { "North": Visibility(self.radec,
+                                          self.pos_site["North"]),
+                      "South": Visibility(self.radec,
+                                          self.pos_site["South"])
+                                          }
 
         # GRB spectral and spatial model
         self.spectra = [] # Gammapy models (one per t slice)
@@ -237,7 +240,7 @@ class GammaRayBurst(object):
         grb.gamma_he = hdr['HIGHSP']
 
         # GRB trigger time
-        grb.t_trig      = Time(hdr['GRBJD']*u.day,format="jd",scale="utc")
+        grb.t_trig   = Time(hdr['GRBJD']*u.day,format="jd",scale="utc")
 
         ### Energies, times and fluxes ---
         grb.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
@@ -248,8 +251,8 @@ class GammaRayBurst(object):
             flux = Table.read(hdul,hdu=4)
 
         ### Visibilities --- includes tval span
-        grb.vis["North"].read( hdr, hdul,hdu=1,loc="North")
-        grb.vis["South"].read( hdr, hdul,hdu=1,loc="South")
+        grb.vis["North"].read(grb, hdr, hdul,hdu=1,loc="North")
+        grb.vis["South"].read(grb, hdr, hdul,hdu=1,loc="South")
 
         #flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
         # flux_unit    = u.Unit(flux.meta["UNITS"]) # Removes ph
@@ -462,12 +465,12 @@ if __name__ == "__main__":
     import ana_config as cf # Steering parameters
 
     cf.dbg  = 0
-    cf.altmin = 54*u.deg
-    cf.altmoon = 90*u.deg
+    cf.altmin = 24*u.deg
+    cf.altmoon = -0.25*u.deg
     cf.ngrb = 1 # 250
     cf.ifirst = [815]
     cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
-    cf.newvis = True
+    cf.newvis = False
 
     log_filename    = cf.res_dir  + cf.logfile
     log = Log(name  = log_filename, talk=not cf.silent)
@@ -525,4 +528,24 @@ if __name__ == "__main__":
                   .format(grb.name,grb_class_file))
 
 
-
+        save_vis = True
+        if save_vis:
+            from copy import deepcopy
+            for loc in ["North","South"]:
+                vis2dump = deepcopy(grb.vis[loc])
+                #vis2dump.grb = None
+                vis2dump.print(log)
+                filename = grb.name+"_"+loc+"_vis.bin"
+                outfile  = open(filename,"wb")
+                pickle.dump(vis2dump,outfile)
+                del vis2dump
+                print(" >>> Visibility ",loc," dumped to : ",filename)
+        read_vis = False
+        if (read_vis):
+            for loc in ["North","South"]:
+                filename = grb.name+"_"+loc+"_vis.bin"
+                infile  = open(filename,"rb")
+                vis_in = pickle.load(infile)
+                vis_in.name = "loaded"
+                vis_in.print(log)
+                print(" <<< Visibility ",loc," loaded to : ",filename)
