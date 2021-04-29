@@ -224,6 +224,9 @@ def summary(log=None):
     log.prt("      IRF files in       : {}".format(cf.irf_dir))
     log.prt("      Result folder*     : {}".format(cf.res_dir))
     log.prt(" Minimum altitude        : {}".format(cf.altmin))
+    log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
+    log.prt(" Moon min. distance      : {}".format(cf.moondist))
+    log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
     log.prt(" Site sub-arrays         : N:{} S:{}"
             .format(cf.arrays["North"],cf.arrays["South"]))
     log.prt(" Slewing time            : N:{} S:{}"
@@ -231,7 +234,7 @@ def summary(log=None):
     log.prt("      Fixed              : {}".format(cf.fixslew))
     log.prt("   SWIFT delay fixed     : {}".format(cf.fixswift))
     if (cf.fixswift):
-        log.prt("                value : {}".format(cf.dtswift))
+        log.prt("                   value : {}".format(cf.dtswift))
     else:
         log.prt("            Read from : {}".format(cf.swiftfile))
     # if (cf.method ==0):
@@ -383,7 +386,7 @@ def main(argv):
         # Loop over GRB population   #
         ##############################
 
-        mcres.welcome(log=log) # Remind simulation parameters
+        mcres.welcome(cf.arrays,log=log) # Remind simulation parameters
 
         first = True # Actions for first GRB only
         for i in grblist:
@@ -398,16 +401,21 @@ def main(argv):
 
             # Recompute visbility windows if requested
             if (cf.newvis):
-                grb.vis["North"].compute(altmin  = cf.altmin,
-                                         altmoon = cf.altmoon,
-                                         depth   = cf.depth,
-                                         skip    = cf.skip,
-                                         debug   = False)
-                grb.vis["South"].compute(altmin  = cf.altmin,
-                                         altmoon = cf.altmoon,
-                                         depth   = cf.depth,
-                                         skip    = cf.skip,
-                                         debug   = False)
+                grb.vis["North"].compute(altmin    = cf.altmin,
+                                         altmoon   = cf.altmoon,
+                                         moondist  = cf.moondist,
+                                         moonlight = cf.moonlight,
+                                         depth     = cf.depth,
+                                         skip      = cf.skip,
+                                         debug     = False)
+                grb.vis["South"].compute(altmin    = cf.altmin,
+                                         altmoon   = cf.altmoon,
+                                         moondist  = cf.moondist,
+                                         moonlight = cf.moonlight,
+                                         depth     = cf.depth,
+                                         skip      = cf.skip,
+                                         debug     = False)
+
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
                 log.prt(grb)
@@ -418,8 +426,8 @@ def main(argv):
             if (cf.show >0):
                 import grb_plot     as gplt
                 gplt.spectra(grb,opt="Packed")
-                gplt.visibility_plot(grb.vis["North"])
-                gplt.visibility_plot(grb.vis["South"])
+                gplt.visibility_plot(grb, loc ="North")
+                gplt.visibility_plot(grb, loc ="South")
 
                 gplt.pause()
 
@@ -503,12 +511,13 @@ def main(argv):
 
                 slot = origin.both_sites(delay  = get_delay(),
                                          debug  = (cf.dbg>1))
-                slot.dress(irf_dir = cf.irf_dir, arrays=cf.arrays)
-                if (cf.dbg > 2): print(slot)
+                if (slot != None):
+                    slot.dress(irf_dir = cf.irf_dir, arrays=cf.arrays)
+                    if (cf.dbg > 2): print(slot)
 
-                mc.run(slot,boost    = cf.do_accelerate,
-                            savedset = cf.save_dataset,
-                            dump_dir = dump_dir)
+                    mc.run(slot,boost    = cf.do_accelerate,
+                                savedset = cf.save_dataset,
+                                dump_dir = dump_dir)
 
             # Get information and results even if not visible
             first= mcres.result(mc, grb, log=log, header=first, pop = pop)
