@@ -27,11 +27,10 @@ on the command line
 #ifirst = [3,85,815]
 #ifirst = 1
 # ifirst=398
-# ifirst = 751 - sent for comparison with ctools
-#ifirst  = 54
-ifirst = 54
+ifirst = 155
+ifirst = 751 # sent for comparison with ctools - Moon vetoed
 ngrb    = 1 # Number of GRB to be read - if 1 specific actions on one grb
-seed    = 'random-seed' # use a fix number to get a fixed sequence sequence
+seed    = 'random-seed' # use a fix number to get a fixed random sequence
 #res_dir = "../output/testnew" # Output directory for results
 res_dir = "D:/000_Today/testnew" # Output directory for results
 
@@ -70,9 +69,9 @@ datafile   = "data.txt" # Main output file (population study)
 logfile    = "analysis.log"
 
 # Special outout action
-save_simu      = True  # (False) Simulation saved to file for offline use
+save_simu      = False # (False) Simulation saved to file for offline use
 save_grb       = False # (False) GRB saved to disk -> use grb.py main
-save_dataset   = False  # Will be set to False if more than one MC trial
+save_dataset   = False # Will be set to False if more than one MC trial
 write_slices   = False # (False) Store detailed information on slices if True
 remove_tarred  = False # Remove tarred files, otherwise keep for faster access
 
@@ -83,25 +82,27 @@ remove_tarred  = False # Remove tarred files, otherwise keep for faster access
 # MSTs and SSTs, with the goal to reach shorter slewing times
 # (Ref. CTA Science document).
 #-----------------------------------------------------------------------------#
-EBLmodel  = "dominguez" # Extragalactic Background Light model
-#EBLmodel  = "built-in" # Default built-in EBL model
+#EBLmodel  = "dominguez" # Extragalactic Background Light model
+EBLmodel  = "built-in" # Default built-in EBL model
 
 arrays    = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
 #arrays   = {"North":"FullArray", "South":"MST"} # "FullArray", "LST",...
-dtslew  = {"North":30*u.s, "South":30*u.s} # Maximum slewing time delay
+#dtslew  = {"North":30*u.s, "South":30*u.s} # Maximum slewing time delay
+dtslew  = {"North":0*u.s, "South":0*u.s} # Maximum slewing time delay
 #dtslew  = {"North":30*u.s, "South":60*u.s} # Maximum slewing time delay
-dtswift = 77*u.s # Fixed SWIFT latency (The mean value is 77*u.s)
+#Zdtswift = 77*u.s # Fixed SWIFT latency (The mean value is 77*u.s)
+dtswift = 0*u.s # Fixed SWIFT latency (The mean value is 77*u.s)
 
 fixslew   = True   # If False,generate a random delay < dtslew
 fixswift  = True   # If False, the latency is generated from real data file
 swiftfile = "../input/swift/Swift_delay_times.txt" # Swift latency file
 
-altmin    = 24*u.deg # Minimum altitude (original default is 10 degrees)
-altmoon   = 90*u.deg # Moon maximum altitude
+altmin    = 10*u.deg # Minimum altitude (original default is 10 degrees)
+altmoon   = 90*u.deg # Moon maximum altitude (-0.25 u.deg for horizon)
 moondist  = 0*u.deg  # Moon minimal distance
-brightness= 1        # Moon maximum brigthness
+moonlight = 1        # Moon maximum brigthness
 
-newvis    = True   # (True) If True, visibility windows are recomputed
+newvis    = False   # (True) If True, visibility windows are recomputed
 depth     = 3*u.day # Maximum duration after trigger to compute the visibility.
 skip      = 0       # If 1 skip first obsercation night, if zero consider it
 
