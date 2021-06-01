@@ -3,13 +3,12 @@
 Created on Tue Aug  4 13:17:27 2020
 
 This module is organised around the :class:`visibility`class.
-It combines the rise and set, and night (twilight) windows, and the moon veto
+It combines the rise, set and night (twilight) windows, and apply the moon veto
 window to the GRB data window (defined by the two extreme GRB time of the
 data points) to produce the visibility windows for a given GRB on a given site.
 It can also be used to check that the ones given by default are in agreement
-for the default horizon value (10 degrees) and a the nights found within
+for the default horizon value (10 degrees) and for the nights found within
 24 hours.
-
 
 @author: Stolar
 """
@@ -19,7 +18,7 @@ from   astropy.time import Time
 from   astropy.coordinates import AltAz, get_moon
 from   astropy.table         import Table
 
-from astroplan import Observer, FixedTarget
+from   astroplan import Observer, FixedTarget, moon_illumination
 
 import warnings
 
@@ -53,21 +52,23 @@ class Visibility():
     file, in particular to modify the minimum altitude for a source to be
     decently detectable.
     The method, :method:`check` is used to compare the visibility
-    windows with the one given by default in the GRB file.
+    windows with the one given by default in the GRB file or any other
+    pre-loaded visibility.
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self,source_radec, site, tstart=0, tstop=0, name="Unknown"):
+    def __init__(self,target=None, site=None, tstart=0, tstop=0, name="Unknown"):
         """
         Visibility constructor
         I did not find how to have this displayed with automodapi
 
-        Moonrise is defined as the instant when, in the eastern sky, under
+        Excerpt from the astroplan documentation:
+        * Moonrise is defined as the instant when, in the eastern sky, under
         ideal meteorological conditions, with standard refraction of the
         Moon's rays, the upper edge of the Moon's disk is coincident with an
         ideal horizon.
 
-        Moonset is defined as the instant when, in the western sky, under
+        * Moonset is defined as the instant when, in the western sky, under
         ideal meteorological conditions, with standard refraction of the
         Moon's rays, the upper edge of the Moon's disk is coincident with
         an ideal horizon.
@@ -79,19 +80,28 @@ class Visibility():
 
         Parameters
         ----------
-        grb : GammaRayBurst
-            A GammarayBust instance
-        loc : string, optional
-            Site position, either North or South. The default is None.
+        target : TYPE, optional
+            DESCRIPTION. The default is None.
+        site : TYPE, optional
+            DESCRIPTION. The default is None.
+        tstart : TYPE, optional
+            DESCRIPTION. The default is 0.
+        tstop : TYPE, optional
+            DESCRIPTION. The default is 0.
+        name : TYPE, optional
+            DESCRIPTION. The default is "Unknown".
+
+        Returns
+        -------
+        None.
+
+        """
 
 
-
-       """
-
-        self.status  = "init" # Will be True if recomputed
+        self.status  = "init"
 
         self.site    = site
-        self.target  = FixedTarget(coord=source_radec, name=name)
+        self.target  = target
         self.tstart  = tstart
         self.tstop   = tstop
         self.name    = name
@@ -122,20 +132,19 @@ class Visibility():
         self.t_night  = [[]]
 
         # Moon period veto
-        self.moon_maxalt     = -0.5*u.deg # Maximal allowed altitude
+        self.moon_maxalt     = -0.25*u.deg # Maximal allowed altitude
         self.moon_mindist    =  0*u.deg # Minimum distance to source
         self.moon_maxlight   =  1       # Maximum allowed brightness
 
-        self.t_moon_alt      = [[]] # Altitude exceeds moon_maxalt
-        self.moon_too_bright = False # Moon brigthness above threshold
-        self.moon_too_close  = False # Moon distance too small
+        self.t_moon_up       = [[]] # Altitude exceeds moon_maxalt
+        self.moon_too_bright = [] # Moon brigthness above threshold
+        self.moon_too_close  = [] # Moon distance too small
 
         return
 
     ###-----------------------------------------------------------------------
-    def read(self, grb, hdr, hdul, hdu=1, loc="None"):
+    def from_fits(self, grb, hdr, hdul, hdu=1, loc="None"):
         """
-
         Visibility from input file
         The start and stop dates are searched during 24h after the trigger
         and correspond to the first visibility interval.
@@ -150,23 +159,24 @@ class Visibility():
 
         Parameters
         ----------
+        grb : TYPE
+            DESCRIPTION.
         hdr : TYPE
             DESCRIPTION.
         hdul : TYPE
             DESCRIPTION.
         hdu : TYPE, optional
             DESCRIPTION. The default is 1.
+        loc : TYPE, optional
+            DESCRIPTION. The default is "None".
 
         Returns
         -------
-        dict
-            DESCRIPTION.
+        None.
 
         """
 
-
-        self.status     = "Default"
-
+        self.status  = "Default"
         self.site    = grb.pos_site[loc]
         self.target  = FixedTarget(coord=grb.radec, name=grb.name)
         self.tstart  = grb.t_trig
@@ -201,9 +211,76 @@ class Visibility():
         return
 
     ###-----------------------------------------------------------------------
-    def moonlight_veto(self,obs,tvis):
+    def write(self, folder=".",debug=False):
+        """
+        Write current visibility instance to disk
+
+        Parameters
+        ----------
+        folder : TYPE, optional
+            DESCRIPTION. The default is ".".
+        debug : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        None.
+
         """
 
+        import pickle
+        from pathlib import Path
+
+        filename = Path(folder,self.name+"_vis.bin")
+        outfile  = open(filename,"wb")
+        pickle.dump(self,outfile)
+        outfile.close()
+        if (debug): print(" >>> Visibility written to : ",filename)
+        return
+
+    ###-----------------------------------------------------------------------
+    @classmethod
+    def read(cls,name,folder=".",debug=False):
+        """
+        Read a visibility instance from disk
+
+
+        Parameters
+        ----------
+        cls : TYPE
+            DESCRIPTION.
+        name : TYPE
+            DESCRIPTION.
+        folder : TYPE, optional
+            DESCRIPTION. The default is ".".
+        debug : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        vis : TYPE
+            DESCRIPTION.
+
+        """
+
+        import pickle
+        from pathlib import Path
+
+        filename = Path(folder,name)
+        infile  = open(filename,"rb")
+        vis =  pickle.load(infile)
+        infile.close()
+        if (debug): print(" <<<< Visibility read from : ",filename)
+
+        return vis
+    ###-----------------------------------------------------------------------
+    def moonlight_veto(self,dt,debug=False):
+        """
+        Check if the Moon period defined by the rise and set time correspond
+        to a situation where the moon is too bright or too close from the
+        source.
+        If this is the case (too bright or too close), returns True
+        (the veto is confirmed)
         Criteria used by the GW paper group
         (F. Schussler, April 14th 2021, private communication) :
             max moon phase to 60%
@@ -212,32 +289,28 @@ class Visibility():
 
 
         """
+        too_bright = False
+        too_close  = False
+
+        # Check moon illumination
+        for t in dt:
+            moonlight = moon_illumination(Df(t))
+            if (moonlight >= self.moon_maxlight):
+                too_bright = True
+                if (debug):
+                    print("Moonlight :",moonlight," too bright ! -> confirmed")
+                break
 
         # Check distance to source at rise and set
-        moon_radec = get_moon(tvis, self.site)
-        dist = moon_radec.separation(self.target_radec)
-        print(" Distance to GRB in Moon peeriod",dist, "->",end="")
-        if dist.any() < self.moon_mindist :
-            print("too close !")
-            self.moon_too_close = True
-        else:
-            self.moon_too_close = False
-            print(" ok")
+        for t in dt:
+            moon_radec = get_moon(Df(t), self.site)
+            dist = moon_radec.separation(self.target.coord)
+            if dist <= self.moon_mindist:
+                too_close = True
+                if (debug): print(" Moon Distance : ",dist,"too close !")
+                break
 
-        # check Moon phase
-        # moon_phase(time=None), Calculate lunar orbital phase.
-        # phase=pi is “new” (dark), phase=0 is “full” (bright).
-        phase = obs.moon_phase(tvis)/math.pi
-        print(" Moon phase fractions = ",phase," ->",end="")
-        if (phase > self.moon_maxalt):
-            print(" Too brigth")
-            self.moon_too_bright = True
-        else:
-            print("ok")
-            self.moon_too_bright = False
-
-        return (self.moon_too_close or self.moon_too_bright) #
-
+        return (too_bright, too_close)
 
     ###----------------------------------------------------------------------------
     def moon_halo(x, r0 = 0.5, rc=30, epsilon=0.1, q0 = 1):
@@ -318,6 +391,9 @@ class Visibility():
                                        n_grid_points = npt)
 
             tmoons.append([t_rise.jd, t_set.jd])
+
+        if len(tmoons): return tmoons
+        else: return [[]]
 
         return tmoons
     ###-----------------------------------------------------------------------
@@ -523,20 +599,28 @@ class Visibility():
         ### NIGHT ---
         is_night, t_night  = self.nights(obs, skip=skip, npt=npt)
 
-        ### MOON ---
-        t_moon_high   = self.moon_alt_veto(obs, npt=npt)
+        ### MOON VETOES (high enough, close enough, bright enough) ---
+        t_moon_alt_veto    = self.moon_alt_veto(obs, npt=npt)
+
+        t_moon_veto = []
+        for dt in t_moon_alt_veto:
+            (too_bright, too_close) = self.moonlight_veto(dt)
+            self.moon_too_bright.append(too_bright)
+            self.moon_too_close.append(too_close)
+            if too_bright or too_close: t_moon_veto.append(dt)
+        if len(t_moon_veto) == 0: t_moon_veto = [[]]
 
         ### HORIZON ---
         (high, t_above) = self.horizon(obs)
 
-        # Prompt appears above horiozn during night
+        # Prompt appears above horizon during night
         if (high and is_night): self.vis_prompt = True
 
         # Now prepare the ticks from all the intervals
         ticks = [self.tstart.jd,self.tstop.jd]
         for elt in t_night       : ticks.extend(elt)
         for elt in t_above       : ticks.extend(elt)
-        for elt in t_moon_high   : ticks.extend(elt)
+        for elt in t_moon_veto   : ticks.extend(elt)
 
         ticks.sort() # Requires numerical values -> all times are in jd
         if (debug): print("Number of ticks = ",len(ticks),ticks)
@@ -554,7 +638,7 @@ class Visibility():
             bright  = valid(tmid,[[self.tstart.jd,self.tstop.jd]])
             dark    = valid(tmid,t_night)
             above   = valid(tmid,t_above)
-            moon    = not valid(tmid,t_moon_high) # Moon acts as a veto
+            moon    = not valid(tmid,t_moon_veto) # Moon acts as a veto
             visible = bright and dark and above and moon
             if (visible):
                 t_vis.append([t1, t2])
@@ -588,12 +672,12 @@ class Visibility():
             for elt in t_above:
                 self.t_event.append( [Df(elt[0]), Df(elt[1])] )
 
-        if len(t_moon_high[0])==0 :
-            self.t_moon_alt  = [[]]
+        if len(t_moon_alt_veto[0])==0 :
+            self.t_moon_up  = [[]]
         else:
-            self.t_moon_alt  = []
-            for elt in t_moon_high:
-                self.t_moon_alt.append( [Df(elt[0]), Df(elt[1])] )
+            self.t_moon_up  = []
+            for elt in t_moon_alt_veto:
+                self.t_moon_up.append( [Df(elt[0]), Df(elt[1])] )
 
         # Finalise visibility wondows, taking into account the depth
         # and additionnal moon vetoes.
@@ -614,7 +698,6 @@ class Visibility():
                     self.t_true.append( [Df(elt[0]), Df(elt[1])] )
 
         return
-
 
     ###------------------------------------------------------------------------
     def print(self,log=None, alt=None):
@@ -645,7 +728,7 @@ class Visibility():
               .format(self.altmin, self.moon_maxalt))
         #log.prt(" Trigger: {}".format(self.t_trig.datetime))
 
-        if self.vis_tonight or self.status =="updated": # Seen within 24hr after the trigger
+        if self.vis_tonight or self.status =="Updated": # Seen within 24hr after the trigger
             log.prt("+----------------------------------------------------------------+")
 
             ###------------------
@@ -653,17 +736,23 @@ class Visibility():
                 if len(t[0]) == 0:
                     log.prt(" {:6s} : {:26s} * {:26s}".format(case,"--","--"))
                     return
-                for elt in t:
+                for i, elt in enumerate(t):
                     t1 = elt[0]
                     t2 = elt[1]
                     log.prt(" {:6s} : {} * {}".format(case,
                                                       t1.datetime,
-                                                      t2.datetime))
+                                                      t2.datetime),end="")
                     # t1  = (t1-self.grb.t_trig).sec*u.s
                     # t2  = (t2-self.grb.t_trig).sec*u.s
                     # log.prt("        : {:7.2f} {:6.2f} * {:7.2f} {:6.2f}"
                     #       .format(t1,self.grb.altaz(loc=loc,dt=t1).alt,
                     #               t2,self.grb.altaz(loc=loc,dt=t2).alt))
+                    if case=="Moon":
+                        log.prt(" B:{} D:{}"
+                                .format(str(self.moon_too_bright[i])[0],
+                                        str(self.moon_too_close[i])[0]))
+                    else:
+                        log.prt("")
                 return
             #-------------------
 
@@ -671,7 +760,7 @@ class Visibility():
                 warnings.filterwarnings("ignore")
                 show(self.t_event,case="Event") # Event - above altmin
                 show(self.t_twilight,case="Twil.")  # Twilight - Dark time
-                show(self.t_moon_alt,case="Moon")  # Moon veto
+                show(self.t_moon_up,case="Moon")  # Moon altitude veto
                 show(self.t_true,case="True")  # True : dark time + altmin + triggered
             log.prt("+----------------------------------------------------------------+")
 
@@ -801,82 +890,81 @@ if __name__ == "__main__":
 
     """
 
-    import os
     from   utilities import Log
-    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
-
-    import gammapy
-    from SoHAPPy import get_grb_fromfile, init
-    import ana_config as cf # Steering parameters
+    from   SoHAPPy import get_grb_fromfile
     import grb_plot as gplt
 
-    log_filename    = cf.res_dir  + cf.logfile
-    log = Log(name  = log_filename, talk=not cf.silent)
+    newvis    = True
+    altmin    = 24*u.deg
+    altmoon   = -0.25*u.deg
+    moondist  = 30*u.deg
+    moonlight = 0.6
+    depth     = 3*u.day
+    skip      = 0
 
-    # Reda config file and supersed values
-    init("")
-    cf.newvis  = True
-    cf.altmin  = 24*u.deg
-    cf.altmoon = -0.25*u.deg
-     # GRB list to be analysed
-    cf.ifirst = [54, 85, 815, 751]
-    cf.ifirst = 54
-    cf.ngrb   = 1
-    cf.show   = 1
+    # GRB list to be analysed
+    # 751 and 815 are killed by the Moon brigthness
+    ifirst = [54, 85, 815, 751]
+    ifirst = 51
+    ngrb   = 50
+
+    dbg   = 1
+    show  = 1
+
+    res_dir = './'
+
+    log_filename    = res_dir  + "visibility.log"
+    log = Log(name  = log_filename, talk=True)
 
     check = False # If True,run comparison between old and new visibilities
     if (check):
-        cf.altmin = 10*u.deg
-        cf.depth  = 1*u.day
+        altmin    = 10*u.deg
+        moondist  = 0*u.deg
+        moonlight = 1.
+        depth     = 1*u.day
+        skip      = 0
 
-    if type(cf.ifirst)!=list:
-        grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
-    else:
-        grblist = cf.ifirst
-
-    print("running... with gammapy ",gammapy.__version__)
+    if type(ifirst)!=list:
+        grblist = list(range(ifirst,ifirst+ngrb))
+    else: grblist = ifirst
 
     # Loop over GRB list accordng to the config. file
     for i in grblist:
 
         grb = get_grb_fromfile(i,log=log)
-
         print(grb)
-        grb.vis["North"].print(log=log)
-        grb.vis["South"].print(log=log)
-        if (check and cf.ngrb<10 and cf.show>0):
-            gplt.visibility_plot(grb.vis["North"])
-            gplt.visibility_plot(grb.vis["South"])
 
-        # Save old visibilitlies
-        import copy
-        vis_def_N = copy.deepcopy(grb.vis["North"])
-        vis_def_S = copy.deepcopy(grb.vis["South"])
+        for loc in ["North","South"]:
 
-        if (cf.newvis):
+            # Current visibility - not exciting
+            log.prt("\n--------------- D E F A U L T  -----------------\n")
+            grb.vis[loc].print(log=log)
+            if (check and ngrb<30 and show>0):
+                gplt.visibility_plot(grb, loc=loc)
+            # Save old visibilities
+            import copy
+            vis_def = copy.deepcopy(grb.vis[loc])
+
+            if (newvis):
             # Compute visibility with new altitude
-            print("\n------------------ New visibility  -------------------\n")
-            grb.vis["North"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
-            grb.vis["South"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
-            grb.vis["North"].print(log=log)
-            grb.vis["South"].print(log=log)
+                log.prt("\n--------------- New visibility  -----------------\n")
+                grb.vis[loc].compute(altmin    = altmin,
+                                     altmoon   = altmoon,
+                                     moondist  = moondist,
+                                     moonlight = moonlight,
+                                     depth     = depth,
+                                     skip      = skip,
+                                     debug     = False)
 
-            if cf.ngrb<10 and cf.show>0:
-                gplt.visibility_plot(grb, loc="North")
-                gplt.visibility_plot(grb, loc="South")
+                grb.vis[loc].print(log=log)
 
+                if ngrb<30 and show>0:
+                    gplt.visibility_plot(grb, loc=loc)
 
             if (check): # If requested, perform check
-                print("\n------------------ C H E C K  -------------------\n")
-                grb.vis["North"].check(vis_def_N,log=log,delta_max=1*u.s)
-                grb.vis["South"].check(vis_def_S,log=log,delta_max=1*u.s)
+                log.prt()("\n--------------- C H E C K  ----------------\n")
+                grb.vis[loc].check(vis_def,log=log,delta_max=1*u.s)
+
+    log.close()
 
     print(" All done !")
