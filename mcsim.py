@@ -502,8 +502,6 @@ class MonteCarlo():
 
         """
 
-
-
         dset_list = []
         for aslice in self.slot.slices:
 
@@ -737,7 +735,7 @@ class MonteCarlo():
             return status
 
     ###------------------------------------------------------------------------
-    def save_to_disk(self,filename="None"):
+    def write(self,filename="None"):
         """
         Save the present class to disk for further use in particular a
         E-dependt on-off analysis
