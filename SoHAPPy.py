@@ -30,7 +30,6 @@ warnings.filterwarnings('ignore')
 
 import numpy as np
 import time
-import pickle
 
 from   datetime import datetime
 from   pathlib  import Path
@@ -42,7 +41,7 @@ from grb            import GammaRayBurst
 from timeslot       import Slot
 
 import mcsim_res  as mcres
-from utilities    import backup_file, Log, warning, success
+from utilities    import backup_file, Log, warning
 
 # Do not refresh IERS data
 from astropy.utils import iers
@@ -103,7 +102,7 @@ def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
     else:
         loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
         grb = GammaRayBurst.read(loc,
-                                 ebl = cf.EBLmodel,
+                                 ebl     = cf.EBLmodel,
                                  magnify = cf.magnify)
 
     return grb
@@ -211,11 +210,11 @@ def summary(log=None):
     log.prt("+----------------------------------------------------------------+")
     log.prt(" Simulation:")
     if type(cf.ifirst)!=list:
-        log.prt("     *Number of sources  : {:>5d}".format(cf.ngrb))
-        log.prt("     *First source       : {:>5d}".format(cf.ifirst))
+        log.prt("     Number of sources*  : {:>5d}".format(cf.ngrb))
+        log.prt("     First source*       : {:>5d}".format(cf.ifirst))
     else:
-        log.prt("     * Source list       : {}".format(cf.ifirst))
-    log.prt("     *Number of trials   : {:>5d}".format(cf.niter))
+        log.prt("     Source list       : {}".format(cf.ifirst))
+    log.prt("     Number of trials*   : {:>5d}".format(cf.niter))
     log.prt(" EBL model               : {}".format(cf.EBLmodel))
     log.prt(" Input/output :")
     log.prt("      Debug mode*        : {:>5d}".format(cf.dbg))
@@ -223,10 +222,6 @@ def summary(log=None):
     log.prt("      Analysing files in : {}".format(cf.grb_dir))
     log.prt("      IRF files in       : {}".format(cf.irf_dir))
     log.prt("      Result folder*     : {}".format(cf.res_dir))
-    log.prt(" Minimum altitude        : {}".format(cf.altmin))
-    log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
-    log.prt(" Moon min. distance      : {}".format(cf.moondist))
-    log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
     log.prt(" Site sub-arrays         : N:{} S:{}"
             .format(cf.arrays["North"],cf.arrays["South"]))
     log.prt(" Slewing time            : N:{} S:{}"
@@ -242,11 +237,18 @@ def summary(log=None):
     # elif (cf.method == 1):
     #     method = "On-off Energy dependent"
     log.prt(" Analysis (ndof)         : {}".format(cf.method))
-    if (cf.newvis):
-        log.prt(" Vis. computed up to     : {}".format(cf.depth))
+    if (cf.vis_dir != None):
+        log.prt(" Vis. read from          : {}".format(cf.vis_dir))
+    elif (cf.newvis):
+        log.prt(" Vis. recomputed up to     : {}".format(cf.depth))
+        log.prt(" Minimum altitude        : {}".format(cf.altmin))
+        log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
+        log.prt(" Moon min. distance      : {}".format(cf.moondist))
+        log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
+        log.prt(" Max. number of days     : {}".format(cf.depth))
+        log.prt(" Skip up to night            : {}".format(cf.skip))
     else:
-        log.prt(" Visibility                  : default")
-    log.prt(" Skip up to night            : {}".format(cf.skip))
+        log.prt(" Visibility              : default")
 
     log.prt("+----------------------------------------------------------------+")
     log.prt("|                 *: can be changed with command line (use -h)   |")
@@ -400,21 +402,20 @@ def main(argv):
                           debug = bool(cf.dbg>1))
 
             # Recompute visbility windows if requested
-            if (cf.newvis):
-                grb.vis["North"].compute(altmin    = cf.altmin,
+            for loc in ["North","South"]:
+                if (cf.vis_dir != None):
+                    import visibility as vis
+                    name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
+                    grb.vis[loc] = vis.Visibility.read(name)
+                elif (cf.newvis):
+                    grb.vis[loc].compute(altmin    = cf.altmin,
                                          altmoon   = cf.altmoon,
                                          moondist  = cf.moondist,
                                          moonlight = cf.moonlight,
                                          depth     = cf.depth,
                                          skip      = cf.skip,
                                          debug     = False)
-                grb.vis["South"].compute(altmin    = cf.altmin,
-                                         altmoon   = cf.altmoon,
-                                         moondist  = cf.moondist,
-                                         moonlight = cf.moonlight,
-                                         depth     = cf.depth,
-                                         skip      = cf.skip,
-                                         debug     = False)
+
 
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
@@ -437,14 +438,7 @@ def main(argv):
                 #plt.show(block=True)
 
             # Save GRB to file if requested
-            if (cf.save_grb):
-                grb_class_file = cf.res_dir + "/" \
-                               + grb.name + ".bin"
-                outfile  = open(grb_class_file,"wb")
-                pickle.dump(grb,outfile)
-                outfile.close()
-                success(" Saving grb {} to file : {}"
-                      .format(grb.name,grb_class_file))
+            if (cf.save_grb): grb.write(cf.res_dir)
 
             ###--------------------------------------------###
             #  Check individual sites - Loop over locations
@@ -490,7 +484,7 @@ def main(argv):
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
-                    mc.save_to_disk(cf.res_dir + "/" +name + ".bin")
+                    mc.write(cf.res_dir + "/" +name + ".bin")
 
             ###--------------------------------------------###
             #   Check GRB seen on both sites
@@ -530,8 +524,7 @@ def main(argv):
                 mplt.show(mc,loc="Both")
 
             # If requested save simulation to disk
-            if (cf.save_simu):
-                mc.save_to_disk(cf.res_dir + "/" +name + ".bin")
+            if (cf.save_simu): mc.write(Path(cf.res_dir,name + "_sim.bin"))
 
         # END of Loop over GRB
 
