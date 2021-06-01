@@ -144,7 +144,7 @@ class GammaRayBurst(object):
             self.eblabs = Absorption.read_builtin(ebl_model)
         else:
             self.eblabs = None
-            print(" EBL absorption not defined or built-in")
+            #print(" EBL absorption not defined or built-in")
 
         # GRB properties - Dummy default values
         self.z        = z
@@ -188,7 +188,7 @@ class GammaRayBurst(object):
 
     ###########################################################################
     @classmethod
-    def read(cls, filename, ebl= None, magnify=1):
+    def read(cls, filename, ebl= None, newis=False, magnify=1):
 
         """
         Fluxes are given for a series of (t,E) values
@@ -251,8 +251,10 @@ class GammaRayBurst(object):
             flux = Table.read(hdul,hdu=4)
 
         ### Visibilities --- includes tval span
-        grb.vis["North"].read(grb, hdr, hdul,hdu=1,loc="North")
-        grb.vis["South"].read(grb, hdr, hdul,hdu=1,loc="South")
+        # One should consider not reading the default and go directly to new
+        # visibilities
+        grb.vis["North"].from_fits(grb, hdr, hdul,hdu=1,loc="North")
+        grb.vis["South"].from_fits(grb, hdr, hdul,hdu=1,loc="South")
 
         #flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
         # flux_unit    = u.Unit(flux.meta["UNITS"]) # Removes ph
@@ -302,7 +304,7 @@ class GammaRayBurst(object):
     ###########################################################################
     @classmethod
     def read_prompt(cls, filename, glow= None, ebl= None,
-                    z=0*u.dimensionless_unscaled, magnifiy=1):
+                    z=0*u.dimensionless_unscaled, magnify=1):
         """
         Read prompt data froma file and associate it to the afterglow
         information if requested (or keep the default from the constructor
@@ -364,7 +366,7 @@ class GammaRayBurst(object):
                 if (f>1):
                     # print(i,j,f)
                     f =0 # Correct a bug in event #172 - to be removed
-                grb.fluxval[i][j] = cf.magnify*f*flux_unit # transp!
+                grb.fluxval[i][j] = magnify*f*flux_unit # transp!
 
         for i,t in enumerate(grb.tval):
             # Note that TableModel makes an interpolation
@@ -381,6 +383,19 @@ class GammaRayBurst(object):
 
         hdul.close()
         return grb
+    ###------------------------------------------------------------------------
+    def write(self, folder, debug=True):
+
+        import pickle
+
+        filename = Path(folder,self.name+".bin")
+        outfile  = open(filename,"wb")
+        pickle.dump(grb,outfile)
+        outfile.close()
+        if (debug): print(" GRB saved to : {}".format(filename))
+
+        return
+
 
     ###------------------------------------------------------------------------
     def altaz(self,loc="",dt=0*u.s):
@@ -452,100 +467,40 @@ if __name__ == "__main__":
     """
     A standalone function to read a GRB and make various tests
     """
-    import os
-    import pickle
     from   utilities import Log
-    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
 
-    import gammapy
-
-    from SoHAPPy import get_grb_fromfile, init
+    from SoHAPPy import get_grb_fromfile
     import grb_plot as gplt
 
-    import ana_config as cf # Steering parameters
+    dbg      = 0
 
-    cf.dbg  = 0
-    cf.altmin = 24*u.deg
-    cf.altmoon = -0.25*u.deg
-    cf.ngrb = 1 # 250
-    cf.ifirst = [815]
-    cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
-    cf.newvis = False
+    ngrb     = 1 # 250
+    ifirst   = 1
+    save_grb = False # (False) GRB saved to disk -> use grb.py main
+    res_dir  = "."
 
-    log_filename    = cf.res_dir  + cf.logfile
-    log = Log(name  = log_filename, talk=not cf.silent)
+    log_filename    = res_dir  + "/grb.log"
+    log = Log(name  = log_filename)
 
-     # GRB list to be analysed
-    if type(cf.ifirst)!=list:
-        grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
+    # GRB list to be analysed
+    if type(ifirst)!=list:
+        grblist = list(range(ifirst, ifirst + ngrb))
     else:
-        grblist = cf.ifirst
+        grblist = ifirst
 
-    print("running... with gammapy ",gammapy.__version__)
+    ## Test dummy GRB
+    # grb = GammaRayBurst()
+    # print(grb)
+    # for loc in ["North", "South"]:
+    #     print(grb.vis[loc].print(log=log))
 
-    # Test dummy GRB
-    grb = GammaRayBurst()
-    print(grb)
-    print("\n .................... DEFAULT ...............\n")
-    for loc in ["North", "South"]:
-        print(grb.vis[loc].print(log=log))
-
-    # Loop over GRB list accordng to the config. file
+    # Loop over GRB list
     for i in grblist:
 
-        init("")
         grb = get_grb_fromfile(i,log=log)
-
         print(grb)
-        grb.vis["North"].print(log=log)
-        grb.vis["South"].print(log=log)
+        gplt.spectra(grb,opt="Packed")
+        gplt.visibility_plot(grb, loc ="North")
+        gplt.visibility_plot(grb, loc ="South")
 
-        # Recompute and show visibility
-        if (cf.newvis):
-            print("\n .................... RECOMPUTING ...............\n")
-            grb.vis["North"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip, debug=True)
-            grb.vis["South"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip, debug=True)
-            grb.vis["North"].print(log=log)
-            grb.vis["South"].print(log=log)
-
-        gplt.visibility_plot(grb.vis["North"])
-        gplt.visibility_plot(grb.vis["South"])
-
-        # Save GRB to file if requested
-        if (cf.save_grb):
-            grb_class_file = cf.res_dir + "/" \
-                            + grb.name + ".bin"
-            outfile  = open(grb_class_file,"wb")
-            pickle.dump(grb,outfile)
-            outfile.close()
-            print(" Saving grb {} to file : {}"
-                  .format(grb.name,grb_class_file))
-
-
-        save_vis = True
-        if save_vis:
-            from copy import deepcopy
-            for loc in ["North","South"]:
-                vis2dump = deepcopy(grb.vis[loc])
-                #vis2dump.grb = None
-                vis2dump.print(log)
-                filename = grb.name+"_"+loc+"_vis.bin"
-                outfile  = open(filename,"wb")
-                pickle.dump(vis2dump,outfile)
-                del vis2dump
-                print(" >>> Visibility ",loc," dumped to : ",filename)
-        read_vis = False
-        if (read_vis):
-            for loc in ["North","South"]:
-                filename = grb.name+"_"+loc+"_vis.bin"
-                infile  = open(filename,"rb")
-                vis_in = pickle.load(infile)
-                vis_in.name = "loaded"
-                vis_in.print(log)
-                print(" <<< Visibility ",loc," loaded to : ",filename)
+        if (save_grb): grb.write(res_dir) # Save GRB if requested
