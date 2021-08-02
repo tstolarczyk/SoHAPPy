@@ -76,16 +76,17 @@ def energy_and_time_packed(grb):
         nspectra = len(grb.tval)-1
         if (nspectra > n_E_2disp):
             dnt = int(round(nspectra/n_E_2disp))
-            tlist = list(range(0,nspectra,dnt))
+            tidx = list(range(0,nspectra,dnt))
             #tlist = [12, 13, 14, 15] + tlist # Typical Prompt times
         else:
             dnt=1
+            tidx = [1]
 
         ymin = 1e-16
 
         fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,12))
 
-        for i in tlist:
+        for i in tidx:
             #print(" energy_and_time_packed",i)
             t = grb.tval[i]
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
@@ -113,15 +114,11 @@ def energy_and_time_packed(grb):
         ax1.set_ylim(ymin=ymin)
 
         ax1.axvline(10*u.GeV, color="grey",alpha=0.2)
-        ax1.text(x=10*u.GeV,
-                y=ymin*50,
-                s="10 GeV",
-                rotation=270,
-                fontsize=14,va="bottom")
+        ax1.text(x = 10*u.GeV, y=ymin*50, s="10 GeV",
+                 rotation=270, fontsize=14,va="bottom")
         title = "{}: {:>2d} Flux points".format(grb.name,len(grb.tval))
         ax1.set_title(title,fontsize=12)
         if (n_E_2disp<=15): ax1.legend(fontsize=12) # Too many t slices
-
 
         # Light curve for some energy bins
         nlightcurves = len(grb.Eval)
@@ -129,7 +126,6 @@ def energy_and_time_packed(grb):
             dnE = int(round(nlightcurves/ n_t_2disp))
         else:
             dnE=1
-
 
         for i in range(0,nlightcurves,dnE):
             flux = [f[i].value for f in grb.fluxval ]* grb.fluxval[0].unit
@@ -145,7 +141,7 @@ def energy_and_time_packed(grb):
                  rotation=0,
                  fontsize=14)
 
-        ax2.set_xscale("log")
+        if len(grb.tval) > 2 : ax2.set_xscale("log")
         ax2.set_yscale("log")
         ax2.set_xlabel("Time (s)")
         title = "{}: {:>2d} E points".format(grb.name,len(grb.Eval))
@@ -504,7 +500,7 @@ def visibility_plot(grb,
                     moon = True,
                     ax   = None,
                     dt_before = 0.25*u.day, # Before trigger
-                    dt_after  = 2.25*u.day, # After trigger
+                    dt_after  = 0.25*u.day, # After visibility window
                     nalt = 250):
     """
     Plot the night, above-the-horizon and visibility periods, the altitude
@@ -546,8 +542,9 @@ def visibility_plot(grb,
     with warnings.catch_warnings() and quantity_support() :
         warnings.filterwarnings("ignore")
 
-        dt   = np.linspace(0,(dt_before+dt_after).value, nalt)
-        tobs = vis.tstart  - dt_before + dt*dt_before.unit
+        duration = (vis.tstop - vis.tstart + dt_after + dt_before).to(u.d)
+        dt   = np.linspace(0,duration.value, nalt)
+        tobs = vis.tstart  - dt_before + dt*duration.unit
 
         ### GRB (main plot)
         source_alt_and_flux(grb, vis, tobs, site=vis.site, ax=ax[0])
