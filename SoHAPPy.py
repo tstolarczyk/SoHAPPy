@@ -36,6 +36,7 @@ from   pathlib  import Path
 import astropy.units as u
 
 import ana_config as cf # Steering parameters
+import visibility_config as vis_cf # Visibility parameters
 
 from grb            import GammaRayBurst
 from timeslot       import Slot
@@ -56,7 +57,7 @@ iers.conf.auto_download = False
 
 __all__ = ["main", "init", "summary", "get_grb_fromfile", "get_delay"]
 ###############################################################################
-def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
+def get_grb_fromfile(item,prompt=False, afterglow=False, log=None):
     """
     Obtain data for the ith GRB file and create a GammaRayBurst instance.
 
@@ -80,13 +81,34 @@ def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
 
     """
 
-    if (cf.test_prompt):
+
+    if not cf.test_prompt: # Normal case : afterglow
+        if isinstance(item, str):
+            # this is a GRB name string
+            filename = Path(cf.grb_dir
+                            + "historical/GRB_"
+                            + item +".yml")
+            import yaml
+            from yaml.loader import SafeLoader
+            with open(filename) as f:
+                data = yaml.load(f, Loader=SafeLoader)
+                #print(data)
+                grb = GammaRayBurst.from_yaml(data,ebl=cf.EBLmodel)
+        elif isinstance(item, int):
+            filename = Path(cf.grb_dir
+                            + "LONG_FITS/"
+                            + "Event"
+                            + str(item)+".fits")
+            grb = GammaRayBurst.from_fits(filename,
+                                     ebl     = cf.EBLmodel,
+                                     magnify = cf.magnify)
+    else: # Special case for prompt
         # create a new object from the default (Visible in North)
         loc = Path('../input/lightcurves/prompt'
-                   + "/events_"+str(i)+".fits")
+                   + "/events_"+str(item)+".fits")
         if (cf.use_afterglow):
             # use afterglow characteristics
-            loc_glow = Path(cf.grb_dir + "/Event"+str(i)+".fits")
+            loc_glow = Path(cf.grb_dir + "/Event"+str(item)+".fits")
             glow = GammaRayBurst.read(loc_glow, ebl = cf.EBLmodel)
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=glow,
@@ -99,11 +121,7 @@ def get_grb_fromfile(i,prompt=False, afterglow=False, log=None):
                                             ebl = cf.EBLmodel,
                                             z=cf.redshift,
                                             magnify = cf.magnify)
-    else:
-        loc = Path(cf.grb_dir + "/Event"+str(i)+".fits")
-        grb = GammaRayBurst.read(loc,
-                                 ebl     = cf.EBLmodel,
-                                 magnify = cf.magnify)
+
 
     return grb
 
@@ -209,11 +227,11 @@ def summary(log=None):
     log.prt("|                                                                |")
     log.prt("+----------------------------------------------------------------+")
     log.prt(" Simulation:")
-    if type(cf.ifirst)!=list:
+    if type(cf.ifirst)!=list and not isinstance(cf.ifirst, str):
         log.prt("     Number of sources*  : {:>5d}".format(cf.ngrb))
         log.prt("     First source*       : {:>5d}".format(cf.ifirst))
     else:
-        log.prt("     Source list       : {}".format(cf.ifirst))
+        log.prt("     Source list         : {}".format(cf.ifirst))
     log.prt("     Number of trials*   : {:>5d}".format(cf.niter))
     log.prt(" EBL model               : {}".format(cf.EBLmodel))
     log.prt(" Input/output :")
@@ -239,14 +257,8 @@ def summary(log=None):
     log.prt(" Analysis (ndof)         : {}".format(cf.method))
     if (cf.vis_dir != None):
         log.prt(" Vis. read from          : {}".format(cf.vis_dir))
-    elif (cf.newvis):
-        log.prt(" Vis. recomputed up to     : {}".format(cf.depth))
-        log.prt(" Minimum altitude        : {}".format(cf.altmin))
-        log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
-        log.prt(" Moon min. distance      : {}".format(cf.moondist))
-        log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
-        log.prt(" Max. number of days     : {}".format(cf.depth))
-        log.prt(" Skip up to night            : {}".format(cf.skip))
+    elif (cf.vis_cmp):
+        vis_cf.print(log)
     else:
         log.prt(" Visibility              : default")
 
@@ -269,9 +281,9 @@ def summary(log=None):
     if (cf.do_accelerate  == False):
         log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
 
-    if (cf.fixed_zenith != False):
-        log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
-               .format(cf.fixed_zenith))
+    if (cf.fixed_zenith != None):
+         log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
+                .format(cf.fixed_zenith))
     if (cf.magnify !=1):
         log.warning(  "GRB flux values are multiplied by {}"
                 .format(cf.magnify))
@@ -362,8 +374,11 @@ def main(argv):
 
     # GRB list to be analysed
     if type(cf.ifirst)!=list:
-        grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
-        first = str(cf.ifirst)
+        if isinstance(cf.ifirst,str):
+            grblist = [cf.ifirst]
+        elif isinstance(cf.ifirst, int):
+            grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
+            first = str(cf.ifirst)
     else:
         grblist = cf.ifirst
         first = str(grblist[0])
@@ -391,9 +406,9 @@ def main(argv):
         mcres.welcome(cf.arrays,log=log) # Remind simulation parameters
 
         first = True # Actions for first GRB only
-        for i in grblist:
+        for item in grblist:
 
-            grb = get_grb_fromfile(i,log=log) ### Get GRB
+            grb = get_grb_fromfile(item,log=log) ### Get GRB
 
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
@@ -407,14 +422,14 @@ def main(argv):
                     import visibility as vis
                     name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
                     grb.vis[loc] = vis.Visibility.read(name)
-                elif (cf.newvis):
-                    grb.vis[loc].compute(altmin    = cf.altmin,
-                                         altmoon   = cf.altmoon,
-                                         moondist  = cf.moondist,
-                                         moonlight = cf.moonlight,
-                                         depth     = cf.depth,
-                                         skip      = cf.skip,
-                                         debug     = False)
+                elif (cf.vis_cmp):
+                    grb.vis[loc].compute(altmin    = vis_cf.altmin,
+                                         altmoon   = vis_cf.altmoon,
+                                         moondist  = vis_cf.moondist,
+                                         moonlight = vis_cf.moonlight,
+                                         depth     = vis_cf.depth,
+                                         skip      = vis_cf.skip,
+                                         debug     = bool(cf.dbg>2))
 
 
             # Printout grb and visibility windows
@@ -467,8 +482,11 @@ def main(argv):
 
                     # If still visible add IRF feature and run
                     if (still_vis):
-                        slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
+                        slot.dress(irf_dir = cf.irf_dir,
+                                   arrays  = cf.arrays,
+                                   zenith  = cf.fixed_zenith)
                         if (cf.dbg > 2): print(slot)
+
                         mc.run(slot,boost    = cf.do_accelerate,
                                     savedset = cf.save_dataset,
                                     dump_dir = dump_dir)
@@ -484,7 +502,7 @@ def main(argv):
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
-                    mc.write(cf.res_dir + "/" +name + ".bin")
+                    mc.write(cf.res_dir + "/" +name + "_sim.bin")
 
             ###--------------------------------------------###
             #   Check GRB seen on both sites
@@ -506,7 +524,9 @@ def main(argv):
                 slot = origin.both_sites(delay  = get_delay(),
                                          debug  = (cf.dbg>1))
                 if (slot != None):
-                    slot.dress(irf_dir = cf.irf_dir, arrays=cf.arrays)
+                    slot.dress(irf_dir = cf.irf_dir,
+                               arrays  = cf.arrays,
+                               zenith  = cf.fixed_zenith)
                     if (cf.dbg > 2): print(slot)
 
                     mc.run(slot,boost    = cf.do_accelerate,
