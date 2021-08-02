@@ -110,8 +110,8 @@ erec_edges = np.asarray([3.00000000e+01, # LST 20°
                         #1.00000000e+02, # too close from next edge
                         1.10000000e+02, # LST 60, MST 20° and 40°
                         # 1.77827941e+02,  # too close from next edge
-                        # 2.0e+02, # too close from next edge
-                        2.5e+02, # MST 60°
+                        2.0e+02, # too close from next edge
+                        #2.5e+02, # MST 60°
                         3.16227766e+02,
                         5.62341325e+02,
                         1.00000000e+03,
