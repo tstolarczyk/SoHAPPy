@@ -100,7 +100,10 @@ class Slot():
         return
 
     #------------------------------------------------------------
-    def dress(self, name="dressed", irf_dir="./", arrays=None, debug=False):
+    def dress(self, name="dressed", irf_dir= "./",
+                                    arrays = None,
+                                    zenith = None,
+                                    debug  = False):
         """
         Dress slices with physics information
 
@@ -114,7 +117,8 @@ class Slot():
         for s in self.slices: s.dress(self.grb,
                                       irf_dir = irf_dir,
                                       arrays  = arrays,
-                                      opt=self.opt)
+                                      opt=self.opt,
+                                      zenith = zenith)
 
         # After dressing, two consecutives slices can be associated to the
         # same spectrum id and should be merged
