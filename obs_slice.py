@@ -104,7 +104,12 @@ class Slice():
         self.__site = site
         return
     #--------------------------------------------------------------------------
-    def dress(self,grb,irf_dir = "./",arrays=None,opt="end",debug=False):
+    def dress(self,grb,
+                   irf_dir = "./",
+                   arrays  = None,
+                   opt     = "end",
+                   zenith  = None,
+                   debug   = False):
         """
         Add physical information to the slice
 
@@ -124,7 +129,7 @@ class Slice():
         """
         self.obs_point(opt)
         self.get_flux(grb,self.__tobs)
-        self.get_perf(grb,irf_dir= irf_dir,arrays=arrays)
+        self.get_perf(grb,irf_dir= irf_dir,arrays=arrays,zenith=zenith)
         return
 
     #------------------------------------------------------------
@@ -186,7 +191,7 @@ class Slice():
         return
 
     #--------------------------------------------------------------------------
-    def get_perf(self,grb,irf_dir="./",arrays=None,debug=False):
+    def get_perf(self,grb,irf_dir="./",arrays=None,zenith=None,debug=False):
         """
         Obtain the best performance for a given slice, indpendently of
         the observation point that was chosen.
@@ -222,8 +227,9 @@ class Slice():
         for site in site_list:
 
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
+            if zenith == None: zenith   = 90*u.degree-altaz.alt
 
-            irf = IRF.from_observation(zenith   = 90*u.degree-altaz.alt,
+            irf = IRF.from_observation(zenith   = zenith,
                                        azimuth  = altaz.az,
                                        obstime  = obstime,
                                        loc      = site,
