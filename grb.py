@@ -57,7 +57,13 @@ xyz_south = EarthLocation.from_geocentric( float(1946404.34103884),
                                           float(-5467644.29079852),
                                           float(-2642728.20144425),
                                             unit="m")
-
+# from default values in
+# https://www.mpi-hd.mpg.de/hfm/HESS/pages/home/visibility/
+from astropy.coordinates import Angle
+xyz_HESS= EarthLocation.from_geodetic(lat=Angle('-23d16m18.0s'),
+                                      lon=Angle('16d30m0.0s'),
+                                      height=1800*u.m)
+# xyz_south = xyz_HESS
 # Values taken from Maria Grazia Bernardini - See Readme, July 28, 2020
 # xyz_north = EarthLocation.from_geocentric( 5327285.09211954,
 #                                           -1718777.11250295,
@@ -142,12 +148,12 @@ class GammaRayBurst(object):
         # Initialise absorption
         if (ebl_model != None) and (ebl_model != "built-in"):
             self.eblabs = Absorption.read_builtin(ebl_model)
+            self.z        = z
         else:
             self.eblabs = None
             #print(" EBL absorption not defined or built-in")
 
         # GRB properties - Dummy default values
-        self.z        = z
         self.radec    = SkyCoord(100*u.degree,-15*u.degree, frame='icrs')
         self.Eiso     = 0.*u.erg
         self.Epeak    = 0.*u.keV
@@ -173,10 +179,8 @@ class GammaRayBurst(object):
         self.fluxval        = [0]*u.Unit("1 / (cm2 GeV s)")
 
         # Visibility (requires GRB points interavl)
-        self.vis  = { "North": Visibility(self.radec,
-                                          self.pos_site["North"]),
-                      "South": Visibility(self.radec,
-                                          self.pos_site["South"])
+        self.vis  = { "North": Visibility(self,"North"),
+                      "South": Visibility(self,"South")
                                           }
 
         # GRB spectral and spatial model
@@ -188,7 +192,7 @@ class GammaRayBurst(object):
 
     ###########################################################################
     @classmethod
-    def read(cls, filename, ebl= None, newis=False, magnify=1):
+    def from_fits(cls, filename, ebl= None, z=0, newis=False, magnify=1):
 
         """
         Fluxes are given for a series of (t,E) values
@@ -218,33 +222,33 @@ class GammaRayBurst(object):
 
         """
 
-        grb = cls(ebl_model=ebl) # This calls the constructor
+        cls = GammaRayBurst(ebl_model=ebl,z=z) # This calls the constructor
 
         hdul = fits.open(filename)
 
-        grb.name = Path(filename.name).stem
+        cls.name = Path(filename.name).stem
 
         ### GRB properties ---
         hdr = hdul[0].header
-        grb.radec    = SkyCoord(hdr['RA']*u.degree,
+        cls.radec    = SkyCoord(hdr['RA']*u.degree,
                                 hdr['DEC']*u.degree,
                                 frame='icrs')
-        grb.z        = hdr['Z']
-        grb.Eiso     = hdr['EISO']*u.erg
-        grb.Epeak    = hdr['EPEAK']*u.keV
-        grb.t90      = hdr['Duration']*u.s
-        grb.G0H      = hdr['G0H']
-        grb.G0W      = hdr['G0W']
-        grb.Fluxpeak = hdr['EISO']*u.erg
-        grb.gamma_le = hdr['LOWSP']
-        grb.gamma_he = hdr['HIGHSP']
+        cls.z        = hdr['Z']
+        cls.Eiso     = hdr['EISO']*u.erg
+        cls.Epeak    = hdr['EPEAK']*u.keV
+        cls.t90      = hdr['Duration']*u.s
+        cls.G0H      = hdr['G0H']
+        cls.G0W      = hdr['G0W']
+        cls.Fluxpeak = hdr['EISO']*u.erg
+        cls.gamma_le = hdr['LOWSP']
+        cls.gamma_he = hdr['HIGHSP']
 
         # GRB trigger time
-        grb.t_trig   = Time(hdr['GRBJD']*u.day,format="jd",scale="utc")
+        cls.t_trig   = Time(hdr['GRBJD']*u.day,format="jd",scale="utc")
 
         ### Energies, times and fluxes ---
-        grb.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
-        grb.tval     = Table.read(hdul,hdu=3)["Times (afterglow)"].quantity
+        cls.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
+        cls.tval     = Table.read(hdul,hdu=3)["Times (afterglow)"].quantity
         if (ebl == "built-in"):
             flux = Table.read(hdul,hdu=5)
         else:
@@ -253,8 +257,8 @@ class GammaRayBurst(object):
         ### Visibilities --- includes tval span
         # One should consider not reading the default and go directly to new
         # visibilities
-        grb.vis["North"].from_fits(grb, hdr, hdul,hdu=1,loc="North")
-        grb.vis["South"].from_fits(grb, hdr, hdul,hdu=1,loc="South")
+        cls.vis["North"] = cls.vis["North"].from_fits(cls, hdr, hdul,hdu=1,loc="North")
+        cls.vis["South"] = cls.vis["South"].from_fits(cls, hdr, hdul,hdu=1,loc="South")
 
         #flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
         # flux_unit    = u.Unit(flux.meta["UNITS"]) # Removes ph
@@ -264,42 +268,123 @@ class GammaRayBurst(object):
         jrow_E       = len(flux[flux.colnames[0]]) # row number
 
         # Note the transposition from flux to fluxval
-        grb.fluxval = np.zeros( (icol_t,jrow_E) )*flux_unit
+        cls.fluxval = np.zeros( (icol_t,jrow_E) )*flux_unit
         for i in range(0,icol_t):
             for j in range(0,jrow_E):
-                grb.fluxval[i][j] = magnify* flux[j][i]*flux_unit # transp!
+                cls.fluxval[i][j] = magnify* flux[j][i]*flux_unit # transp!
 
-        for i,t in enumerate(grb.tval):
+        for i,t in enumerate(cls.tval):
             # Note that TableModel makes an interpolation
             # Following a question on the Slack gammapy channel on
             # November 27th, and the answer by Axel Donath:
             # The foloowing statemetn later in the code gave an error
             # (dlist_onoff is a collection of Dataset)
-            # dlist_onoff.write(datapath,prefix="grb",overwrite=True)
+            # dlist_onoff.write(datapath,prefix="cls",overwrite=True)
             # gives:
             # ...\gammapy\modeling\models\spectral.py", line 989, in to_dict
             # "data": self.energy.data.tolist(),
             # NotImplementedError: memoryview: unsupported format >f
             # This error comes from the fact that the energy list as to be
             # explicitely passed as a float as done below:
-            #    grb.Eval.astype(float)
+            #    cls.Eval.astype(float)
             # (A Quantity is passed as requested but the underlying numpy
             # dtype is not supported by energy.data.tolist()
-            tab = TemplateSpectralModel(energy = grb.Eval.astype(float),
-                                        values = grb.fluxval[i],
+            tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
+                                        values = cls.fluxval[i],
                                         norm   = 1.,
                                         interp_kwargs={"values_scale": "log"})
 
-            if (grb.eblabs != None) and (ebl != "built-in"):
-                model = AbsorbedSpectralModel(tab,grb.eblabs,grb.z)
+            if (cls.eblabs != None) and (ebl != "built-in"):
+                model = AbsorbedSpectralModel(tab,cls.eblabs,cls.z)
             else:
                 model = tab
 
-            grb.spectra.append(model)
+            cls.spectra.append(model)
 
         hdul.close()
 
-        return grb
+        return cls
+    ###########################################################################
+    @classmethod
+    def from_yaml(cls, data, ebl= None,magnify=1):
+
+        """
+
+        Returns
+        -------
+        A GammaRayBurst instance.
+
+        """
+
+        cls.z      = data["z"]
+        cls = GammaRayBurst(ebl_model=ebl,z=cls.z) # This calls the constructor
+
+        cls.name   = data["name"]
+        cls.radec  = SkyCoord(data["ra"], data["dec"], frame='icrs')
+        cls.Eiso   = u.Quantity(data["Eiso"])
+        cls.t_trig = Time(data["t_trig"], format="datetime",scale="utc")
+
+        ### Energies, times and fluxes ---
+        Emin     = u.Quantity(data["Emin"])
+        Emax     = u.Quantity(data["Emax"])
+        tmin     = u.Quantity(data["tmin"])
+        tmax     = u.Quantity(data["tmax"])
+        ntbin    =  data["ntbin"]
+        cls.Eval = np.asarray([Emin.value, Emax.to(Emin.unit).value])*Emin.unit
+
+        if ntbin != 1:
+            cls.tval = np.logspace(np.log10(tmin.to(u.s).value),
+                                   np.log10(tmax.to(u.s).value),
+                                   ntbin)*u.s
+        else: # A single wtime window
+            cls.tval = np.array([tmin.value,tmax.to(tmin.unit).value])*tmin.unit
+
+        flux_unit = u.Unit("1/(cm2 GeV s)")
+        cls.fluxval = np.zeros( (len(cls.tval),len(cls.Eval)) )*flux_unit
+
+        for i,t in enumerate(cls.tval):
+            for j,E in enumerate(cls.Eval):
+                dnde = (u.Quantity(data["K"])*(E/data["E0"])**-data["gamma"]
+                                 *(t/data["t0"])**-data["beta"])
+                #print(i,j,dnde)
+                cls.fluxval[i][j] = magnify* dnde.to(flux_unit)
+
+        ### Visibilities --- includes tval span
+        for loc in ["North","South"]:
+            cls.vis[loc]  = Visibility(cls,loc)
+            # Recomputing done in the main
+            # cls.vis[loc].compute(debug=False)
+
+
+        for i,t in enumerate(cls.tval):
+            # Note that TableModel makes an interpolation
+            # Following a question on the Slack gammapy channel on
+            # November 27th, and the answer by Axel Donath:
+            # The foloowing statemetn later in the code gave an error
+            # (dlist_onoff is a collection of Dataset)
+            # dlist_onoff.write(datapath,prefix="cls",overwrite=True)
+            # gives:
+            # ...\gammapy\modeling\models\spectral.py", line 989, in to_dict
+            # "data": self.energy.data.tolist(),
+            # NotImplementedError: memoryview: unsupported format >f
+            # This error comes from the fact that the energy list as to be
+            # explicitely passed as a float as done below:
+            #    cls.Eval.astype(float)
+            # (A Quantity is passed as requested but the underlying numpy
+            # dtype is not supported by energy.data.tolist()
+            tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
+                                        values = cls.fluxval[i],
+                                        norm   = 1.,
+                                        interp_kwargs={"values_scale": "log"})
+
+            if (cls.eblabs != None) and (ebl != "built-in"):
+                model = AbsorbedSpectralModel(tab,cls.eblabs,cls.z)
+            else:
+                model = tab
+
+            cls.spectra.append(model)
+
+        return cls
 
     ###########################################################################
     @classmethod
@@ -390,12 +475,11 @@ class GammaRayBurst(object):
 
         filename = Path(folder,self.name+".bin")
         outfile  = open(filename,"wb")
-        pickle.dump(grb,outfile)
+        pickle.dump(self,outfile)
         outfile.close()
         if (debug): print(" GRB saved to : {}".format(filename))
 
         return
-
 
     ###------------------------------------------------------------------------
     def altaz(self,loc="",dt=0*u.s):
@@ -461,12 +545,14 @@ class GammaRayBurst(object):
         .format(len(self.Eval), len(self.tval))
 
         return txt
-
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
+
+
     """
     A standalone function to read a GRB and make various tests
     """
+
     from   utilities import Log
 
     from SoHAPPy import get_grb_fromfile
@@ -476,11 +562,13 @@ if __name__ == "__main__":
 
     ngrb     = 1 # 250
     ifirst   = 1
+    ifirst = ["190829A"]
+
     save_grb = False # (False) GRB saved to disk -> use grb.py main
     res_dir  = "."
 
     log_filename    = res_dir  + "/grb.log"
-    log = Log(name  = log_filename)
+    log = Log(name  = log_filename,talk=True)
 
     # GRB list to be analysed
     if type(ifirst)!=list:
