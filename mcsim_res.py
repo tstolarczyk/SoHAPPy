@@ -15,14 +15,13 @@ def welcome(subarray,log=None):
     log.banner("||                     LAUNCHING SIMULATION                     ||")
     log.banner("+================================================================+")
     log.prt("   Detection level    : {}".format(mcf.det_level))
-    log.prt("   Alpha              : {}".format(mcf.alpha))
+    log.prt("   on/off regions     : {}".format(mcf.alpha))
     log.prt("   FOV                : {}".format(mcf.fov))
     log.prt("   On-region size     : N: {:5} -  S: {:5}".format(mcf.on_size[subarray["North"]],
                                                        mcf.on_size[subarray["South"]]))
     log.prt("   Offset from center : N: {:5} -  S: {:5}".format(mcf.offset[subarray["North"]],
                                                        mcf.offset[subarray["South"]]))
     log.prt("   Eff. area cont.    : {}".format(mcf.containment))
-    log.prt("   on/off regions     : {}".format(mcf.alpha))
     log.prt("   Min on/off counts  : {}".format(mcf.nLiMamin))
     #log.prt("   Bin size           : {}".format(mcf.binsize))
 
