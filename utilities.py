@@ -156,7 +156,7 @@ def backup_file(folder=None, dest=None, dbg=False):
 
 ###----------------------------------------------------------------------------
 class Log():
-    def __init__(self, name="default.log",talk=False):
+    def __init__(self, name="default.log",talk=True):
 
         self.log_file = open(name,'w')
         self.talk     = talk
