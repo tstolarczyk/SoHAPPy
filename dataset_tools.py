@@ -5,14 +5,11 @@ Created on Thu Dec  3 11:51:18 2020
 @author: Stolar
 """
 
-
 import numpy as np
-import matplotlib.pyplot as plt
 
 import astropy.units as u
 from   astropy.time          import Time
 from   astropy.coordinates import SkyCoord
-from   astropy.visualization import quantity_support
 
 from regions import CircleSkyRegion
 
@@ -23,21 +20,22 @@ from gammapy.makers   import SpectrumDatasetMaker
 
 from gammapy.irf import load_cta_irfs
 from gammapy.data import Observation
-from gammapy.maps import RegionNDMap, MapAxis
+from gammapy.maps import RegionNDMap
 
 from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import SkyModel
 
 #------------------------------------------------------------------------------
-def generate_dataset(Eflux,flux,Erange=None,
+def generate_dataset(Eflux, flux, Erange = None,
                      tstart   = Time('2000-01-01 02:00:00',scale='utc'),
                      tobs     = 100*u.s,
-                     irf_file =None,
+                     irf_file = None,
                      alpha    = 1/5,
                      name     = None,
                      fake     = True,
                      onoff    = True,
-                     seed     = 'random-seed'):
+                     seed     = 'random-seed',
+                     debug=False):
     """
     Generate a dataset from a list of energies and flux points either as
     a SpectrumDataset or a SpectrumDatasetOnOff
@@ -89,41 +87,45 @@ def generate_dataset(Eflux,flux,Erange=None,
     on_pointing = SkyCoord(ra=0*u.deg,dec=0*u.deg,frame="icrs") # Observing region
     on_region   = CircleSkyRegion(center = on_pointing, radius = 0.5*u.deg)
 
-    # Define energy axis
+    # Define energy axis (see spectrum analysis notebook)
     # edges for SpectrumDataset - all dataset should have the same axes
-    Etrue    = MapAxis.from_edges(np.linspace(20,260,13),unit=u.GeV,name="Etrue") # Eff. area table
-    Ereco    = MapAxis.from_edges(np.linspace(30,300,10),unit=u.GeV,name="energy") # Count vector
-    # Etrue    = MapAxis.from_edges(np.linspace(20,260,39)*u.GeV)
-    # Ereco    = MapAxis.from_edges(np.linspace(30,300,100)*u.GeV)
+    # Note that linear spacing is clearly problematic for powerlaw fluxes
+    # Axes can also be defined using MapAxis
+    unit = u.GeV
+    E1v  = min(Eflux).to(unit).value
+    E2v  = max(Eflux).to(unit).value
+    Etrue = np.logspace(np.log10(    E1v), np.log10(    E2v), 50) * unit
+    Ereco = np.logspace(np.log10(1.1*E1v), np.log10(0.9*E2v), 20) * unit
 
-    print("Dataset ",name)
-    print(" E reco edges : ",Ereco.edges)
-    print(" E true edges : ",Etrue.edges)
+    if (debug):
+        print("Dataset ",name)
+        print("Etrue : ", Etrue)
+        print("Ereco : ", Ereco)
 
     # Load IRF
-    irf = load_cta_irfs(irf_file)
+    irf  = load_cta_irfs(irf_file)
 
     spec  = TemplateSpectralModel(energy = Eflux, values= flux, norm = 1.,
-                                    interp_kwargs={"values_scale": "linear"})
+                                  interp_kwargs={"values_scale": "log"})
+
     model = SkyModel(spectral_model = spec, name  = "Spec"+str(name))
     obs   = Observation.create(obs_id = 1, pointing = on_pointing,
                                livetime = tobs,  irfs = irf,
                                deadtime_fraction = 0,
                                reference_time = tstart)
 
-    ds    = SpectrumDataset.create(e_reco = Ereco.edges,
-                                   e_true = Etrue.edges,
+    ds    = SpectrumDataset.create(e_reco = Ereco, # Ereco.edges,
+                                   e_true = Etrue, #Etrue.edges,
                                    region = on_region,
                                    name   = name)
     maker = SpectrumDatasetMaker(selection=["aeff", "edisp", "background"])
     ds = maker.run(ds, obs)
     ds.models = model
 
-    if (Erange != None): # Create an energy mask
-        mask = ds.mask_safe.geom.energy_mask(emin = Erange[0],
-                                             emax = Erange[1])
-        mask = mask & ds.mask_safe.data
-        ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
+    mask = ds.mask_safe.geom.energy_mask(emin = Erange[0],
+                                         emax = Erange[1])
+    mask = mask & ds.mask_safe.data
+    ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
 
     if (onoff):
         ds = SpectrumDatasetOnOff.from_spectrum_dataset(dataset=ds,
@@ -138,22 +140,113 @@ def generate_dataset(Eflux,flux,Erange=None,
         else:
             ds.fake(random_state = get_random_state(seed))
 
+    print("ds.energy_range = ",ds.energy_range)
+
     return ds
 
-
-
 #------------------------------------------------------------------------------
-def stacking(dsets):
+def stacked_model(ds, ds_stack=None, first=False, debug=False):
+
+    # Get unmasked Reconstructed E bining from current dataset (but they are all identical)
+    e_axis = ds.background.geom.axes[0] # E reco sampling from the IRF
+
+    if first:
+        # The reconstructed binning is required to apply the masking
+        # The theoretical spectrum is therefore evalauted on reconstrcuted energies which
+        # assumes that the reconstructed energy is not too different from the true one.
+        # e_axis = dsets[0].aeff.data.axes[0] # E true sampling from the IRF
+        flux_org = ds.models[0].spectral_model(e_axis.center)
+        mask_org = ds.mask_safe.data.flatten()
+        spec = TemplateSpectralModel(energy = e_axis.center,
+                                     values = flux_org*mask_org,
+                                     norm   = 1.,
+                                     interp_kwargs ={"values_scale": "log"})
+        model = SkyModel(spectral_model = spec, name  = "Stack"+"-"+ds.name)
+
+    else:
+        flux_stacked = ds_stack.models[0].spectral_model(e_axis.center)
+        dt_stack     = ds_stack.livetime # Duration on present stack
+
+        flux_org = ds.models[0].spectral_model(e_axis.center)
+        mask_org = ds.mask_safe.data.flatten()
+        dt       = ds.livetime      # Duration of the element tobe stacked
+
+        # Create ad-hoc new flux and model
+        dt_new    = dt+ dt_stack
+        flux_new  = (dt_stack.value*flux_stacked + dt.value*flux_org*mask_org)/(dt_stack.value+dt.value)
+
+        # Create a new SkyModel from the flux template model
+        spec = TemplateSpectralModel(energy = e_axis.center,
+                                     values = flux_new,
+                                     norm   = 1.,
+                                     interp_kwargs ={"values_scale": "log"})
+
+        model = SkyModel(spectral_model = spec, name  = "Stack"+"-"+ds.name)
+
+        if debug:
+            print(72*"-")
+            print(" Current dataset dt={:10.2f} - {} with model {}"
+                  .format(ds.livetime, ds.name,ds.models[0].name))
+            print("    On stack  : dt=",dt_stack," F0 = ",flux_stacked[0])
+            print("    To add    : dt=",dt," F0 = ",flux_org[0])
+            print("    To stack  : dt=",dt_new," F0 = ",flux_new[0])
+            print("")
+
+    return model
+#------------------------------------------------------------------------------
+def compare_stacked_dataset(dsets,dsets_stacked,count="pred"):
+
+    print(" Check cumulated "+count)
+    tot_counts  = 0
+    duration = 0*u.s
+
+    i=0
+    print("{:>3} {:>8s} {:>10s} {:>8s} {:>10s} --> {:>8s} {:>10s}"
+          .format("Id","dt",count,"dtsum",count+"sum","dtnew",count+"new"))
+    for ds,dss in zip(dsets,dsets_stacked):
+        if count=="pred":
+            masked_counts  = ds.npred_sig().data[ds.mask_safe].sum()
+            stacked_counts = dss.npred_sig().data[dss.mask_safe].sum()
+        elif count=="excess":
+            masked_counts  = ds.excess.data[ds.mask_safe].sum()
+            stacked_counts = dss.excess.data[dss.mask_safe].sum()
+        elif count == "background":
+            masked_counts  = ds.background.data[ds.mask_safe].sum()
+            stacked_counts = dss.background.data[dss.mask_safe].sum()
+        tot_counts   += masked_counts
+        duration += ds.livetime
+
+        print("{:3} {:8.2f} {:10.2f} {:8.2f} {:10.2f} --> {:8.2f} {:10.2f}"
+              .format(i,
+                      ds.livetime.value,
+                      masked_counts,
+                      duration.value,
+                      tot_counts,
+                      dss.livetime.value,
+                      stacked_counts,
+                      ))
+        i+=1
+    return
+#------------------------------------------------------------------------------
+def stacking(dsets, tryflux=False, debug=False):
     """
-    Create a new dataset collection (Datasets) with consecutively stacked datasets
+    Create a new dataset collection (Datasets) with (consecutively) stacked datasets.
+
     Note that the first dataset has to be masked explicitely as the stacked
     ones are. Note that by default the model carried by the stacked dataset
     is the model of the first dataset.
+    An option exists to supersede the models in each consecutively stacked
+    dataset but it essentially work only for dataset with the same mask_safe
+    (See documentation for more explanations)
 
     Parameters
     ----------
     dsets : Datasets object
         A collection of original datasets.
+    tryflux : boolean
+        If true a mean spectrum is recomputed an assigned to the stacked models. See documentation for caveat.
+    debug : boolean
+        If True, verbosy
 
     Returns
     -------
@@ -161,122 +254,36 @@ def stacking(dsets):
         A collection of stacked datasets.
 
     """
-    # Initialise with first one
-    # Warning : if the trick in not applied, the first dataset is not masked
-    stacked = get_masked_dataset(dsets[0].copy(name="1st unmasked"))
-    dsets_stacked=Datasets(stacked.copy(name="1st unmasked"))
+    # Put first MASKED dataset on stack
+    ds = dsets[0]
+    stacked = get_masked_dataset(ds.copy(name="1st unmasked"))
+
+    if tryflux:
+        stacked.models = stacked_model(ds, stacked, first=True, debug=debug)
+
+    dsets_stacked = Datasets(stacked.copy(name="1st unmasked"))
+
+    if (debug):
+        print(" Initial dataset ",dsets[0].livetime," - ",dsets[0].name,
+              " with model",dsets[0].models[0].name)
+        print(" Just stacked    ",dsets_stacked[0].livetime," - ",dsets_stacked[0].name,
+              " with model",dsets_stacked[0].models[0].name)
 
     # Stack following ones
     for ds in dsets[1:]:
+
         stacked.stack(ds) # Stack applies the mask !
-        dsets_stacked.append(stacked.copy(name="Stacked_"+ds.name))
+        dss = stacked.copy(name="Stacked_"+ ds.name)
+        if tryflux:
+            dss.models = stacked_model(ds, dsets_stacked[-1], debug=debug)
+
+        # Add the dataset to the stack
+        dsets_stacked.append(dss)
+        if debug: print(" Just stacked    ",dss.livetime," - ",dss.name," with model",dss.models[0].name)
+
+    print(" Initial dataset collection stacked")
 
     return dsets_stacked
-
-# def cumulate(dsets, debug=False):
-#     """
-#     Returns a collection of stacked Gammapy datasets (Datasets) from an
-#     initial colection.
-#     In the original Gammapy 0.17 code, the models are not stacked.
-#     Done by hand here.
-
-#     Parameters
-#     ----------
-#     dsets : Datasets
-#         A collection of dataset objects
-
-#     Returns
-#     -------
-#     ds_stacked : Datasets
-#         A collection of stacked dataset objects
-
-#     """
-
-#     # Copy first unchanged dataset
-#     stacked    = dsets[0].copy()
-
-#     # Get E bining from first dataset (but they are all identical)
-#     ecenter    = dsets[0].aeff.data.axes[0].center # Original E sampling
-
-#     # Init. new Dataset collection from the first dataset
-#     ds_stacked = Datasets([dsets[0].copy(name=dsets[0].name)])
-
-
-#     if debug:
-#         check_dataset(ds_stacked[0],"First")
-
-#     # Loop over subsequent datasets and stack
-#     flux = np.zeros(len(ecenter))
-
-#     for i,ds in enumerate(dsets[1:]):
-
-#         check_dataset(ds,str(i+1))
-
-#         #---------------------
-#         # Create stacked model
-#         #---------------------
-#         # Original flux points to be modified for stacking
-#         flux_org = ds.models[0].spectral_model(ecenter)
-#         dt       = ds.livetime      # Duration of the element tobe stacked
-
-#         # Flux of current stacked datasets
-#         flux_stacked = stacked.models[0].spectral_model(ecenter)
-#         dt_stack = stacked.livetime # Duration on present stack
-
-#         # Build a flux weighted by livetime
-#         flux_new  = (dt_stack.value*flux_stacked
-#                      + dt.value*flux_org)/(dt_stack.value+dt.value)
-
-#         print(" Stacked so far",flux_stacked[0])
-#         print(" Current       ",flux_org[0])
-#         print(" Weigted sum   ",flux_new[0])
-#         # Create a new SkyModel from the flux templat emodel
-#         spec = TemplateSpectralModel(energy = ecenter,
-#                                      values = flux_new,
-#                                      norm= 1.,
-#                                      interp_kwargs={"values_scale": "linear"})
-#         stacked_model = SkyModel(spectral_model = spec,
-#                                   name  = "Stacked"+"-"+ds.name)
-#         #---------------------
-#         # Add to current stack
-#         #---------------------
-#         stacked.stack(ds) # Stack current ds to stacked list-model unchanged
-#         stacked.models = stacked_model # Change model
-
-#         # Check dataset to be added to the Datasets
-#         check_dataset(stacked,"New")
-
-
-#         if debug:
-#             print("Dt= {:8.2f}    Model: {:6s} --- Stacked --> Dt= {:8.2f}    Model: {:6s}"
-#               .format(ds.livetime,ds.models[0].name,stacked.livetime,stacked.models[0].name))
-
-#         ds_stacked.append(stacked.copy(name="Stacked-"+ds.name))
-
-
-#     if (debug):
-#         print(" Initial dataset ")
-#         tot_npred = 0
-#         duration = 0*u.s
-#         i=0
-#         for ds,dss in zip(dsets,ds_stacked):
-#             npred_masked = ds.npred_sig().data[ds.mask_safe].sum()
-#             tot_npred   += npred_masked
-#             duration += ds.livetime
-#             print("{:3} dt={:8.2f} DT={:8.2f} n={:10.2f} N={:10.2f} -- dt={:8.2f} N={:10.2f}"
-#                   .format(i,
-#                           ds.livetime,
-#                           duration,
-#                           npred_masked,
-#                           tot_npred,
-#                           dss.livetime,
-#                           dss.npred_sig().data[dss.mask_safe].sum()
-#                           ))
-#             i+=1
-#         print("  ")
-
-#     return  ds_stacked
-
 #------------------------------------------------------------------------------
 def get_masked_dataset(ds0):
     """
@@ -293,7 +300,10 @@ def get_masked_dataset(ds0):
         The original dataset with masking applied.
 
     """
+    # print("dataset_tools/get_maked_dataset(ds) : masking disabled")
+    # return ds0
 
+    print("dataset_tools/get_maked_dataset(ds) : masking ENABLED - buggy")
     e_true = ds0.aeff.energy.edges
     e_reco = ds0.counts.geom.axes[0].edges
     region = ds0.counts.geom.region
@@ -303,11 +313,42 @@ def get_masked_dataset(ds0):
     masked_dataset.models = ds0.models
     masked_dataset.stack(ds0)
 
-
     return masked_dataset
-
 #------------------------------------------------------------------------------
-def createonoff_from_simulation(mc, fake=True, debug=False):
+def compactify(dsets,dtmin=1*u.h,debug=False):
+
+    duration = 0*u.s
+    tmp_stack    = Datasets()
+    ds_compacted = Datasets()
+    iset = 0
+
+    for ds in dsets:
+        tmp_stack.append(ds)
+        duration += ds.livetime
+
+        if debug: print("  ",ds.name," : ",ds.livetime," appended")
+
+        " If max duration reached, stack"
+        if (duration >= dtmin):
+            dset_stacked = stacking(tmp_stack, tryflux=False, debug=False)
+            name = "Compacted-"+str(iset)
+            ds_compacted.append(dset_stacked[-1].copy(name=name))
+            if debug:
+                print("  Dt exceeded - stack",len(tmp_stack)," datasets")
+                print(tmp_stack)
+                print("   Duration and stack reset")
+                print(dset_stacked)
+                print(dset_stacked[-1].name," should be kept as ",name)
+
+            # Reset stack and duration
+            duration = 0*u.s
+            tmp_stack = Datasets()
+            iset+=1
+
+    return ds_compacted
+#------------------------------------------------------------------------------
+def createonoff_from_simulation(mc, fake=True,
+                                random_state='rendom-seed', debug=False):
     """
 
 
@@ -355,7 +396,8 @@ def createonoff_from_simulation(mc, fake=True, debug=False):
                                             dataset=ds,
                                             acceptance=1,
                                             acceptance_off=1/mcf.alpha)
-            if (fake): ds_onoff.fake(background_model=ds_onoff.background)
+            if (fake): ds_onoff.fake(background_model=ds_onoff.background,
+                                     random_state = random_state)
             if (debug): print(ds_onoff)
 
             dlist_onoff.append(ds_onoff)
@@ -369,20 +411,21 @@ def read_from_ogip(file=None):
     """
     print(" Not implemented yet, bugs to be solved")
 
-    # # Read the data set - this does not work
-    # import os
-    # path = "../SoHAPPy/Event85data/grb"
+        ### Work on this :
+        # # Read the data set - this does not work
+        # import os
+        # path = "../SoHAPPy/Event85data/grb"
 
-    # filedata = Path(path + "_datasets.yaml")
-    # print(" Datastes yaml = ",filedata,end="")
-    # if (os.path.isfile(filedata)): print(" exists")
-    # else: print(" Not available")
+        # filedata = Path(path + "_datasets.yaml")
+        # print(" Datastes yaml = ",filedata,end="")
+        # if (os.path.isfile(filedata)): print(" exists")
+        # else: print(" Not available")
 
-    # filemodel = Path(path + "_models.yaml")
-    # print(" Model yaml = ",filemodel,end="")
-    # if (os.path.isfile(filemodel)): print(" exists")
-    # else: print(" Not available")
-    # datasets = Datasets.read(filedata=filedata, filemodel=filemodel)
+        # filemodel = Path(path + "_models.yaml")
+        # print(" Model yaml = ",filemodel,end="")
+        # if (os.path.isfile(filemodel)): print(" exists")
+        # else: print(" Not available")
+        # datasets = Datasets.read(filedata=filedata, filemodel=filemodel)
 
     return
 #------------------------------------------------------------------------------
@@ -437,9 +480,9 @@ def check_dataset(ds, tag="?", e_unit="GeV",
 
     if (masked==True):
         print("MASKED")
-        mask = ds.mask_safe
+        mask = ds.mask_safe.data
     else:
-        mask = np.ones(ds.mask_safe.data.size,dtype=bool)
+        mask = np.asarray(ds.mask_safe.data.size*[[[True]]])
 
     if (show_header==True):
         print(90*"=")
@@ -476,14 +519,17 @@ def check_dataset(ds, tag="?", e_unit="GeV",
                   ))
 
     if (deeper):
-        axes    = ds.background.geom.axes[0]
+        e_center = ds.background.geom.axes[0].center
+        e_edges  = ds.background.geom.axes[0].edges
         print(90*"=")
+
         for i,_ in enumerate(ds.background.data[mask]):
-            ecenter = axes.center.flatten()[i].to(e_unit)
-            emin    = axes.edges.flatten()[i].to(e_unit)
-            emax    = axes.edges.flatten()[i+1].to(e_unit)
+
+            energy = e_center[mask.flatten()][i].to(e_unit) # Current ecenter
+            emax   = e_edges[e_edges>energy][0].to(e_unit)
+            emin   = e_edges[e_edges<energy][-1].to(e_unit)
             print(" {:7.1f}  [{:7.1f}, {:7.1f}]"
-                  .format(ecenter.value, emin.value, emax.value),end="")
+                  .format(energy.value, emin.value, emax.value),end="")
             if (ds.counts != None):
                 print(" {:10.2f} {:10.2f} {:10.2f} {:10.2f}"
                       .format(ncounts.flatten()[i],
@@ -499,11 +545,12 @@ def check_dataset(ds, tag="?", e_unit="GeV",
                               npred.flatten()[i]),end="")
             print("  {:^6}  {:8.2e} "
                   .format(ds.mask_safe.data[mask].flatten()[i],
-                          ds.models[0].spectral_model(ecenter).value))
+                          ds.models[0].spectral_model(energy).value))
 
     return show_header
+
 ###---------------------------------------------------------------------------------------
-def check_datasets(dsets,masked=False,deeper=False):
+def check_datasets(dsets,masked=False,deeper=False,header=True):
     """
     Printout the content of a dataset collection (Datasets), based on the
     check_dataset function.
@@ -522,12 +569,11 @@ def check_datasets(dsets,masked=False,deeper=False):
     None.
 
     """
-    header=False
     for i,ds in enumerate(dsets):
-        header=check_dataset(ds,tag=str(i),
-                             show_header=header,
-                             deeper=deeper,
-                             masked=masked)
+        header = check_dataset(ds,tag=str(i),
+                               show_header = header,
+                               deeper=deeper,
+                               masked=masked)
     return
 
 #------------------------------------------------------------------------------
@@ -556,7 +602,3 @@ if __name__ == "__main__":
     # Actions tests
 
     print("Done")
-
-
-
-
