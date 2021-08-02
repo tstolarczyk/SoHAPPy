@@ -512,6 +512,9 @@ class MonteCarlo():
             model = SkyModel(spectral_model = spec, name = name)
 
             # The reference time and duration of the observation
+            # Note that this is the start of the slice
+            # Not necessarilty the point at which the flux and altitude
+            # are evaluated
             tref = self.slot.grb.t_trig + aslice.ts1() # start of slice
             dt = aslice.ts2()-aslice.ts1()
 
