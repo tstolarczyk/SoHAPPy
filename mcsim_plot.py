@@ -236,9 +236,6 @@ def stat(mc, saveplots, outfile):
         plt.tight_layout()
         plt.show(block=block)
 
-        if (saveplots==2 or saveplots==3):
-            fig.savefig(Path(outfile).with_suffix('.pdf'))
-            # unsupported fig.savefig(outfile.with_suffix('.jpg'))
     return
 
 ###############################################################################
@@ -450,8 +447,6 @@ def story(mc, saveplots, outfile, loc="nowhere", ref="VIS"):
 def onetrial(dsets, slot):
     from gammapy.estimators import FluxPointsEstimator
 
-
-
     print(" One trial plots")
     nplots = len(dsets)
     ncols = 5
@@ -529,92 +524,6 @@ def onetrial(dsets, slot):
 
     return
 
-###############################################################################
-def onetrial12(stats):
-
-    """
-    Plot some detection statistics for the current trials
-    From J. Lefaucheur, a long time ago
-
-    The plots can be rearranged giving the various axis values
-    """
-    from gammapy.stats import excess_error
-
-    fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(nrows=2,ncols=2,figsize=(18, 18))
-
-    obstime = stats['livetime']
-
-    # 1- Cumulated Non
-    ax1.errorbar(obstime,
-                 stats['n_on'],
-                 yerr = stats['n_on']/np.sqrt(mc.niter),
-                 color='black',
-                 fmt='o')
-    ax1.set_xlabel('Obs. time [s]', fontweight='bold')
-    ax1.set_ylabel('$N_{on}$', fontweight='bold')
-    ax1.set_title('On region count evolution', fontweight='bold')
-    ax1.axhline(y=10,color="red",ls="--")
-    ax1.grid(which='both')
-    ax1.set_xscale('log')
-
-    # 2 - Cumulated excess
-    yerr = excess_error(stats['n_on'],stats['n_off'],stats['alpha'])
-    ax2.errorbar(obstime, stats['excess'],
-                       yerr=yerr,
-                       color='black', fmt='o')
-    ax2.set_xlabel('Livetime [s]', fontweight='bold')
-    ax2.set_ylabel('Excess counts', fontweight='bold')
-    ax2.set_title('Cumulated excess', fontweight='bold')
-    ax2.set_ylim(ymax=(stats['excess'] + yerr).max() * (1.1))
-    ax2.grid(which='both')
-    ax2.set_xscale('log')
-
-    # 3- Cumulated Noff
-    ax3.errorbar(obstime,
-                 stats['n_off'],
-                 yerr = stats['n_off']/np.sqrt(mc.niter),
-                 color='black',
-                 fmt='o')
-    ax3.set_xlabel('Obs. time [s]', fontweight='bold')
-    ax3.set_ylabel('$N_{off}$', fontweight='bold')
-    ax3.set_title('Off region count evolution', fontweight='bold')
-    ax3.axhline(y=10,color="red",ls="--")
-    ax3.grid(which='both')
-    ax3.set_xscale('log')
-
-    # 4- Cumulated background
-    yerr = background_error(stats['n_off'],stats['alpha'])
-    ax4.errorbar(obstime, stats['bkg'],
-                     yerr=background_error(
-                         stats['n_off'],
-                         stats['alpha']
-                     ),
-                     color='black', fmt='o')
-
-    ax4.set_xlabel('Obs. time [s]', fontweight='bold')
-    ax4.set_ylabel('Background count', fontweight='bold')
-    ax4.set_title('Cumulated background', fontweight='bold')
-    ax4.set_ylim(stats['bkg'].min() * 0.9, (stats['bkg'] + yerr).max() * (1.1))
-    ax4.grid(which='both')
-    ax4.set_xscale('log')
-    ax4.set_yscale('log')
-
-    plt.show(block=block)
-
-    # Significance evolution
-    fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(8, 6))
-    ax.errorbar(obstime, stats['sigma'],color='black', fmt='o')
-    ax.set_xlabel('Obs. time [s]', fontweight='bold')
-    ax.set_ylabel('Significance', fontweight='bold')
-    ax.set_title('Significance (Li & Ma)', fontweight='bold')
-    #♠ax.set_ylim(0., stats['sigma'].max() * (1.1))
-    ax.set_ylim(ymax=np.nanmax(stats['sigma']) * (1.1))
-    ax.grid(which='both')
-    ax.set_xscale('log') # CHANGED
-
-    plt.show(block=block)
-
-    return
 
 
 #    @staticmethod
