@@ -518,7 +518,6 @@ class Visibility():
             tnights.append([t_dusk.jd, t_dawn.jd])
 
         # Add subsequent nights until reaching the end of GRB data
-        #☻while (t_dusk < self.tstop) and (inight < self.depth):
         while (t_dusk < self.tstop) and (inight < self.depth):
             t_dusk = obs.twilight_evening_astronomical(t_dawn,
                                                         which = "next",
