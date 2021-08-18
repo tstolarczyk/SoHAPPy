@@ -6,6 +6,7 @@ Created on Fri Jan 11 14:41:11 2019
 """
 import sys
 import numpy as np
+import astropy.units as u
 
 ###----------------------------------------------------------------------------
 # A label for plots and histograms with statistics
@@ -36,6 +37,34 @@ def stamp(ax,text):
             rotation=270,
             s=text)
     return
+#------------------------------------------------------------------------------
+def t_fmt(t):
+    """
+    A utility to have reasonable duration format displayed
+
+    Parameters
+    ----------
+    t : Quantity
+        A time or duration
+
+    Returns
+    -------
+    tobs : Quantity
+        A time with an adapted unit and rounding for plotting
+
+    """
+    # Get and format livetimes
+    t = t.to(u.s)
+    if t.value > 3600*24:
+        t = t.to(u.d)
+    elif t.value > 3600:
+        t = t.to(u.h)
+    elif t.value > 60:
+        t = t.to(u.min)
+
+    tobs = str( round(t.value,2)) +" "+ str(t.unit)
+
+    return tobs
 ###----------------------------------------------------------------------------
 # Colored text
 def textcol(text,t="black",b="white",s=None):
