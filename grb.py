@@ -30,7 +30,12 @@ from   astropy.coordinates   import AltAz
 
 from visibility import Visibility
 
-from gammapy.modeling.models import Absorption, AbsorbedSpectralModel
+import gammapy
+if gammapy.__version__ == "0.17":
+    from gammapy.modeling.models import Absorption, AbsorbedSpectralModel
+else: #0.18.2
+    from gammapy.modeling.models import EBLAbsorptionNormSpectralModel
+     
 from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import PointSpatialModel
 
@@ -142,13 +147,16 @@ class GammaRayBurst(object):
         None.
 
         """
-        self.name      = 'dummy'
-
+        self.name = 'dummy'
+        self.z    = z
 
         # Initialise absorption
         if (ebl_model != None) and (ebl_model != "built-in"):
-            self.eblabs = Absorption.read_builtin(ebl_model)
-            self.z        = z
+            if gammapy.__version__ == "0.17":
+                self.eblabs = Absorption.read_builtin(ebl_model)
+            else: # 0.18.2
+                self.eblabs = EBLAbsorptionNormSpectralModel.read_builtin(ebl_model, 
+                                                                          redshift=self.z)
         else:
             self.eblabs = None
             #print(" EBL absorption not defined or built-in")
@@ -192,7 +200,7 @@ class GammaRayBurst(object):
 
     ###########################################################################
     @classmethod
-    def from_fits(cls, filename, ebl= None, z=0, newis=False, magnify=1):
+    def from_fits(cls, filename, ebl= None, newis=False, magnify=1):
 
         """
         Fluxes are given for a series of (t,E) values
@@ -221,19 +229,19 @@ class GammaRayBurst(object):
         A GammaRayBurst instance.
 
         """
-
-        cls = GammaRayBurst(ebl_model=ebl,z=z) # This calls the constructor
-
+        
+        # Open files and get header and data
         hdul = fits.open(filename)
-
-        cls.name = Path(filename.name).stem
-
-        ### GRB properties ---
         hdr = hdul[0].header
+        
+        cls = GammaRayBurst(ebl_model=ebl,z= hdr['Z']) # constructor
+        
+        cls.z    = hdr['Z']
+        cls.name = Path(filename.name).stem
+        
         cls.radec    = SkyCoord(hdr['RA']*u.degree,
                                 hdr['DEC']*u.degree,
                                 frame='icrs')
-        cls.z        = hdr['Z']
         cls.Eiso     = hdr['EISO']*u.erg
         cls.Epeak    = hdr['EPEAK']*u.keV
         cls.t90      = hdr['Duration']*u.s
@@ -274,6 +282,7 @@ class GammaRayBurst(object):
                 cls.fluxval[i][j] = magnify* flux[j][i]*flux_unit # transp!
 
         for i,t in enumerate(cls.tval):
+            
             # Note that TableModel makes an interpolation
             # Following a question on the Slack gammapy channel on
             # November 27th, and the answer by Axel Donath:
@@ -289,21 +298,34 @@ class GammaRayBurst(object):
             #    cls.Eval.astype(float)
             # (A Quantity is passed as requested but the underlying numpy
             # dtype is not supported by energy.data.tolist()
-            tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
-                                        values = cls.fluxval[i],
-                                        norm   = 1.,
-                                        interp_kwargs={"values_scale": "log"})
-
-            if (cls.eblabs != None) and (ebl != "built-in"):
-                model = AbsorbedSpectralModel(tab,cls.eblabs,cls.z)
-            else:
-                model = tab
-
+            
+            if gammapy.__version__ == "0.17":
+                tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
+                                            values = cls.fluxval[i],
+                                            norm   = 1.,
+                                            interp_kwargs={"values_scale": "log"})
+                
+                if (cls.eblabs != None) and (ebl != "built-in"):
+                    model = AbsorbedSpectralModel(tab,cls.eblabs,cls.z)
+                else:
+                    model = tab
+                    
+            else: #0.18.2
+                tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
+                                            values = cls.fluxval[i],
+                                            interp_kwargs={"values_scale": "log"})  
+                
+                if (cls.eblabs != None) and (ebl != "built-in"):
+                    model = tab*cls.eblabs
+                else:
+                    model = tab
+                    
             cls.spectra.append(model)
 
         hdul.close()
 
         return cls
+    
     ###########################################################################
     @classmethod
     def from_yaml(cls, data, ebl= None,magnify=1):
@@ -561,8 +583,8 @@ if __name__ == "__main__":
     dbg      = 0
 
     ngrb     = 1 # 250
-    ifirst   = 1
-    ifirst = ["190829A"]
+    ifirst   = 343
+    # ifirst = ["190829A"]
 
     save_grb = False # (False) GRB saved to disk -> use grb.py main
     res_dir  = "."
