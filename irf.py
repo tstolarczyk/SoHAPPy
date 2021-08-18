@@ -348,7 +348,12 @@ class IRF():
         irf = load_cta_irfs(irf_file)
 
         # True energy axis
-        eirf_min    = min(irf["aeff"].data.axis("energy_true").edges)
+        import gammapy
+        if gammapy.__version__ == "0.17":
+            eirf_min    = min(irf["aeff"].data.axis("energy_true").edges)
+        else: # 0.18.2
+            eirf_min = min(irf["aeff"].data.axes["energy_true"].edges)
+                
         etrue_axis  = MapAxis.from_energy_bounds(eirf_min,
                                                  etrue_max[kzen],
                                                  nbin = nbin_per_decade,
