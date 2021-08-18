@@ -24,6 +24,9 @@ from gammapy.stats import WStatCountsStatistic
 from gammapy.maps import RegionNDMap
 
 import warnings
+
+import gammapy
+
 with warnings.catch_warnings():
     from gammapy.data import Observation
 
@@ -211,9 +214,9 @@ class MonteCarlo():
 
             # Dump slice stat if requested
             if (dump_dir != None): # dump slices to track problems
-                status = self.dump_slices(iMC=iMC,
-                                          data=[nxs,nbck,sigma],
-                                          file=fslice)
+                status = self.dump_slices(iMC  = iMC,
+                                          data = [nxs,nbck,sigma],
+                                          file = fslice)
                 if (dump == False): dump= status # If True, dump unchanged
 
             # Update statistics
@@ -235,8 +238,8 @@ class MonteCarlo():
 
         # Close special file for slice dumping
         if (dump_dir !=None) :
-            self.dump_slices(phase="close",
-                                dump=dump,name=dump_name, file=fslice)
+            self.dump_slices(phase= "close",
+                             dump = dump, name=dump_name, file=fslice)
 
         # Timing
         self.mctime = time.time() - self.mctime
@@ -299,10 +302,15 @@ class MonteCarlo():
 
             # Cumulate on and off counts from potentially several sites
             for ds in ds_site:
-                ns   = ds.npred_sig().data[ds.mask_safe].sum()
-                nb   = ds.background.data[ds.mask_safe].sum()
+                if gammapy.__version__ == "0.17":
+                    ns   = ds.npred_sig().data[ds.mask_safe].sum()
+                    nb   = ds.background.data[ds.mask_safe].sum()
+                else: # 0.18.2
+                    ns   = ds.npred_signal().data[ds.mask_safe].sum()
+                    nb   = ds.npred_background().data[ds.mask_safe].sum()
                 non  += (ns+nb)
                 noff += (nb/mcf.alpha)
+                
                 if (self.dbg>2):
                     if header: print()
                     header = check_dataset(ds,
@@ -320,7 +328,10 @@ class MonteCarlo():
             wstat = WStatCountsStatistic(n_on  = non,
                                          n_off = noff,
                                          alpha = mcf.alpha)
-            sig =  wstat.significance[0] # THis is sigma*sign(nxs)
+            if gammapy.__version__ == "0.17":
+                sig =  wstat.significance[0] # This is sigma*sign(nxs)
+            else: # 0.18.2
+                sig =  wstat.sqrt_ts # ? check
             nb  = mcf.alpha*noff
             ns  = non - nb
 
@@ -503,8 +514,8 @@ class MonteCarlo():
         """
 
         dset_list = []
+        
         for aslice in self.slot.slices:
-
 
             # Note: the spectrum is related to the slice, not the site
             spec  = self.slot.grb.spectra[aslice.fid()]
@@ -516,7 +527,7 @@ class MonteCarlo():
             # Not necessarilty the point at which the flux and altitude
             # are evaluated
             tref = self.slot.grb.t_trig + aslice.ts1() # start of slice
-            dt = aslice.ts2()-aslice.ts1()
+            dt   = aslice.ts2() - aslice.ts1()
 
             # Each slice can have more than one IRF since it can be observed
             # from both sites in some cases.
@@ -531,8 +542,7 @@ class MonteCarlo():
                                             radius = on_size)
                 # Create the observation - The pointing is not on the GRB
                 on_ptg = SkyCoord(self.slot.grb.radec.ra + offset,
-                                       self.slot.grb.radec.dec, frame="icrs")
-
+                                  self.slot.grb.radec.dec, frame="icrs")
 
                 with warnings.catch_warnings(): # because of t_trig
                     warnings.filterwarnings("ignore")
@@ -545,13 +555,26 @@ class MonteCarlo():
 
                 # Create dataset - correct for containment - add model
                 ds_name  = aslice.site()+"-"+str(aslice.idt())+"-"+str(ip)
-                ds_empty = SpectrumDataset.create(e_reco = perf.ereco.edges,
-                                                  e_true = perf.etrue.edges,
+                
+                if gammapy.__version__== "0.17":
+                    e_reco = perf.ereco.edges
+                    e_true = perf.etrue.edges
+                else: # 0.18.2
+                    e_reco = perf.ereco
+                    e_true = perf.etrue
+                    
+                ds_empty = SpectrumDataset.create(e_reco = e_reco,
+                                                  e_true = e_true,
                                                   region = on_region,
                                                   name   = ds_name)
 
-                maker = SpectrumDatasetMaker(
-                    selection=["aeff", "edisp", "background"])
+                if gammapy.__version__ == "0.17":
+                    maker = SpectrumDatasetMaker(
+                            selection=["aeff", "edisp", "background"])
+                else: #0.18.2
+                    maker = SpectrumDatasetMaker(
+                            selection=["exposure", "background","edisp"])  
+                    
                 ds = maker.run(ds_empty, obs)
 
                 # In Gammapy 0.17, it is mandatory to change the effective
@@ -559,13 +582,20 @@ class MonteCarlo():
                 # cannot be changed anymore.
                 # This feature (bug) was discussed in Gammapy issue #3016 on
                 # Sept 2020.
-                ds.aeff.data.data  *= mcf.containment
-                ds.background.data *= perf.factor
-                ds.models           = model
-
-                # Apply IRF related energy thresholds
-                mask = ds.mask_safe.geom.energy_mask(emin = perf.ereco_min,
-                                                     emax = perf.ereco_max)
+                if gammapy.__version__== "0.17":
+                    ds.aeff.data.data  *= mcf.containment
+                    ds.background.data *= perf.factor
+                    ds.models           = model
+                    mask = ds.mask_safe.geom.energy_mask(emin = perf.ereco_min,
+                                                         emax = perf.ereco_max)
+                else: #0.18.2
+                    # ds.exposure.data   *= mcf.containment
+                    ds.exposure   *= mcf.containment
+                    ds.background.data *= perf.factor.reshape((-1, 1, 1))
+                    ds.models           = model
+                    mask = ds.mask_safe.geom.energy_mask(energy_min = perf.ereco_min,
+                                                         energy_max = perf.ereco_max)
+                    
                 mask = mask & ds.mask_safe.data
                 ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
 
