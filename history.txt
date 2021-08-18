@@ -34,12 +34,31 @@ Since Feb. 2020
 Hybrid version - Moon ready
 --------------
 
+2021 08 02:
+* The specific visibility parameters are now in a devoted script, visibility_config.py 
+(was in ana_config before)
+* GRB: Add HESS position.
+The reading form fits is now from_fits (instead of read). It becomes a constructor (i.e. has a "return cls" instead of updating and existing instantiation.
+A new function read GRB simple time end E power law parameters from yaml file.
+* grb_plot : Allows plotting grb with only one time slice. Change the plotting window to use tstart and tsop instead of tstart and tstart+2.25 days
+* Visibility : The visibility constructor now get the full grb object.
+The from_fits function is now a constructor
+* Zenith value can be frozen all along the chain
+* Few minor changes in generate_dataset.
+Enable the stacked model computation (although quite useless), to be finalised.
+New fucntion to compare stacked datasets from manually added datasets.
+New compactify function to replace several datasets by a single stacked one.
+
+*mcsim_config: Update for different subarrays on N and S : on_size and offset are dictionnaries with tags related to subarrays. Update of documentation.
+
+2021 06 01:
+A new script allowing to dump the visibilities for further use (giving the output folder as an input in ana_config).
 2021 04 20:
 The visibility class is now attached directly to the GRB object, i.e. all
 information of the GammaRayBurst class that concerns visibility is now solely
 in the Visibility class (beforehand the visibility content was copied to the
 GammaRayBusrt related mebers).
-A GRB has now a visibility for all avalailbe sites.
+A GRB has now a visibility for all avalaible sites.
 
 The visibility class has been reorganised. It now handles a series of veto
 periods from the Moon, and specfic functions related to the moon light.
