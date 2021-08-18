@@ -225,7 +225,7 @@ class Slice():
             site_list = grb.site_keys
 
         for site in site_list:
-
+            # Altitude at slice start where the flux is expected larger
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
             if zenith == None: zenith   = 90*u.degree-altaz.alt
 
@@ -237,7 +237,6 @@ class Slice():
                                        subarray = arrays[site])
             if (debug>1):
                 print(self.__idt,"/",site,"-->",irf)
-
 
             self.__irf.append(irf)
 
