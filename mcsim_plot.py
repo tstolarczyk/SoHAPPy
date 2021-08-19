@@ -8,8 +8,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes,inset_axes
-from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+# from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes,inset_axes
+# from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 from   pathlib import Path
 
@@ -17,11 +17,6 @@ import astropy.units as u
 from   astropy.visualization import quantity_support
 from   astropy.coordinates   import AltAz
 
-import gammapy
-if (gammapy.__version__ == "0.12"):
-    from gammapy.stats import background_error
-
-import ana_config as cf
 import mcsim_config as mcf
 
 # from utilities import MyLabel, stamp
@@ -56,7 +51,7 @@ def pause():
     return
 
 ###############################################################################
-def show(mc,show=2,loc="nowhere"):
+def show(mc,cf, show=2,loc="nowhere"):
     filename = Path(cf.res_dir,mc.name)
     stat(mc,show,filename)
     story(mc,show,filename,loc=loc,ref="VIS")
@@ -111,6 +106,7 @@ def stat(mc, saveplots, outfile):
     Plot result of the simulations of the current grb:
         - evolution of sigma with observation time
         - distibutions of Non versus Noff
+        
     """
 
     if (saveplots == 0): return
@@ -445,6 +441,21 @@ def story(mc, saveplots, outfile, loc="nowhere", ref="VIS"):
 #
 ###############################################################################
 def onetrial(dsets, slot):
+    """
+    
+
+    Parameters
+    ----------
+    dsets : TYPE
+        DESCRIPTION.
+    slot : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
     from gammapy.estimators import FluxPointsEstimator
 
     print(" One trial plots")
@@ -589,5 +600,3 @@ if __name__ == "__main__":
 #    story(mc, ref="notVIS",saveplots="False",outfile="")
     stat(mc,saveplots="False",outfile="")
     mcres.result(mc)
-
-
