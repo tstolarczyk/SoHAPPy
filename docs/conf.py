@@ -21,11 +21,11 @@ import gammapy
 # -- Project information -----------------------------------------------------
 
 project = 'SoHAPPy'
-copyright = '2020, Th. Stolarczyk'
+copyright = '2021, Th. Stolarczyk'
 author = 'Th. Stolarczyk'
 
 # The short X.Y version
-version = '0'
+version = 'dev'
 # The full version, including alpha/beta/rc tags
 release = '0.0'
 

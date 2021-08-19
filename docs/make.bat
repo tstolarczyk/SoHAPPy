@@ -29,8 +29,10 @@ if errorlevel 9009 (
 
 REM remove previous file otherwise cannot be overwritten
 
-del %BUILDDIR% 
-del api
+echo.delete build dir
+del /q %BUILDDIR%
+del /q api
+
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
 goto end
 
