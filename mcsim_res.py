@@ -60,76 +60,69 @@ def mean_values(mc, idlist):
 def result(mc,grb, log=None, header=True,pop=None):
 
     """
-    Print out results.
-    If only one GRB is simulated, store the present mc class on disks
-    for further investigation.
+    Print out results. If only one GRB is simulated, store the present mc class 
+    on disks for further investigation.
 
-    Keywords
-    name  : source name (10s)
-    eiso  : Eiso (8.2e)
-    z     : Redshift (5.2f)
-    site  : South, North, Both (5s)
-    ra    : Right ascension of the source (6.2f)
-    dec   : Declination of the source (6.2f)
-    ttrig : Trigger date (mjd) (15s)
+    Keywords:
+    - name  : source name (10s)
+    - eiso  : Eiso (8.2e)
+    - z     : Redshift (5.2f)
+    - site  : South, North, Both (5s)
+    - ra    : Right ascension of the source (6.2f)
+    - dec   : Declination of the source (6.2f)
+    - ttrig : Trigger date (mjd) (15s)
+    - t1    : Observ. start since trigger (s) (9.2f) (incl. slewing time)
+    - t2    : Observ. stop since trigger (s) (9.2f)
+    - alt1  : Altitude at t1 (deg) (5.2f)
+    - alt2  : Altitude at t2 (deg) (5.2f)
+    - az1   : Azimuth at t1 (deg) (6.2f)
+    - az2   : Azimuth at t2 (deg) (6.2f)
+    - nt    : Number of time bins in analysis (3d)
+    - dof   : Number of degree of freedom in analysis (0=on-off) (3d)
+    - sigmx : Mean maximum significance reached (7.1f)
+    - nexmx : Mean number of excess counts at sigmx (10.1f)
+    - enexmx: Error on mean number of excess counts at sigmx (10.1f)
+    - nbmx  : Mean number of background counts at sigmx (10.1f)
+    - enbmx : Error on mean number of background counts at sigmx (10.1f)
+    - tmx   : Mean time at sigmx (discrete, related tot time binning) (9.2f)
+    - altmx : Mean altitude at sigmx (deg) (5.2f)
+    - azmx  : Mean azimuth at sigmx (deg) (6.2f)
+    - etmx  : Error on mean time at sigmx (discrete, related tot time binning) (9.2f)
+    - ealtmx: Error on mean altitude at sigmx (deg) (5.2f)
+    - eazmx : Error on mean azimuth at sigmx (deg) (6.2f)
+    - nex3s : Mean number of excess counts at 3 sigma (8.1f)
+    - enex3s: Error on mean number of excess counts at 3 sigma (8.1f)
+    - nb3s  : Mean number of background counts at 3 sigma (8.1f)
+    - enb3s : Error on mean number of background counts at 3 sigma (8.1f)
+    - t3s   : Mean time at 3 sigma (discrete, related tot time binning) (9.2f)
+    - alt3s : Mean altitude at 3 sigma (deg) (5.2f)
+    - az3s  : Mean azimuth at 3 sigma  (deg) (6.2f)
+    - et3s  : Error on mean time at 3 sigma (related to time binning) (9.2f)
+    - ealt3s: Error on mean altitude at 3 sigma (deg) (5.2f)
+    - eaz3s : Error on mean azimuth at 3 sigma  (deg) (6.2f)
+    - d3s   : Number of trials above 3 sigma (4d)
+    - nex5s : Mean number of excess counts at 5 sigma (8.1f)
+    - enex5s: Error on mean number of excess counts at 5 sigma (8.1f)
+    - nb5s  : Mean number of background counts at 5 sigma (8.1f)
+    - enb5s : Error on mean number of background counts at 5 sigma (8.1f)
+    - t5s   : Mean time at 5 sigma (discrete, related tot time binning) (9.2f)
+    - alt5s : Mean altitude at 5 sigma (deg) (5.2f)
+    - az5s  : Mean azimuth at 5 sigma  (deg) (6.2f)
+    - et5s  : Error on nean time at 5 sigma (related to time binning) (9.2f)
+    - ealt5s: Error on mean altitude at 5 sigma (deg) (5.2f)
+    - eaz5s : Error on mean azimuth at 5 sigma  (deg) (6.2f)
+    - d5s   : Number of trials above 5 sigma (4d)
+    - mct   : computing time per trial (s) (5.2f)
+    - err   : general error code (4d)
+    - err_slice : list of slices for which an error or a warning is reported
 
-    t1    : Observ. start since trigger (s) (9.2f) (incl. slewing time)
-    t2    : Observ. stop since trigger (s) (9.2f)
-    alt1  : Altitude at t1 (deg) (5.2f)
-    alt2  : Altitude at t2 (deg) (5.2f)
-    az1   : Azimuth at t1 (deg) (6.2f)
-    az2   : Azimuth at t2 (deg) (6.2f)
+    Error codes (err):
+    * If positive, give the time slice at which the simulation was stopped. 
+    A complete simulation has err = number of trials requested.
+    * If negative:
+    - 1n : simulations completed but errors reported in n trials
+    - 999 : simulation not done (GRB not visible)
 
-    nt    : Number of time bins in analysis (3d)
-    dof   : Number of degree of freedom in analysis (0=on-off) (3d)
-
-    sigmx : Mean maximum significance reached (7.1f)
-    nexmx : Mean number of excess counts at sigmx (10.1f)
-    enexmx: Error on mean number of excess counts at sigmx (10.1f)
-    nbmx  : Mean number of background counts at sigmx (10.1f)
-    enbmx : Error on mean number of background counts at sigmx (10.1f)
-    tmx   : Mean time at sigmx (discrete, related tot time binning) (9.2f)
-    altmx : Mean altitude at sigmx (deg) (5.2f)
-    azmx  : Mean azimuth at sigmx (deg) (6.2f)
-    etmx  : Error on mean time at sigmx (discrete, related tot time binning) (9.2f)
-    ealtmx: Error on mean altitude at sigmx (deg) (5.2f)
-    eazmx : Error on mean azimuth at sigmx (deg) (6.2f)
-
-    nex3s : Mean number of excess counts at 3 sigma (8.1f)
-    enex3s: Error on mean number of excess counts at 3 sigma (8.1f)
-    nb3s  : Mean number of background counts at 3 sigma (8.1f)
-    enb3s : Error on mean number of background counts at 3 sigma (8.1f)
-    t3s   : Mean time at 3 sigma (discrete, related tot time binning) (9.2f)
-    alt3s : Mean altitude at 3 sigma (deg) (5.2f)
-    az3s  : Mean azimuth at 3 sigma  (deg) (6.2f)
-    et3s  : Error on mean time at 3 sigma (related to time binning) (9.2f)
-    ealt3s: Error on mean altitude at 3 sigma (deg) (5.2f)
-    eaz3s : Error on mean azimuth at 3 sigma  (deg) (6.2f)
-    d3s   : Number of trials above 3 sigma (4d)
-
-    nex5s : Mean number of excess counts at 5 sigma (8.1f)
-    enex5s: Error on mean number of excess counts at 5 sigma (8.1f)
-    nb5s  : Mean number of background counts at 5 sigma (8.1f)
-    enb5s : Error on mean number of background counts at 5 sigma (8.1f)
-    t5s   : Mean time at 5 sigma (discrete, related tot time binning) (9.2f)
-    alt5s : Mean altitude at 5 sigma (deg) (5.2f)
-    az5s  : Mean azimuth at 5 sigma  (deg) (6.2f)
-    et5s  : Error on nean time at 5 sigma (related to time binning) (9.2f)
-    ealt5s: Error on mean altitude at 5 sigma (deg) (5.2f)
-    eaz5s : Error on mean azimuth at 5 sigma  (deg) (6.2f)
-    d5s   : Number of trials above 5 sigma (4d)
-
-    mct   : computing time per trial (s) (5.2f)
-    err   : general error code (4d)
-    err_slice : list of slices for which an error or a warning is reported
-
-    Error codes :
-    err :
-        If positive, give the time slice at which the simulation was stopped
-        A complete simulation has err = number of trials requested
-        If negative :
-         -1n    : simulations completed but errors reported in n trials
-         -999   : simulation not done (GRB not visible)
     """
 
     ###----------------------------
