@@ -294,8 +294,7 @@ class IRF():
         """
         Get the IRF data from the chaarcteristics of an observation.
         Note that MapAxis accepts ony a normalised list of axis type as
-        described here :
-            https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming
+        described `here <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
 
         Parameters
         ----------
