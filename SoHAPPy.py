@@ -35,9 +35,6 @@ from   datetime import datetime
 from   pathlib  import Path
 import astropy.units as u
 
-import ana_config as cf # Steering parameters
-import visibility_config as vis_cf # Visibility parameters
-
 from grb            import GammaRayBurst
 from timeslot       import Slot
 
@@ -56,8 +53,64 @@ iers.conf.auto_download = False
 
 
 __all__ = ["main", "init", "summary", "get_grb_fromfile", "get_delay"]
+
 ###############################################################################
-def get_grb_fromfile(item,prompt=False, afterglow=False, log=None):
+import yaml
+from yaml.loader import SafeLoader
+
+class Configuration(object):
+    def __init__(self):
+        print("Constructor called")
+        return
+    
+    def toto(self):
+        print(vars(self))
+        return
+        
+    @classmethod
+    def read(cls,filename="config.yaml"):
+        cls = Configuration()
+        #---------------------------------------------------
+        def obj_dic(d):
+            top = type('new', (object,), d)
+            seqs = tuple, list, set, frozenset
+            for i, j in d.items():
+                if isinstance(j, dict):
+                    setattr(top, i, obj_dic(j))
+                elif isinstance(j, seqs):
+                    setattr(top, i, 
+                        type(j)(obj_dic(sj) if isinstance(sj, dict) else sj for sj in j))
+                else:
+                    # if (j== "None"):
+                    #     setattr(top,i,None)
+                    # Not necessary, parsed correclty    
+                    # elif (j== "False"):
+                    #     setattr(top,i,False)
+                    # elif (j== "True"):
+                    #     setattr(top,i,True)
+                    # else:
+                    setattr(top, i, j)
+                    
+            return top
+        #---------------------------------------------------
+
+        with open(filename) as f:
+            data = yaml.load(f, Loader=SafeLoader)
+            cls = obj_dic(data)
+            cls.altmin = u.Quantity(cls.altmin)
+            cls.altmoon = u.Quantity(cls.altmoon)
+            cls.moondist = u.Quantity(cls.moondist)
+            cls.dtslew_North = u.Quantity(cls.dtslew_North)
+            cls.dtslew_South = u.Quantity(cls.dtslew_South )
+            cls.dtswift = u.Quantity(cls.dtswift)
+            cls.arrays = {"North": cls.array_North, "South":cls.array_South}
+            cls.dtslew = {"North": cls.dtslew_North, "South":cls.dtslew_South}
+
+        print("Initialisation terminated")
+        return cls
+    
+###############################################################################
+def get_grb_fromfile(item,cf, prompt=False, afterglow=False, log=None):
     """
     Obtain data for the ith GRB file and create a GammaRayBurst instance.
 
@@ -126,7 +179,7 @@ def get_grb_fromfile(item,prompt=False, afterglow=False, log=None):
     return grb
 
 ###############################################################################
-def init(argv):
+def init(argv, cf):
     """
     Decode the command line arguments if any, treat some information from the
     configuration file, overwrite some configuration parameters with the
@@ -200,7 +253,7 @@ def init(argv):
     return
 
 ###############################################################################
-def summary(log=None):
+def summary(cf=None,log=None):
     """
     Printout the main characteristics of the simulation.
 
@@ -258,7 +311,14 @@ def summary(log=None):
     if (cf.vis_dir != None):
         log.prt(" Vis. read from          : {}".format(cf.vis_dir))
     elif (cf.vis_cmp):
-        vis_cf.print(log)
+        # vis_cf.print(log)
+        log.prt(" Vis. computed up to     : {} night(s)".format(cf.depth))
+        log.prt(" Skip up to              : {} night(s)".format(cf.skip))
+        log.prt(" Minimum altitude        : {}".format(cf.altmin))
+        log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
+        log.prt(" Moon min. distance      : {}".format(cf.moondist))
+        log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
+
     else:
         log.prt(" Visibility              : default")
 
@@ -300,7 +360,7 @@ def summary(log=None):
     return
 
 ###############################################################################
-def get_delay():
+def get_delay(cf):
     """
     Compute the overall delay to be applied to the start of detection
     (satellite and telescope slewing), according to the user parameters.
@@ -363,8 +423,10 @@ def main(argv):
     None.
 
     """
-
-    init(argv)           # Steering parameters and welcome message
+    
+    ### READ CONFIG FILE
+    cf = Configuration.read()
+    init(argv, cf)           # Steering parameters and welcome message
 
     if (cf.ngrb<=0):
         print(" NO ANALYSIS REQUIRED (ngrb<=0)")
@@ -387,13 +449,13 @@ def main(argv):
     sim_filename    = cf.res_dir  + cf.datafile
     log_filename    = cf.res_dir  + cf.logfile
     log = Log(name  = log_filename, talk=not cf.silent)
-    conf_filename   = "config.py"
+    conf_filename   = "config.yaml"
     conf_filename   = backup_file(folder=cf.res_dir,dest=conf_filename)
     if (cf.write_slices): dump_dir = cf.res_dir
     else: dump_dir = None
 
     # Print Summary
-    summary(log=log)
+    summary(cf=cf,log=log)
 
     start_pop = time.time() # Start chronometer
 
@@ -408,7 +470,7 @@ def main(argv):
         first = True # Actions for first GRB only
         for item in grblist:
 
-            grb = get_grb_fromfile(item,log=log) ### Get GRB
+            grb = get_grb_fromfile(item,cf,log=log) ### Get GRB
 
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
@@ -423,12 +485,19 @@ def main(argv):
                     name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
                     grb.vis[loc] = vis.Visibility.read(name)
                 elif (cf.vis_cmp):
-                    grb.vis[loc].compute(altmin    = vis_cf.altmin,
-                                         altmoon   = vis_cf.altmoon,
-                                         moondist  = vis_cf.moondist,
-                                         moonlight = vis_cf.moonlight,
-                                         depth     = vis_cf.depth,
-                                         skip      = vis_cf.skip,
+                    # grb.vis[loc].compute(altmin    = vis_cf.altmin,
+                    #                      altmoon   = vis_cf.altmoon,
+                    #                      moondist  = vis_cf.moondist,
+                    #                      moonlight = vis_cf.moonlight,
+                    #                      depth     = vis_cf.depth,
+                    #                      skip      = vis_cf.skip,
+                    #                      debug     = bool(cf.dbg>2))
+                    grb.vis[loc].compute(altmin    = cf.altmin,
+                                         altmoon   = cf.altmoon,
+                                         moondist  = cf.moondist,
+                                         moonlight = cf.moonlight,
+                                         depth     = cf.depth,
+                                         skip      = cf.skip,
                                          debug     = bool(cf.dbg>2))
 
 
@@ -462,7 +531,6 @@ def main(argv):
 
                 name = grb.name + "-" + loc
 
-
                 log.banner(" SIMULATION  : {:<50s} ".format(name))
                 # Create a MC object
                 mc = MonteCarlo(niter     = cf.niter,
@@ -477,7 +545,7 @@ def main(argv):
                     slot = origin.copy(name="loc")
 
                     # Simulate delay
-                    still_vis = slot.apply_visibility(delay = get_delay()[loc],
+                    still_vis = slot.apply_visibility(delay = get_delay(cf)[loc],
                                                       site  = loc)
 
                     # If still visible add IRF feature and run
@@ -498,7 +566,7 @@ def main(argv):
                 if (mc.err == mc.niter) and (cf.show > 0):
                     slot.plot()
                     import mcsim_plot as mplt
-                    mplt.show(mc,loc=loc)
+                    mplt.show(mc,cf, loc=loc)
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
@@ -521,7 +589,7 @@ def main(argv):
             # If visible on both sites, run simulation
             if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
 
-                slot = origin.both_sites(delay  = get_delay(),
+                slot = origin.both_sites(delay  = get_delay(cf),
                                          debug  = (cf.dbg>1))
                 if (slot != None):
                     slot.dress(irf_dir = cf.irf_dir,
