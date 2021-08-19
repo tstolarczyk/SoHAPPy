@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module contains the classes and tools to handle a GRB object, i.e.
 a collection of lightcurve bins for each of which is given an energy spectrum,
