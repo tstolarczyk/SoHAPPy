@@ -562,15 +562,14 @@ if __name__ == "__main__":
     import os
     os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
 
-    from SoHAPPy import get_grb_fromfile
+    from SoHAPPy import get_grb_fromfile, configuration
 
-    import ana_config as cf # Steering parameters
     from utilities import Log
 
     logfilename = "timeslot.log"  # Log file
     log = Log(name  = logfilename,talk=True)
 
-
+    cf = configuration.read()
     cf.dbg_level = 2
     cf.newvis    = True
     cf.altmin    = 10*u.deg # Minimum altitude (original default is 10 degrees)
