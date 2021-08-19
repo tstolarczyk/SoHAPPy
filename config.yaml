@@ -1,0 +1,97 @@
+# This file contains the steering parameters of SoHAPPy.
+# In YAML, True and False are equivalent to python, wheras the python None is coded as Nill
+
+#=============================================================================#
+# The following parameter values can be superseded by the command line
+# dbg:
+#   if negative or zero : no plot
+#   0: evt counting, 1: + some results, 2: + event details
+#   3: details for each trials
+# ifirst : either an id or a list (then ngrb is useless)
+#  e.g. ifirst=1 
+#       ifirst=[1,2,3] 
+#       ifirst =[751, "090902B","080916C","130427A"]
+#-----------------------------------------------------------------------------#
+ifirst          : 343           # integer, first source. Can be a list, e.g. [12, "190829A"]
+ngrb            : 1             # integer, number of source to be read - if 1 specific actions on one grb
+res_dir         : "../output:test"   # The output folder
+niter           : 1             # Number of Monte Carlo trials
+dbg             : 0             # From 0 to 3, increasingly verbosy
+#=============================================================================#
+# output files
+#-----------------------------------------------------------------------------#
+datafile        : "data.txt"    # Population study main output file
+logfile         : "analysis.log" # Text file with results, status and warning 
+save_simu       : False         # Simulation saved to file for offline use
+save_dataset    : False         # Not implemented (save datasets)
+save_grb        : False         # GRB class saved to disk -> use grb.py main
+remove_tarred   : False         # Remove tarred files, otherwise keep for faster access
+#=============================================================================#
+# Simulation 
+# Possible EBL models are from gammapyl. Use "built-in" for the absorbed data 
+# in the input file (if any)
+#-----------------------------------------------------------------------------#
+seed            : 2021          # Choose ‘random-seed’ to randomize
+do_fluctuate    : False         # Statistical fluctuations are enabled
+do_accelerate   : True          # When True, the simulation is stopped if
+                                # none of the first trials in the limit
+                                #of 1 - det_level have reached the minimal
+                                #significance.
+EBLmodel        : "dominguez"   # Extragalactic Background Light model 
+array_North     : "FullArray"
+array_South     : "FullArray" # IRF subarrays in each site
+#=============================================================================#
+# Visibility 
+# 
+# The absolute maximum repointing times for the CTA telescopes (to and from
+# anywhere in the observable sky) will be 50 s for the LSTs and 90 s for the
+# MSTs and SSTs, with the goal to reach shorter slewing times
+# (Ref. CTA Science document).
+#
+# Choose below the subarrays, examples are :
+#   arrays    = {"North":"FullArray", "South":"FullArray"} 
+#   arrays   = {"North":"FullArray", "South":"MST"}
+#
+# Choose the slewing times, related to tye subarrays
+#   dtslew  = {"North":0*u.s, "South":0*u.s}   # No delay
+#   dtslew  = {"North":30*u.s, "South":60*u.s} # Mixed LST/MST delays
+#
+# In tests, to maximise the visibility use the following values:
+# altmin    =  0*u.deg  # Ensure that the source is always above horizon
+# altmoon   =  90*u.deg # Ensure that he moon never vetoes the visibility
+# moondist  =  0*u.deg  # The Moon distance do not veto the visibility
+# moonlight =  1.0      # The Moon brightness is not a limitation
+#-----------------------------------------------------------------------------#
+depth           : 3             # Max. number of nights
+skip            : 0             # Number of first nights to be skipped
+altmin          : "24 deg"      # Minimum altitude
+altmoon         : "-0.25 deg"   # (horizon) Moon maximum altitude
+moondist        : "30 deg"      # Moon minimal distance
+moonlight       : 0.6           # Moon maximum brigthness
+dtslew_North    : "30 s"
+dtslew_South    : "30 s"        # Maximum slewing time delay
+fixslew         : True          # If False generate a random delay < dtslew
+dtswift         : "77 s"        # Fixed SWIFT latency
+fixswift        : True          # If False, the latency is generated from real data file (see below)
+swiftfile       : "../input/swift/Swift_delay_times.txt" # Swift latency file
+vis_cmp         : True          # If True, visibility is computed on the fly
+vis_dir         : Null          # If defined, visibility are read from folder
+#=============================================================================#
+# input folders
+#-----------------------------------------------------------------------------#
+grb_dir         : "../input/lightcurves/"   # Folder hosting the GRB files
+irf_dir         : "D:/CTA/Analyse/SoHAPPY-IRF/prod3-v2" # IRF folder (specific subfolder organisation)
+# irf_dir    = "../input/irf/Full/prod3-v2"
+# irf_dir    = "../input/irf/Full/prod5-v1" # Implemnation not finalised
+#=============================================================================#
+# These parameters are intended to be modified by experts only
+#-----------------------------------------------------------------------------#
+method          : 0             # Not used (detection method)
+obs_point       : "end"         # Observation position in the time slice
+test_prompt     : False         # If True test prompt alone (experimental)
+use_afterglow   : False         # Prompt characteritics from the afterglow with same id.
+signal_to_zero  : False         # Keep only background, set signal to zero
+fixed_zenith    : Null          # If a value ("20 deg") freezes zenith in IRF (Null = None)
+magnify         : 1             # Multiplicative factor of the flux, for tests
+silent          : False         # If True, nothing on screen (output to log)
+write_slices    : False         # Store detailed information on slices if True
