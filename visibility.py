@@ -2,7 +2,7 @@
 """
 Created on Tue Aug  4 13:17:27 2020
 
-This module is organised around the :class:`visibility`class.
+This module is organised around the :class:`visibility` class.
 It combines the rise, set and night (twilight) windows, and apply the moon veto
 window to the GRB data window (defined by the two extreme GRB time of the
 data points) to produce the visibility windows for a given GRB on a given site.
@@ -51,7 +51,7 @@ class Visibility():
     It can be called to update the default visibilities given with the GRB data
     file, in particular to modify the minimum altitude for a source to be
     decently detectable.
-    The method, :method:`check` is used to compare the visibility
+    The method, :class:`check` is used to compare the visibility
     windows with the one given by default in the GRB file or any other
     pre-loaded visibility.
     """
@@ -621,13 +621,7 @@ class Visibility():
         to a situation where the moon is too bright or too close from the
         source.
         If this is the case (too bright or too close), returns True
-        (the veto is confirmed)
-        Criteria used by the GW paper group
-        (F. Schussler, April 14th 2021, private communication) :
-            max moon phase to 60%
-            min moon separation 30deg
-            max moon altitude 50 deg
-
+        (the veto is confirmed).
 
         """
         too_bright = False
