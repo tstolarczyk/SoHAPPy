@@ -145,15 +145,13 @@ class MonteCarlo():
         A simulation correspond to a series of observations corresponding
         to the GRB time slices.
         This performs an aperure photometry analysis, and is particularly
-        suitabel for a popualtion analyis.
-        This s not intene
+        suitable for a population analyis.
+
         Compute and store :
-            - Significance values for all slices in the trials;
-            - Maximum significance reached for the GRB;
-            - Time of maximum siginificance, number of excess and background
-            events
-            - Time to reach 3 or 5 sigma, number of excess and background
-            events
+            * Significance values for all slices in the trials;
+            * Maximum significance reached for the GRB;
+            * Time of maximum siginificance, number of excess and background events;
+            * Time to reach 3 or 5 sigma, number of excess and background events.
 
         Parameters
         ----------
