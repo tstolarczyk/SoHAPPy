@@ -423,11 +423,14 @@ def main(argv):
     None.
 
     """
+    # Read default configuration file - backup to output folder
+    conf_filename = "config.yaml"
+    cf = Configuration.read(conf_filename)
+    backup_file(conf_filename, folder=cf.res_dir)
     
-    ### READ CONFIG FILE
-    cf = Configuration.read()
-    init(argv, cf)           # Steering parameters and welcome message
-
+     # Steering parameters and welcome message
+    init(argv, cf)          
+    
     if (cf.ngrb<=0):
         print(" NO ANALYSIS REQUIRED (ngrb<=0)")
         sys.exit(2)
@@ -449,8 +452,7 @@ def main(argv):
     sim_filename    = cf.res_dir  + cf.datafile
     log_filename    = cf.res_dir  + cf.logfile
     log = Log(name  = log_filename, talk=not cf.silent)
-    conf_filename   = "config.yaml"
-    conf_filename   = backup_file(folder=cf.res_dir,dest=conf_filename)
+    
     if (cf.write_slices): dump_dir = cf.res_dir
     else: dump_dir = None
 
