@@ -153,7 +153,7 @@ def ColorMap(threshold,maxval):
     mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
     return mymap
 ###----------------------------------------------------------------------------
-def backup_file(folder=None, dest=None, dbg=False):
+def backup_file(file,folder=None, dbg=False):
     """
     Copy a file to a result folder
     If it already exists, make a backup with the date
@@ -167,21 +167,20 @@ def backup_file(folder=None, dest=None, dbg=False):
             if (dbg): print(" *** Creating output folder ",folder)
             os.makedirs(folder)
 
-    conf_filename = folder+"/"+dest
+    output_file = folder+"/"+file
 
-    if (os.path.exists(conf_filename)):
+    if os.path.exists(output_file):
         nw = datetime.datetime.now()
-        newname = conf_filename + "_" \
-                                + str(nw.hour) \
-                                + str(nw.minute) \
-                                + str(nw.second)
+        output_file = output_file + "_" \
+                                  + str(nw.hour) \
+                                  + str(nw.minute) \
+                                  + str(nw.second)
 
-        os.rename(conf_filename, newname)
-        if (dbg): print("     --- config.txt exists, renamed to ",newname)
+    shutil.copy(file, output_file)
+    if (dbg): 
+        print("   ----",file," copied to ",output_file())
 
-    shutil.copy('ana_config.py',conf_filename)
-
-    return conf_filename
+    return 
 
 ###----------------------------------------------------------------------------
 class Log():
