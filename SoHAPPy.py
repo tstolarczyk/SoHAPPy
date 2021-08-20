@@ -481,20 +481,16 @@ def main(argv):
                           debug = bool(cf.dbg>1))
 
             # Recompute visbility windows if requested
+            import visibility as vis
+
             for loc in ["North","South"]:
                 if (cf.vis_dir != None):
-                    import visibility as vis
                     name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
                     grb.vis[loc] = vis.Visibility.read(name)
                 elif (cf.vis_cmp):
-                    # grb.vis[loc].compute(altmin    = vis_cf.altmin,
-                    #                      altmoon   = vis_cf.altmoon,
-                    #                      moondist  = vis_cf.moondist,
-                    #                      moonlight = vis_cf.moonlight,
-                    #                      depth     = vis_cf.depth,
-                    #                      skip      = vis_cf.skip,
-                    #                      debug     = bool(cf.dbg>2))
-                    grb.vis[loc].compute(altmin    = cf.altmin,
+                    grb.vis[loc] = vis.Visibility.compute(grb,
+                                         loc,
+                                         altmin    = cf.altmin,
                                          altmoon   = cf.altmoon,
                                          moondist  = cf.moondist,
                                          moonlight = cf.moonlight,
@@ -611,7 +607,7 @@ def main(argv):
                 if (cf.show>0):
                     slot.plot()
                 import mcsim_plot as mplt
-                mplt.show(mc,loc="Both")
+                mplt.show(mc,cf,loc="Both")
 
             # If requested save simulation to disk
             if (cf.save_simu): mc.write(Path(cf.res_dir,name + "_sim.bin"))
