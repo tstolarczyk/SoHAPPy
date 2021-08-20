@@ -35,8 +35,8 @@ def Df(x):
 ###------------------------------------------------------------------------
 def Dp(x):
     """
-    Returns a time in ISO format if the argument is an astropy Time, and if
-    not returns the argument (unchanged).
+    Returns a time in ISO format if the argument is an astropy 
+    :class:`Time`, and if not returns the argument (unchanged).
     """
     if isinstance(x,Time):
         return x.iso
@@ -54,49 +54,46 @@ class Visibility():
     The method, :class:`check` is used to compare the visibility
     windows with the one given by default in the GRB file or any other
     pre-loaded visibility.
+
+    Excerpt from the astroplan documentation:
+        
+    * Moonrise is defined as the instant when, in the eastern sky, under
+    ideal meteorological conditions, with standard refraction of the
+    Moon's rays, the upper edge of the Moon's disk is coincident with an
+    ideal horizon.
+
+    * Moonset is defined as the instant when, in the western sky, under
+    ideal meteorological conditions, with standard refraction of the
+    Moon's rays, the upper edge of the Moon's disk is coincident with
+    an ideal horizon.
+
+    The Moon angular diameter varies between 29.3 to 34.1 arcminutes
+    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when
+    the moon is below the horizon at a negative angle half of
+    these values, respectively -0.244 and 0.284 degree
+    
+    
     """
 
     ###------------------------------------------------------------------------
     def __init__(self,grb,loc):
         """
-        Visibility constructor
-        I did not find how to have this displayed with automodapi
-
-        Excerpt from the astroplan documentation:
-        * Moonrise is defined as the instant when, in the eastern sky, under
-        ideal meteorological conditions, with standard refraction of the
-        Moon's rays, the upper edge of the Moon's disk is coincident with an
-        ideal horizon.
-
-        * Moonset is defined as the instant when, in the western sky, under
-        ideal meteorological conditions, with standard refraction of the
-        Moon's rays, the upper edge of the Moon's disk is coincident with
-        an ideal horizon.
-
-        The Moon angular diameter varies between 29.3 to 34.1 arcminutes
-        (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when
-        the moon is below the horizon at a negative angle half of
-        these values, respectively -0.244 and 0.284 degree
+        Visibility constructor. The members follow the elements of the
+        original default visibility files.
 
         Parameters
         ----------
-        target : TYPE, optional
-            DESCRIPTION. The default is None.
-        site : TYPE, optional
-            DESCRIPTION. The default is None.
-        tstart : TYPE, optional
-            DESCRIPTION. The default is 0.
-        tstop : TYPE, optional
-            DESCRIPTION. The default is 0.
-        name : TYPE, optional
-            DESCRIPTION. The default is "Unknown".
+        grb : GammaRayBurst instance
+            The objetc to which the visibility will be attached
+        loc : String
+            Site (North or Souht)
 
         Returns
         -------
         None.
 
         """
-
+        
         self.status  = "init"
         self.site    = grb.pos_site[loc]
         self.target  = FixedTarget(coord=grb.radec, name=grb.name)
@@ -144,17 +141,13 @@ class Visibility():
     @classmethod
     def from_fits(cls, grb, hdr, hdul, hdu=1, loc="None"):
         """
-        Visibility from input file
-        The start and stop dates are searched during 24h after the trigger
+        Default visibility from input file.
+        
+        * The start and stop dates are searched during 24h after the trigger
         and correspond to the first visibility interval.
-        Does not report a second visibility interval during 24h,
+        * Does not report a second visibility interval during 24h,
         that should be possible only if the target is promptly visible
         (about 15% of the targets)
-        By default seen in the North.
-        Default times are defined for the first GRB sample with no
-        visibikity given. The North visibility is chosen to have the
-        trigger therein. The South visibility starts after the trigger.
-        This allows having the two conditions explored.
 
         Parameters
         ----------
@@ -175,7 +168,6 @@ class Visibility():
 
         """
         cls = Visibility(grb,loc)  # This calls the constructor
-
 
         vis = Table.read(hdul,hdu=hdu)
 
