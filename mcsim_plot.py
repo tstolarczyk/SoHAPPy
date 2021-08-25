@@ -51,11 +51,10 @@ def pause():
     return
 
 ###############################################################################
-def show(mc,cf, show=2,loc="nowhere"):
-    filename = Path(cf.res_dir,mc.name)
-    stat(mc,show,filename)
-    story(mc,show,filename,loc=loc,ref="VIS")
-    story(mc,show,filename,loc=loc,ref="GRB")
+def show(mc,loc="nowhere"):
+    stat(mc)
+    story(mc,loc=loc,ref="VIS")
+    story(mc,loc=loc,ref="GRB")
     pause()
 
     return
@@ -101,7 +100,7 @@ def plot_on_off(ax,nex,nb,
     return
 
 ###############################################################################
-def stat(mc, saveplots, outfile):
+def stat(mc):
     """
     Plot result of the simulations of the current grb:
         - evolution of sigma with observation time
@@ -109,7 +108,6 @@ def stat(mc, saveplots, outfile):
         
     """
 
-    if (saveplots == 0): return
     if (mc.method != 0):
         sig = '$\sigma_{\sqrt{TS}}$'
         if (mc.slot.site == "Both"):
@@ -235,7 +233,7 @@ def stat(mc, saveplots, outfile):
     return
 
 ###############################################################################
-def story(mc, saveplots, outfile, loc="nowhere", ref="VIS"):
+def story(mc, loc="nowhere", ref="VIS"):
     """
     Show altitude versus time and points used for computation
 

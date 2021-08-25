@@ -366,7 +366,7 @@ def main(argv):
                 if (mc.err == mc.niter) and (cf.show > 0):
                     slot.plot()
                     import mcsim_plot as mplt
-                    mplt.show(mc,cf, loc=loc)
+                    mplt.show(mc,loc=loc)
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
@@ -409,7 +409,7 @@ def main(argv):
                 if (cf.show>0):
                     slot.plot()
                 import mcsim_plot as mplt
-                mplt.show(mc,cf,loc="Both")
+                mplt.show(mc,loc="Both")
 
             # If requested save simulation to disk
             if (cf.save_simu): mc.write(Path(cf.res_dir,name + "_sim.bin"))
