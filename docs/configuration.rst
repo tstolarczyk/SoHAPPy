@@ -1,9 +1,7 @@
+Configuration file
+==================
 
-
-Steering parameters
-===================
-
-Here are the steering parameters.
+The following parameters are stored into the *config.yaml* file.
 
 
 

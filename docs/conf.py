@@ -51,7 +51,6 @@ release = '0.0'
 # Copied from ctapipe
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.coverage",

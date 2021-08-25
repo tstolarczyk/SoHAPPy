@@ -1,9 +1,19 @@
 
-Analyzing a single objects
-==========================
+Analyzing a single object
+=========================
 
 Introduction
 ------------
+
+
+Dataset plotting
+================
+
+.. comment automodapi:: dataset_tools
+   :no-inheritance-diagram:
+   
+
+
 
 Introduce the concept
 

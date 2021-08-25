@@ -7,7 +7,13 @@ Created on Tue Mar 16 14:30:15 2021
 
 To-do list
 ==========
-2020 07 01:
+2021 07 25:
+- major changes in the readin of the configuration:
+	- ana_config.py is removed and the parameters are in a Configuration class filled from yaml files
+	- add some configuration files : One default (conf.yaml) intended to be modified by the user, 
+	and two examples for population (conf_population.yaml) and single source (conf_singlesource.yaml) analyses.
+
+2021 07 01:
     - check that simulation stops beyong the last available point
     - Check coherence of the alt-az computation with the flux -> the same
     - Stack the prompt with the afterglow

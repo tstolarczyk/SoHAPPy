@@ -13,17 +13,18 @@ IRF data file organisation
 The instrument response function (IRF) files are expected to be found in a
 dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF). The IRF data are in gzip files named irf_file.fits.gz in specific folder with name corresponding to the IRF parameter. Here is an excerpt of the organisation :
 
-+ FullArray 
+..  code-block::
 
-    +-- North
-    	+-- 20deg
-    		+-- North_z20_average_5h
-    			+-- irf_file.fits.gz
-    			
-    		+-- North_z20_average_30m
-    		+-- North_z20_average_50h
-    		+-- North_z20_average_100s
-    		
++ FullArray 
+	+-- North
+		+-- 20deg
+			+-- North_z20_average_5h
+				+-- irf_file.fits.gz
+
+			+-- North_z20_average_30m
+			+-- North_z20_average_50h
+			+-- North_z20_average_100s
+
     	+-- 40deg
     	+-- 60deg
     	
@@ -31,6 +32,7 @@ dedicated folder, with files organised as follows (the structure is defined for 
     	+-- 20deg
     	+-- 40deg
     	+-- 60deg
+
 
 IRF validity ranges
 ===================
@@ -111,15 +113,17 @@ Direct download (20181203): https://forge.in2p3.fr/attachments/download/62074
 
 All IRF available for : 100s, 30m, 5h, 50h
 
-- North:
-    - FullArray, LST, MST, TS, TS_MST :
-        - 20deg, 40 deg, 60 deg
-        - N, S, average
+..  code-block::
 
-- South:
-    - FullArray, LST, MST, MSTSST, SST, TS, TS_MST, TS_SST
-        -  20deg, 40 deg, 60 deg
-        - N, S, average
+	- North:
+		- FullArray, LST, MST, TS, TS_MST :
+			- 20deg, 40 deg, 60 deg
+			- N, S, average
+
+	- South:
+		- FullArray, LST, MST, MSTSST, SST, TS, TS_MST, TS_SST
+			-  20deg, 40 deg, 60 deg
+			- N, S, average
         
 
 CTA consortium older files
