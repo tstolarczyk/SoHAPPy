@@ -198,34 +198,32 @@ class Visibility():
                     debug=True):
 
         """
-    Compute the visibility periods for a given GRB and site.This constructor takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), and all the parameters required for the computation.
-
-    Note that all time variables are expressed in Julian days (to use sort) an are then copied as :class:`Time` objects later into the class variables.
-
-    The algorithm is the following:
-
-        #. Build periods for:
-            
-            * Nights (*t_night*), and check if trigger occurs during night (*is_night*);
-            * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above the defined horizon (*altmoon*);
-            * Check (*True*, *False*) whether these Moon veto periods are kept by the moon brightness and distance to the source (*moonlight_veto*). If this is the case, keep the corresponding moon veto period in *t_moon_veto* otherwise discard the period. In order to have all Moon period kept (i.e. veto is valid as soon as Moon is above *altmoon*), *moondist* should be maximised (veto at any distance) and *moonlight* should be minimised (even if no moonligt, veto is valid);
-            * Above horizon (*t_above*) and whether the object is above the horizon (*altmin*) at trigger time.
+        Compute the visibility periods for a given GRB and site. This constructor takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), and all the parameters required for the computation.
     
-        #. Put all *start* and *stop* of all these periods in a list, sort the list, resulting in a series of ordered “ticks”.
+        Note that all time variables are expressed in Julian days (to use `sort`) an are then copied as :class:`Time` objects later into the class variables.
     
-        #. For each consecutive tick pairs in the list:
+        The algorithm is the following:
+    
+            1. Build periods for:
+                * Nights (*t_night*), and check if trigger occurs during night (*is_night*);
+                * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above the defined horizon (*altmoon*);
+                * Check (*True*, *False*) whether these Moon veto periods are kept by the moon brightness and distance to the source (*moonlight_veto*). If this is the case, keep the corresponding moon veto period in *t_moon_veto* otherwise discard the period. In order to have all Moon period kept (i.e. veto is valid as soon as Moon is above *altmoon*), *moondist* should be maximised (veto at any distance) and *moonlight* should be minimised (even if no moonligt, veto is valid);
+                * Above horizon (*t_above*) and whether the object is above the horizon (*altmin*) at trigger time.
+        
+            2. Put all *start* and *stop* of all these periods in a list, sort the list, resulting in a series of ordered “ticks”.
+            3. For each consecutive tick pairs in the list:
+                * Compute the mean time (middle of the a tick pair)
+                * Check if that time belongs to one of the *night*, *above*, or *bright* (i.e. in the available data interval) intervals and not to any  *moon* interval. If so get True, otherwise False.
+       
+            4. For each of the tick pairs compute the Boolean `visible = bright and dark and above and moon` and get the visibility windows when True.
 
-            * Compute the mean time (middle of the a tick pair)
-            * Check if that time belongs to one of the *night*, *above*, or *bright* (i.e. in the available data interval) intervals and not to any  *moon* interval. If so get True, otherwise False.
-   
-        #. For each of the tick pairs compute the Boolean `visible = bright and dark and above and moon` and get the visibility windows when True.
 
         Parameters
         ----------
         altmin : float, optional
             Minimum altitude. The default is 10*u.deg.
         depth : Quantity Time, optional
-            Depth up to which time windows are search for (at least one day). The default is 3 days, and the reference time is the start of the visibility window (i.e. the window end can be beyond the depth)
+            Depth up to which time windows are search for (at least one day). The default is 3 days, and the reference time is the start of the visibility window (i.e. the window end can be beyond the depth)    
         end : integer, optional
             Defines the crietria to accept a visibility window within the depth. If 0, the window has to start before depth, if 1 it has to stop before depth.
         npt : integer, optional
@@ -233,6 +231,7 @@ class Visibility():
         debug : bool, optional
             Print additional comments at excecution time if True .The default is False.
 
+  
         """
 
         cls = Visibility(grb,loc)  # This calls the constructor
@@ -404,12 +403,16 @@ class Visibility():
 
         import pickle
         from pathlib import Path
-
+        import os, sys
+        
         filename = Path(folder,name)
-        infile  = open(filename,"rb")
-        cls =  pickle.load(infile)
-        infile.close()
-        if (debug): print(" <<<< Visibility read from : ",filename)
+        if os.path.isfile(filename):
+            infile  = open(filename,"rb")
+            cls =  pickle.load(infile)
+            infile.close()
+            if (debug): print(" <<<< Visibility read from : ",filename)
+        else:
+            sys.exit(" Visibility file ",filename," does not exist !")
 
         return cls
 
