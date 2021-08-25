@@ -52,6 +52,7 @@ class Configuration(object):
         for opt, arg in opts:
             if opt == '-h':
                 print(" SoHAPPy.py "
+                      + "-c <config.file>"
                       + "-N <ngrb> "
                       + "-f <1st grb or list> "
                       + "-n <MC iterations> "
