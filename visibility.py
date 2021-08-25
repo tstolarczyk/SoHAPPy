@@ -57,21 +57,12 @@ class Visibility():
 
     Excerpt from the astroplan documentation:
         
-    * Moonrise is defined as the instant when, in the eastern sky, under
-    ideal meteorological conditions, with standard refraction of the
-    Moon's rays, the upper edge of the Moon's disk is coincident with an
-    ideal horizon.
+    * Moonrise is defined as the instant when, in the eastern sky, under ideal meteorological conditions, with standard refraction of the Moon's rays, the upper edge of the Moon's disk is coincident with an ideal horizon.
 
-    * Moonset is defined as the instant when, in the western sky, under
-    ideal meteorological conditions, with standard refraction of the
-    Moon's rays, the upper edge of the Moon's disk is coincident with
-    an ideal horizon.
+    * Moonset is defined as the instant when, in the western sky, under ideal meteorological conditions, with standard refraction of the Moon's rays, the upper edge of the Moon's disk is coincident with an ideal horizon.
 
-    The Moon angular diameter varies between 29.3 to 34.1 arcminutes
-    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when
-    the moon is below the horizon at a negative angle half of
-    these values, respectively -0.244 and 0.284 degree
-    
+    The Moon angular diameter varies between 29.3 to 34.1 arcminutes 
+    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon is below the horizon at a negative angle half of these values, respectively -0.244 and 0.284 degree
     
     """
 
@@ -143,12 +134,10 @@ class Visibility():
         """
         Default visibility from input file.
         
-        * The start and stop dates are searched during 24h after the trigger
-        and correspond to the first visibility interval.
-        * Does not report a second visibility interval during 24h,
-        that should be possible only if the target is promptly visible
-        (about 15% of the targets)
-
+        * The start and stop dates are searched during 24h after the trigger and correspond to the first visibility interval.
+        
+        * Does not report a second visibility interval during 24h, that should be possible only if the target is promptly visible (about 15% of the targets)
+        
         Parameters
         ----------
         grb : TYPE
@@ -209,55 +198,45 @@ class Visibility():
                     debug=True):
 
         """
-        Compute the visibility periods for a given GRB and site.
-        The constructor takes as arguments a grb (GammaRayBurst) and a
-        location (string).
-        # Temporary local variables in Julian days (to use sort)
-        # Will be copied as Time objects later into the class variable
-        The algorithm is the following:
+    Compute the visibility periods for a given GRB and site.This constructor takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), and all the parameters required for the computation.
 
-            1.	Build periods for:
-                - Nights (night), at least two consecutive nights (more is possible).
-                - Above horizon (above), at least two consecutive rise/set.
-                - Bright (bright) from trigger time and to last GRB data point in time.
+    Note that all time variables are expressed in Julian days (to use sort) an are then copied as :class:`Time` objects later into the class variables.
 
-            2.	Put all start and stop of all these periods in a list, sort the
-            list, resulting in a series of ordered “ticks”.
+    The algorithm is the following:
 
-            3.	For each tick pairs [t1,t2]:
-                - Compute the mean time $$0.5*(t1+t2)$$
-                - Check if that time belongs to one of the (night), (above) or (bright)
-                intervals.
-                - If so get True, otherwise False.
+        #. Build periods for:
+            
+            * Nights (*t_night*), and check if trigger occurs during night (*is_night*);
+            * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above the defined horizon (*altmoon*);
+            * Check (*True*, *False*) whether these Moon veto periods are kept by the moon brightness and distance to the source (*moonlight_veto*). If this is the case, keep the corresponding moon veto period in *t_moon_veto* otherwise discard the period. In order to have all Moon period kept (i.e. veto is valid as soon as Moon is above *altmoon*), *moondist* should be maximised (veto at any distance) and *moonlight* should be minimised (even if no moonligt, veto is valid);
+            * Above horizon (*t_above*) and whether the object is above the horizon (*altmin*) at trigger time.
+    
+        #. Put all *start* and *stop* of all these periods in a list, sort the list, resulting in a series of ordered “ticks”.
+    
+        #. For each consecutive tick pairs in the list:
 
-            4.	For each of the tick pairs compute the Boolean:
-                (visible) = (bright)*(above)*(night),
-                and get the visibility windows when True.
-
-            5.	Restrict the visible=True window to :
-            stop time < depth*u.dayafter trigger.
+            * Compute the mean time (middle of the a tick pair)
+            * Check if that time belongs to one of the *night*, *above*, or *bright* (i.e. in the available data interval) intervals and not to any  *moon* interval. If so get True, otherwise False.
+   
+        #. For each of the tick pairs compute the Boolean `visible = bright and dark and above and moon` and get the visibility windows when True.
 
         Parameters
         ----------
         altmin : float, optional
             Minimum altitude. The default is 10*u.deg.
         depth : Quantity Time, optional
-            Depth up to which time windows are search for (at least one day)
-            The default is 3 days, and the reference time is the start of the
-            visibility window (i.e. the window end can be beyond the depth)
+            Depth up to which time windows are search for (at least one day). The default is 3 days, and the reference time is the start of the visibility window (i.e. the window end can be beyond the depth)
         end : integer, optional
-            Defines the crietria to accept a visibility window within the
-            depth. If 0, the window has to start before depth, if 1 it has to
-            stop before depth.
+            Defines the crietria to accept a visibility window within the depth. If 0, the window has to start before depth, if 1 it has to stop before depth.
         npt : integer, optional
             Number of grid points for horizon crossing. The default is 150.
         debug : bool, optional
-            Print additional comments at excecution time if True .
-            The default is False.
+            Print additional comments at excecution time if True .The default is False.
 
         """
 
         cls = Visibility(grb,loc)  # This calls the constructor
+        
         ###---------------------------------------------------
         def valid(t0,tslices):
             if len(tslices[0]) == 0 : return False # No slice !
@@ -304,10 +283,10 @@ class Visibility():
         # Now prepare the ticks from all the intervals
         ticks = [cls.tstart.jd] # ,cls.tstop.jd] is night end
 
-               # Restrict the analysis windows to the last night end or the GRB data length
+        # Restrict the  windows to the last night end or the GRB data length
         if cls.tstop < Df(t_night[-1][1]):
             # The GRB data stop before the ned of last night
-            print(" >>>> Analysis shortened by lack of data")
+            # print(" >>>> Analysis shortened by lack of data")
             ticks.extend([cls.tstop.jd])
         else:
             # Set the end at last night for convenience
@@ -317,7 +296,6 @@ class Visibility():
         for elt in t_above       : ticks.extend(elt)
         for elt in t_moon_veto   : ticks.extend(elt)
 
-
         ticks.sort() # Requires numerical values -> all times are in jd
 
         if (debug):
@@ -326,7 +304,7 @@ class Visibility():
                 print("{:10s} {:<23s} ".format(cls.name, Df(t).iso))
 
         # Loop over slices and check visibility
-        if (debug):
+        if (debug): # Header
             print(" {:<23s}   {:<23s} {:>10s} {:>6s} {:>6s} {:>6s} {:>6s}"
                   .format("T1", "T2", "bright", "dark", "above", "moon.","vis."))
 
