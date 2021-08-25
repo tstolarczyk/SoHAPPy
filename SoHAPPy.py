@@ -14,7 +14,7 @@ too distant dates).
 from __init__ import __version__
 
 import os
-import sys, getopt
+import sys
 
 from   mcsim  import MonteCarlo
 
@@ -37,9 +37,10 @@ import astropy.units as u
 
 from grb            import GammaRayBurst
 from timeslot       import Slot
+from configuration import Configuration
 
 import mcsim_res  as mcres
-from utilities    import backup_file, Log, warning
+from utilities    import Log
 
 # Do not refresh IERS data
 from astropy.utils import iers
@@ -52,65 +53,29 @@ iers.conf.auto_download = False
 # print(" ->Done")
 
 
-__all__ = ["main", "init", "summary", "get_grb_fromfile", "get_delay"]
+__all__ = ["main", "get_grb_fromfile", "get_delay"]
 
 ###############################################################################
-import yaml
-from yaml.loader import SafeLoader
+def welcome(log):
+    import gammapy
 
-class Configuration(object):
-    def __init__(self):
-        print("Constructor called")
-        return
+    log.prt(datetime.now())
+    log.prt("+----------------------------------------------------------------+")
+    log.prt("|                                                                |")
+    log.prt("|                    SoHAPPy with GammaPy {:8s}               |"
+          .format(gammapy.__version__))
+    log.prt("|                            ({:8s})                          |"
+          .format(__version__))
+    log.prt("|  (Simulation of High-energy Astrophysics Processes in Python)  |")
+    log.prt("|                                                                |")
+    log.prt("+----------------------------------------------------------------+")
     
-    def toto(self):
-        print(vars(self))
-        return
-        
-    @classmethod
-    def read(cls,filename="config.yaml"):
-        cls = Configuration()
-        #---------------------------------------------------
-        def obj_dic(d):
-            top = type('new', (object,), d)
-            seqs = tuple, list, set, frozenset
-            for i, j in d.items():
-                if isinstance(j, dict):
-                    setattr(top, i, obj_dic(j))
-                elif isinstance(j, seqs):
-                    setattr(top, i, 
-                        type(j)(obj_dic(sj) if isinstance(sj, dict) else sj for sj in j))
-                else:
-                    # if (j== "None"):
-                    #     setattr(top,i,None)
-                    # Not necessary, parsed correclty    
-                    # elif (j== "False"):
-                    #     setattr(top,i,False)
-                    # elif (j== "True"):
-                    #     setattr(top,i,True)
-                    # else:
-                    setattr(top, i, j)
-                    
-            return top
-        #---------------------------------------------------
-
-        with open(filename) as f:
-            data = yaml.load(f, Loader=SafeLoader)
-            cls = obj_dic(data)
-            cls.altmin = u.Quantity(cls.altmin)
-            cls.altmoon = u.Quantity(cls.altmoon)
-            cls.moondist = u.Quantity(cls.moondist)
-            cls.dtslew_North = u.Quantity(cls.dtslew_North)
-            cls.dtslew_South = u.Quantity(cls.dtslew_South )
-            cls.dtswift = u.Quantity(cls.dtswift)
-            cls.arrays = {"North": cls.array_North, "South":cls.array_South}
-            cls.dtslew = {"North": cls.dtslew_North, "South":cls.dtslew_South}
-
-        print("Initialisation terminated")
-        return cls
-    
+    return
 ###############################################################################
-def get_grb_fromfile(item,cf, prompt=False, afterglow=False, log=None):
+def get_grb_fromfile(item, 
+                     config = None,
+                     grb_folder  = None, 
+                     log = None):
     """
     Obtain data for the ith GRB file and create a GammaRayBurst instance.
 
@@ -133,234 +98,62 @@ def get_grb_fromfile(item,cf, prompt=False, afterglow=False, log=None):
         A GammaRayBurst instance
 
     """
-
-
-    if not cf.test_prompt: # Normal case : afterglow
+    
+    if config == None:
+        test_prompt = False 
+        eblmodel    = None
+        magnify     = 1
+        afterglow   = False 
+    else:
+        test_prompt = config.test_prompt
+        eblmodel    = config.EBLmodel
+        magnify     = config.magnify
+        afterglow   = config.use_afterglow
+    
+    if not test_prompt: # Normal case : afterglow
         if isinstance(item, str):
             # this is a GRB name string
-            filename = Path(cf.grb_dir
+            filename = Path(grb_folder
                             + "historical/GRB_"
                             + item +".yml")
             import yaml
             from yaml.loader import SafeLoader
             with open(filename) as f:
                 data = yaml.load(f, Loader=SafeLoader)
-                #print(data)
-                grb = GammaRayBurst.from_yaml(data,ebl=cf.EBLmodel)
+                grb = GammaRayBurst.from_yaml(data,ebl=eblmodel())
         elif isinstance(item, int):
-            filename = Path(cf.grb_dir
+            filename = Path(grb_folder
                             + "LONG_FITS/"
                             + "Event"
                             + str(item)+".fits")
             grb = GammaRayBurst.from_fits(filename,
-                                     ebl     = cf.EBLmodel,
-                                     magnify = cf.magnify)
+                                     ebl     = eblmodel,
+                                     magnify = magnify)
     else: # Special case for prompt
         # create a new object from the default (Visible in North)
         loc = Path('../input/lightcurves/prompt'
                    + "/events_"+str(item)+".fits")
-        if (cf.use_afterglow):
+        if (afterglow):
             # use afterglow characteristics
-            loc_glow = Path(cf.grb_dir + "/Event"+str(item)+".fits")
-            glow = GammaRayBurst.read(loc_glow, ebl = cf.EBLmodel)
+            loc_glow = Path(grb_folder + "/Event"+str(item)+".fits")
+            glow = GammaRayBurst.from_fits(loc_glow, ebl = eblmodel)
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=glow,
-                                            ebl = cf.EBLmodel,
-                                            magnify = cf.magnify)
+                                            ebl = eblmodel,
+                                            magnify = magnify)
         else:
             # use default visibility
+            sys.exit(" Redshift shouldbe provided")
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=None,
-                                            ebl = cf.EBLmodel,
-                                            z=cf.redshift,
-                                            magnify = cf.magnify)
-
+                                            ebl = eblmodel,
+                                            z   = None,
+                                            magnify = magnify)
 
     return grb
 
 ###############################################################################
-def init(argv, cf):
-    """
-    Decode the command line arguments if any, treat some information from the
-    configuration file, overwrite some configuration parameters with the
-    command line parameters.
-    Build the debugging flag for printout and plots.
-    Create the result output folder.
-
-    Parameters
-    ----------
-    argv : Command line arguments
-        User command line arguments.
-
-    Returns
-    -------
-    None.
-
-    """
-
-    # Read arguments from command line, supersede default ones
-    try:
-          opts, args = getopt.getopt(argv,
-                                     "hn:f:d:N:o:",
-                                     ["ngrb=",
-                                      "first=",
-                                      "niter=",
-                                      "dbg=",
-                                      "output=",])
-
-          for opt, arg in opts:
-             if opt == '-h':
-                 print(" SoHAPPy.py "
-                       + "-N <ngrb> "
-                       + "-f <1st grb or list> "
-                       + "-n <MC iterations> "
-                       + "-o <Output folder> "
-                       + "-d <debug> ")
-                 sys.exit()
-             elif opt in ("-N", "--ngrb"):
-                 cf.ngrb =  int(arg)
-             elif opt in ("-f", "--first"):
-                 cf.ifirst = int(arg)
-             elif opt in ("-n", "--niter"):
-                 cf.niter = int(arg)
-             elif opt in ("-o", "--output"):
-                  cf.res_dir = arg
-             elif opt in ("-d", "--debg"):
-                 dbg = int(arg)
-                 cf.dbg = abs(dbg)
-
-    except getopt.GetoptError:
-        print("No line arguments passed: Using default values")
-
-    # Create the show debugging flag from the general debug flag
-    if (cf.dbg < 0): cf.show = 0
-    else: cf.show = abs(cf.dbg)
-
-    if (cf.do_fluctuate == False): cf.niter = 1
-    #if (cf.niter == 1): cf.do_fluctuate=False
-    if (cf.dbg>0): cf.silent = False
-
-    # Check that the output folder exists, otherwise create it
-    if (cf.res_dir[-1] != "/"): cf.res_dir = cf.res_dir+"/"
-    if not os.path.isdir(cf.res_dir):
-        warning("Creating {}".format(cf.res_dir))
-        os.mkdir(cf.res_dir)
-
-    # Avoid writing mutliple datasets when iteration number > 1
-    if (cf.niter > 1):
-        cf.save_dataset = False
-
-    return
-
-###############################################################################
-def summary(cf=None,log=None):
-    """
-    Printout the main characteristics of the simulation.
-
-    Parameters
-    ----------
-    log : TextIO, optional
-        Log file. The default is None.
-
-    Returns
-    -------
-    None.
-
-    """
-    import gammapy
-
-    log.prt(datetime.now())
-    log.prt("+----------------------------------------------------------------+")
-    log.prt("|                                                                |")
-    log.prt("|                    SoHAPPy with GammaPy {:4s}                   |"
-          .format(gammapy.__version__))
-    log.prt("|                            ({:4s})                              |"
-          .format(__version__))
-    log.prt("|  (Simulation of High-energy Astrophysics Processes in Python)  |")
-    log.prt("|                                                                |")
-    log.prt("+----------------------------------------------------------------+")
-    log.prt(" Simulation:")
-    if type(cf.ifirst)!=list and not isinstance(cf.ifirst, str):
-        log.prt("     Number of sources*  : {:>5d}".format(cf.ngrb))
-        log.prt("     First source*       : {:>5d}".format(cf.ifirst))
-    else:
-        log.prt("     Source list         : {}".format(cf.ifirst))
-    log.prt("     Number of trials*   : {:>5d}".format(cf.niter))
-    log.prt(" EBL model               : {}".format(cf.EBLmodel))
-    log.prt(" Input/output :")
-    log.prt("      Debug mode*        : {:>5d}".format(cf.dbg))
-    log.prt("      Show plots*        : {:>5d}".format(cf.show))
-    log.prt("      Analysing files in : {}".format(cf.grb_dir))
-    log.prt("      IRF files in       : {}".format(cf.irf_dir))
-    log.prt("      Result folder*     : {}".format(cf.res_dir))
-    log.prt(" Site sub-arrays         : N:{} S:{}"
-            .format(cf.arrays["North"],cf.arrays["South"]))
-    log.prt(" Slewing time            : N:{} S:{}"
-            .format(cf.dtslew["North"],cf.dtslew["South"]))
-    log.prt("      Fixed              : {}".format(cf.fixslew))
-    log.prt("   SWIFT delay fixed     : {}".format(cf.fixswift))
-    if (cf.fixswift):
-        log.prt("                   value : {}".format(cf.dtswift))
-    else:
-        log.prt("            Read from : {}".format(cf.swiftfile))
-    # if (cf.method ==0):
-    #     method = "On-Off Aperture photometry"
-    # elif (cf.method == 1):
-    #     method = "On-off Energy dependent"
-    log.prt(" Analysis (ndof)         : {}".format(cf.method))
-    if (cf.vis_dir != None):
-        log.prt(" Vis. read from          : {}".format(cf.vis_dir))
-    elif (cf.vis_cmp):
-        # vis_cf.print(log)
-        log.prt(" Vis. computed up to     : {} night(s)".format(cf.depth))
-        log.prt(" Skip up to              : {} night(s)".format(cf.skip))
-        log.prt(" Minimum altitude        : {}".format(cf.altmin))
-        log.prt(" Moon max. altitude      : {}".format(cf.altmoon))
-        log.prt(" Moon min. distance      : {}".format(cf.moondist))
-        log.prt(" Moon max. brightness    : {}".format(cf.moonlight))
-
-    else:
-        log.prt(" Visibility              : default")
-
-    log.prt("+----------------------------------------------------------------+")
-    log.prt("|                 *: can be changed with command line (use -h)   |")
-    log.prt("+----------------------------------------------------------------+")
-    log.prt(" Developments:")
-    if (cf.save_grb == True):
-        log.highlight("Simulation saved to disk save_grb (save_grb = True)       ")
-
-    if (cf.write_slices == True):
-        log.highlight("Slice information saved to disk (write_slices=True)       ")
-
-    if (cf.signal_to_zero == True):
-        log.warning(  "Signal set to zero (signal_to_zero==True)                 ")
-
-    if (cf.do_fluctuate == False):
-        log.warning(  "No fluctuation in simulation (do_fluctuate==False)        ")
-
-    if (cf.do_accelerate  == False):
-        log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
-
-    if (cf.fixed_zenith != None):
-         log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
-                .format(cf.fixed_zenith))
-    if (cf.magnify !=1):
-        log.warning(  "GRB flux values are multiplied by {}"
-                .format(cf.magnify))
-
-    if (cf.niter == 0):
-        log.failure(  " Cannot run simulation with ZERO trials")
-        log.warning(  " Use other main specific scripts for tests")
-        sys.exit( " At least one trial is requested")
-    if (cf.test_prompt):
-        log.warning(  "Test prompt simulation")
-
-    log.prt("")
-
-    return
-
-###############################################################################
-def get_delay(cf):
+def get_delay(dtslew,fixslew,dtswift,fixswift):
     """
     Compute the overall delay to be applied to the start of detection
     (satellite and telescope slewing), according to the user parameters.
@@ -376,10 +169,10 @@ def get_delay(cf):
     for loc in ["North", "South"]:
 
         dt = 0*u.s
-        if (cf.fixslew):  dt = cf.dtslew[loc]
-        else:             dt = cf.dtslew[loc]*np.random.random()
+        if (fixslew):  dt = dtslew[loc]
+        else:          dt = dtslew[loc]*np.random.random()
 
-        if (cf.fixswift): dt = dt + cf.dtswift # don't do += !!!
+        if (fixswift): dt = dt + dtswift # don't do += !!!
         else: sys.exit("Variable SWIFT delay not implemented)")
         delay[loc] = dt.to(u.s)
 
@@ -423,18 +216,30 @@ def main(argv):
     None.
 
     """
-    # Read default configuration file - backup to output folder
-    conf_filename = "config.yaml"
-    cf = Configuration.read(conf_filename)
-    backup_file(conf_filename, folder=cf.res_dir)
     
-     # Steering parameters and welcome message
-    init(argv, cf)          
+    # Read Configuration
+    cf = Configuration(sys.argv[1:])
+    sim_filename    = cf.res_dir  + cf.datafile
+    log_filename    = cf.res_dir  + cf.logfile
+    log = Log(name  = log_filename, talk=not cf.silent)    
     
+    # Print welcome message and configuration summary
+    welcome(log)
+    cf.print(log)
+
+    # Backup configutaion to output folder
+    cf.write()
+    
+    # Check if something can be analysed
     if (cf.ngrb<=0):
         print(" NO ANALYSIS REQUIRED (ngrb<=0)")
         sys.exit(2)
 
+    # Prepare expert output file for individual slices
+    if (cf.write_slices): dump_dir = cf.res_dir
+    else: dump_dir = None
+    
+    # Start chronometer
     start_all = time.time() # Starts chronometer
 
     # GRB list to be analysed
@@ -448,16 +253,7 @@ def main(argv):
         grblist = cf.ifirst
         first = str(grblist[0])
 
-    # Create population simulation and logfile name
-    sim_filename    = cf.res_dir  + cf.datafile
-    log_filename    = cf.res_dir  + cf.logfile
-    log = Log(name  = log_filename, talk=not cf.silent)
-    
-    if (cf.write_slices): dump_dir = cf.res_dir
-    else: dump_dir = None
 
-    # Print Summary
-    summary(cf=cf,log=log)
 
     start_pop = time.time() # Start chronometer
 
@@ -472,8 +268,12 @@ def main(argv):
         first = True # Actions for first GRB only
         for item in grblist:
 
-            grb = get_grb_fromfile(item,cf,log=log) ### Get GRB
-
+            ### Get GRB
+            grb = get_grb_fromfile(item,
+                                   config = cf,
+                                   grb_folder = cf.grb_dir,
+                                   log = log) 
+            
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
                           opt   = cf.obs_point,
@@ -543,7 +343,9 @@ def main(argv):
                     slot = origin.copy(name="loc")
 
                     # Simulate delay
-                    still_vis = slot.apply_visibility(delay = get_delay(cf)[loc],
+                    delay = get_delay(cf.dtslew, cf.fixslew,
+                                      cf.dtswift, cf.fixswift)
+                    still_vis = slot.apply_visibility(delay = delay[loc],
                                                       site  = loc)
 
                     # If still visible add IRF feature and run
@@ -587,7 +389,7 @@ def main(argv):
             # If visible on both sites, run simulation
             if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
 
-                slot = origin.both_sites(delay  = get_delay(cf),
+                slot = origin.both_sites(delay  = delay,
                                          debug  = (cf.dbg>1))
                 if (slot != None):
                     slot.dress(irf_dir = cf.irf_dir,
@@ -642,10 +444,10 @@ def main(argv):
     tar = tarfile.open(cf.res_dir + filename, "w:gz")
     tar.add(sim_filename,arcname=os.path.basename(sim_filename))
     tar.add(log_filename,arcname=os.path.basename(log_filename))
-    tar.add(conf_filename,arcname=os.path.basename(conf_filename))
+    tar.add(cf.filename,arcname=os.path.basename(cf.filename))
     if (cf.remove_tarred):
         os.remove(sim_filename)
-        os.remove(conf_filename)
+        os.remove(cf.filename)
         os.remove(log_filename)
 
     tar.close()
