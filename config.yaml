@@ -19,7 +19,7 @@ ifirst          : 343             # integer, first source. Can be a list, e.g. [
 ngrb            : 1             # integer, number of source to be read - if 1 specific actions on one grb
 res_dir         : "../output/test"   # The output folder
 niter           : 1             # Number of Monte Carlo trials
-dbg             : 1             # From 0 to 3, increasingly verbosy
+dbg             : 3             # From 0 to 3, increasingly verbosy
 #=============================================================================#
 # output files
 #-----------------------------------------------------------------------------#

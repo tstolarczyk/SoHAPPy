@@ -17,3 +17,4 @@ docs/api/*
 .spyproject/*
 *.stats
 timeslot.log
+config.yaml
