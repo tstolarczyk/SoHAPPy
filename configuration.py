@@ -15,7 +15,7 @@ class Configuration(object):
     """
     """
     ###------------------------------------------------------------------------    
-    def __init__(self, argv):
+    def __init__(self, argv, def_file="conf.yaml"):
         """
         
 
@@ -75,7 +75,7 @@ class Configuration(object):
 
         if self.filename == None:
             # Default parameter read from an existing default file
-            self.filename = "config.yaml"
+            self.filename = def_file
             self.read()
             
         ### --------------------------
@@ -107,10 +107,12 @@ class Configuration(object):
         if (self.dbg>0): self.silent = False
     
         # Check that the output folder exists, otherwise create it
-        if (self.res_dir[-1] != "/"): self.res_dir = self.res_dir+"/"
-        if not os.path.isdir(self.res_dir):
-            warning("Creating {}".format(self.res_dir))
-            os.mkdir(self.res_dir)
+        # This create problems if the pathis relative !
+        # (i.e. if Configuration is not used in the SoHAPPy folder)
+        # if (self.res_dir[-1] != "/"): self.res_dir = self.res_dir+"/"
+        # if not os.path.isdir(self.res_dir):
+        #     warning("Creating {}".format(self.res_dir))
+        #     os.mkdir(self.res_dir)
     
         # Avoid writing mutliple datasets when iteration number > 1
         if (self.niter > 1):
@@ -254,8 +256,8 @@ class Configuration(object):
         
         return
     ###------------------------------------------------------------------------
-    def write(self,name="config2.yaml"):
-        name = self.res_dir + name 
+    def write(self):
+        name = self.res_dir + self.filename
         print("Writing configuration in",name)
         file = open(name,"w")
         
