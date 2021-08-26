@@ -217,16 +217,25 @@ def main(argv):
 
     """
     
+    # Change gammapy logging to avoid warning messages 
+    import logging
+    logging.basicConfig()
+    log = logging.getLogger("gammapy.irf")
+    log.setLevel(logging.ERROR)   
+    
     # Read Configuration
     cf = Configuration(sys.argv[1:])
-    sim_filename    = cf.res_dir  + cf.datafile
-    log_filename    = cf.res_dir  + cf.logfile
+    sim_filename    = Path(cf.res_dir, cf.datafile)
+    log_filename    = Path(cf.res_dir, cf.logfile)
     log = Log(name  = log_filename, talk=not cf.silent)    
     
     # Print welcome message and configuration summary
     welcome(log)
     cf.print(log)
 
+    # Backup configuration to output folder
+    cf.create_output()
+    
     # Backup configutaion to output folder
     cf.write()
     
@@ -441,7 +450,7 @@ def main(argv):
     filename  = outprefix + "_" + nw.strftime("%Y%m%d_%H%M%S") \
                                 +".tar.gz"
     import tarfile
-    tar = tarfile.open(cf.res_dir + filename, "w:gz")
+    tar = tarfile.open(Path(cf.res_dir,filename), "w:gz")
     tar.add(sim_filename,arcname=os.path.basename(sim_filename))
     tar.add(log_filename,arcname=os.path.basename(log_filename))
     tar.add(cf.filename,arcname=os.path.basename(cf.filename))

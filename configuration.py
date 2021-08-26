@@ -7,23 +7,25 @@ import yaml
 from yaml.loader import SafeLoader
 
 import astropy.units as u
+from pathlib import Path
 
 from utilities    import Log, warning
 ###############################################################################
-
 class Configuration(object):
     """
     """
     ###------------------------------------------------------------------------    
-    def __init__(self, argv, def_file="conf.yaml"):
+    def __init__(self, argv, def_file="config.yaml", debug=False):
         """
-        
+        The defalut configuartion file is found in the code repository
 
         Parameters
         ----------
-        argv : TYPE
-            DESCRIPTION.
-
+        argv : list
+            Command line arguments
+        def_file: string
+            Default configuration file name without path 
+            (Assumed to be sored where SoHAPPy scripts are)
         Returns
         -------
         None.
@@ -46,7 +48,7 @@ class Configuration(object):
             print("No line arguments passed: Using default values")              
 
         ### --------------------------
-        ### Check if helo is needed
+        ### Check if help is needed
         ### --------------------------
     
         for opt, arg in opts:
@@ -68,16 +70,21 @@ class Configuration(object):
         for opt, arg in opts:
             if opt in ("-c","--config"):
                 if os.path.isfile(arg):
-                    self.filename =  arg
-                    self.read()
+                    self.filename =  Path(arg)
                 else:
                     sys.exit("Error: configuration file does not exist")
 
         if self.filename == None:
             # Default parameter read from an existing default file
-            self.filename = def_file
-            self.read()
+            # Where the code is
+            basefolder = Path(__file__).parent
+            self.filename = Path(basefolder,def_file)
             
+        # Change filename to absolute Path
+        self.filename = self.filename.resolve()
+        self.read()
+        if (debug): print(" Now read config file ", self.filename)
+        
         ### --------------------------
         ### Supersed config. parameters by command line
         ### --------------------------         
@@ -89,14 +96,14 @@ class Configuration(object):
             elif opt in ("-n", "--niter"):
                 self.niter = int(arg)
             elif opt in ("-o", "--output"):
-                self.res_dir = arg
+                self.res_dir = Path(arg)
             elif opt in ("-d", "--debg"):
                 dbg = int(arg)
                 self.dbg = abs(dbg)
     
         ### --------------------------
         ### deduce additionnal parameters
-        ### --------------------------                 
+        ### --------------------------          
         
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): self.show = 0
@@ -106,20 +113,29 @@ class Configuration(object):
         #if (self.niter == 1): self.do_fluctuate=False
         if (self.dbg>0): self.silent = False
     
-        # Check that the output folder exists, otherwise create it
-        # This create problems if the pathis relative !
-        # (i.e. if Configuration is not used in the SoHAPPy folder)
-        # if (self.res_dir[-1] != "/"): self.res_dir = self.res_dir+"/"
-        # if not os.path.isdir(self.res_dir):
-        #     warning("Creating {}".format(self.res_dir))
-        #     os.mkdir(self.res_dir)
-    
         # Avoid writing mutliple datasets when iteration number > 1
         if (self.niter > 1):
             self.save_dataset = False
 
         return
         
+    ###------------------------------------------------------------------------    
+    def create_output(self):
+    
+        # Get output folder absolute repository 
+        # (from where the code is launched,not the code repository)
+        self.res_dir = Path(self.res_dir).resolve()
+        
+        # Check that the output folder exists, otherwise try to create it
+        if not self.res_dir.exists():
+            warning("Creating {}".format(self.res_dir))
+            try:
+                Path.mkdir(self.res_dir)
+            except:
+                sys.exit(" Could not create {}".format(self.res_dir))
+        else:
+            warning(" Already exists :",self.res_dir)
+        return
     ###------------------------------------------------------------------------    
     def read(self):
 
@@ -146,7 +162,7 @@ class Configuration(object):
                     
             return
         #---------------------------------------------------
-
+        print(">>> Read configuration from ",self.filename)
         with open(self.filename) as f:
             data = yaml.load(f, Loader=SafeLoader)
             obj_dic(data)
@@ -257,13 +273,11 @@ class Configuration(object):
         return
     ###------------------------------------------------------------------------
     def write(self):
-        name = self.res_dir + self.filename
-        print("Writing configuration in",name)
+        name = Path(self.res_dir, os.path.basename(self.filename))
+        print("<<< Writing configuration in",name)
         file = open(name,"w")
         
-        strlist = ["filename",
-                   "res_dir",
-                   "datafile",
+        strlist = [ "datafile",
                    "logfile",
                    "EBLmodel",
                    "swiftfile",
@@ -271,18 +285,20 @@ class Configuration(object):
                   "altmoon",
                    "moondist",
                    "dtswift",      
-                   "grb_dir",   
-                   "irf_dir",
                    "array_North",
                    "array_South",
                    "dtslew_North",
                    "dtslew_South"]
+        dirlist = ["filename", "res_dir",  "grb_dir",   "irf_dir"]
+        
+        ## Special actions to be taken for vis_dir that can be None
 # arrays          : {'North': 'FullArray', 'South': 'FullArray'}
 # dtslew          : {'North': <Quantity 30. s>, 'South': <Quantity 30. s>}
 
         for k in vars(self):
             val = vars(self)[k]
             if k in (strlist): val = '"'+str(val)+'"'
+            if k in (dirlist): val = '"'+Path(val).as_posix()+'"'
             if val == None: 
                 val = "Null"
             if k != "arrays" and k!= "dtslew":
@@ -299,7 +315,7 @@ if __name__ == "__main__":
     """
     
     cf = Configuration(sys.argv[1:])
-    log_filename    = cf.res_dir  + cf.logfile
+    log_filename    = Path(cf.res_dir,cf.logfile)
     log = Log(name  = log_filename, talk=not cf.silent)    
-    # cf.print(log)
+    cf.print(log)
     cf.write()
