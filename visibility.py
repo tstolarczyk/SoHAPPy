@@ -62,7 +62,7 @@ class Visibility():
     * Moonset is defined as the instant when, in the western sky, under ideal meteorological conditions, with standard refraction of the Moon's rays, the upper edge of the Moon's disk is coincident with an ideal horizon.
 
     The Moon angular diameter varies between 29.3 to 34.1 arcminutes 
-    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon is below the horizon at a negative angle half of these values, respectively -0.244 and 0.284 degree
+    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon is below the horizon at a negative angle half of these values, respectively -0.244 and -0.284 degree
     
     """
 
