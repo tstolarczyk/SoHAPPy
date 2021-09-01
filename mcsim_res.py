@@ -156,14 +156,16 @@ def result(mc,grb, log=None, header=True,pop=None):
     ###-----------------------------------------
     ### Compute results if everything went well
     ###-----------------------------------------
-    tstart    = -1*u.s
-    tstop     = -1*u.s
-    ntbins    = -1
+    
+    # If no simulation slot, set default dummy values
+    tstart = -1*u.s
+    tstop  = -1*u.s
+    ntbins = -1
     alt_start = -1*u.deg
     alt_stop  = -1*u.deg
     az_start  = -1*u.deg
-    az_stop   = -1*u.deg
-
+    az_stop   = -1*u.deg    
+    
     smax_mean, e_smax, nex_smax, e_nex_smax, nb_smax, e_nb_smax= 6*(-1,)
     tmx, e_tmx = 2*(-1*u.s,)
     altmx, e_altmx, azmx, e_azmx = 4*(-1*u.deg,)
@@ -175,30 +177,32 @@ def result(mc,grb, log=None, header=True,pop=None):
     nex5s, e_nex5s, nb5s, e_nb5s = 4*(-1,)
     t5s,e_t5s                    = 2*(-1*u.s,)
     alt5s,e_alt5s,az5s, e_az5s   = 4*(-1*u.deg,)
-
-    if (mc.err == mc.niter):
+    
+    if mc.slot != None: # Even if no detection, some data exist
         tstart = mc.slot.tstart
         tstop  = mc.slot.tstop
         ntbins = len(mc.slot.slices)
-
+    
         loc = mc.slot.site
-        if (loc == "North" or loc == "South"):
-            altaz = [mc.slot.grb.altaz(dt=mc.slot.tstart,
-                               loc=loc),
-             mc.slot.grb.altaz(dt=mc.slot.tstop,
-                               loc=loc)]
+        if (loc == "North" or loc == "South"): # Remained undefined if "Both"
+            altaz = [mc.slot.grb.altaz(dt=mc.slot.tstart, loc=loc),
+                     mc.slot.grb.altaz(dt=mc.slot.tstop,  loc=loc)]
             alt_start = altaz[0].alt
             alt_stop = altaz[1].alt
             az_start = altaz[0].az
-            az_stop = altaz[1].az
+            az_stop = altaz[1].az    
+
+        log.prt(" Window : {:6.2f} - {:6.2f} * Delay: {:6.2f} * {:3d} slices"
+              .format(tstart,tstop,mc.slot.delay,ntbins))
+        log.prt("+----------------------------------------------------------------+")
+
+    if (mc.err == mc.niter):
 
         #log.prt("+--------------+-------------------------------------------------+")
         log.highlight("  RESULTS      :              {:<10s}"
                   .format(mc.name))
         #log.prt("+--------------+-------------------------------------------------+")
-        log.prt("+----------------------------------------------------------------+")
-        log.prt(" Window : {:6.2f} - {:6.2f} * Delay: {:6.2f} * {:3d} slices"
-              .format(tstart,tstop,mc.slot.delay,ntbins))
+
 
         # Max significance is reached
         smax_mean  = np.mean(mc.smax_list)
