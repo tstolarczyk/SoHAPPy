@@ -25,6 +25,26 @@ def MyLabel(var,label="",stat="std"):
                 + r"$Med.$ : "+" {:5.3f}".format(np.median(var))
     return legend
 
+ ###----------------------------------------------------------------------------
+def single_legend(ax):
+    """
+    Avoid duplicating labels in legend
+
+    Parameters
+    ----------
+    ax : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    from collections import OrderedDict
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+    return
 ###----------------------------------------------------------------------------
 # Annotation on the side of any plot referred from the axis
 def stamp(ax,text):
