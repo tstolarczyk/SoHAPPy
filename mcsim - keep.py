@@ -194,8 +194,8 @@ class MonteCarlo():
         ###############################################
         ### Monte Carlo iterations
         ###############################################
-        sigma_sum_t   = 0           # Compute mean and std of sig for slices
-        sigma2_sum_t  = 0           #     "          "
+        sigma_sum   = 0           # Compute mean and std of sig for slices
+        sigma2_sum  = 0           #     "          "
 
         iMC=1
         while(iMC <= self.niter):
@@ -204,24 +204,23 @@ class MonteCarlo():
                 print("#",iMC," ",end="")
 
             if (self.method == 0): ### Aperture photometry
-                (sigma_t, non_t, noff_t) = self.aperture_photometry()
+                (sigma, nxs, nbck) = self.aperture_photometry()
             else:
                 sys.exit("Unrecognised analysis method")
 
             # Acummulate sum and sum**2 for mean / error in each slice
-            sigma_sum_t  += sigma_t
-            sigma2_sum_t += sigma_t**2
-
+            sigma_sum  += sigma
+            sigma2_sum += sigma**2
 
             # Dump slice stat if requested
             if (dump_dir != None): # dump slices to track problems
                 status = self.dump_slices(iMC  = iMC,
-                                          data = [non_t,noff_t,sigma_t],
+                                          data = [nxs,nbck,sigma],
                                           file = fslice)
                 if (dump == False): dump= status # If True, dump unchanged
 
             # Update statistics
-            self.fill_stat(sigma_t, non_t, noff_t) # Update stat list
+            self.fill_stat(sigma, nxs, nbck) # Update stat list
 
             # In case 3 signma is not reached in the first 10% of the trials
             # then the 90% CL can not be reached.
@@ -247,8 +246,8 @@ class MonteCarlo():
         self.mctime /= self.niter
 
         ### Mean values
-        self.sigma_mean = sigma_sum_t/self.niter
-        sigma2_mean     = sigma2_sum_t/self.niter
+        self.sigma_mean = sigma_sum/self.niter
+        sigma2_mean     = sigma2_sum/self.niter
         self.sigma_std  = np.sqrt(sigma2_mean-self.sigma_mean**2)
 
         return
@@ -284,11 +283,9 @@ class MonteCarlo():
 
         """
 
-        sigma_vs_time = []
-        # nxs   = []
-        # nbck  = []
-        non_vs_time  = []
-        noff_vs_time = []
+        sigma = []
+        nxs   = []
+        nbck  = []
 
         non  = 0
         noff = 0
@@ -336,23 +333,25 @@ class MonteCarlo():
                 sig =  wstat.significance[0] # This is sigma*sign(nxs)
             else: # 0.18.2
                 sig =  wstat.sqrt_ts # ? check
+            nb  = mcf.alpha*noff
+            ns  = non - nb
+
                 
+
             # Much faster to append list than arrays
             # Array appending create a new object
-            sigma_vs_time.append(sig)
-            non_vs_time.append(non)
-            noff_vs_time.append(noff)
-            # nxs.append(ns)
-            # nbck.append(nb)
+            sigma.append(sig)
+            nxs.append(ns)
+            nbck.append(nb)
 
             # End of loop over slices / datasets
 
         # Access to arrays is much faster than access to lists
-        sigma_vs_time   = np.array(sigma_vs_time)
-        non_vs_time = np.array(non_vs_time)
-        noff_vs_time  = np.array(noff_vs_time)
+        sigma = np.array(sigma)
+        nxs   = np.array(nxs)
+        nbck  = np.array(nbck)
 
-        return (sigma_vs_time, non_vs_time, noff_vs_time)
+        return (sigma, nxs, nbck)
 
     ###------------------------------------------------------------------------
     def create_dataset_list(self):
@@ -610,7 +609,7 @@ class MonteCarlo():
         return np.asarray(dset_list)
 
     ###------------------------------------------------------------------------
-    def fill_stat(self,sigma, non, noff):
+    def fill_stat(self,sigma, nex, nb):
         """
         Get the statistics and handle the exceptions of the current MC
         simulation
@@ -630,9 +629,6 @@ class MonteCarlo():
 
         """
 
-        nb  = mcf.alpha*noff
-        nex  = non - nb
-        
         ### Find maximum - cannot be a slice with non or noff below limit
         sigmax = np.nanmax(sigma) # Returns Nan only if all are Nan
         if np.isnan(sigmax):
@@ -747,7 +743,10 @@ class MonteCarlo():
         else: # Print slice features
             status = False
             fslice = kwargs["file"]
-            [non,noff,sigma] = kwargs["data"]
+            [nxs,nb,sigma] = kwargs["data"]
+
+            non  = nxs + nb
+            noff = nb/mcf.alpha
 
             # Check if non or noff below limit
             badon  = np.where( non < mcf.nLiMamin)

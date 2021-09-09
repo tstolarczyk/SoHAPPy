@@ -151,7 +151,7 @@ def stat(mc):
                      label = "$\sigma_{max}$")
         ax1.vlines(np.mean(tmax), ymin = ymin, ymax = smax,
                    alpha=0.5,ls=":",color=colmx)
-        ax1.hlines(smax, xmin=xmin,ls=":", xmax=tmax,
+        ax1.hlines(smax, xmin=xmin,ls=":", xmax=np.mean(tmax),
                    alpha=0.5,color=colmx)
 
         ### 3 sigma
