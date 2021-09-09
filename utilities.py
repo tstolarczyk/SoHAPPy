@@ -11,9 +11,15 @@ import astropy.units as u
 ###----------------------------------------------------------------------------
 # A label for plots and histograms with statistics
 def MyLabel(var,label="",stat="std"):
+    """
+    
+    """
+    
     if (len(label)!=0): label = label+"\n"
+    
     legend="bad option"
-    if (stat=="std"):
+    
+    if stat=="std":
         legend = label  \
                 + "$n$ : {:d} \n".format(len(var)) \
                 + r"$\bar{n}$ : "+"{:5.3f}\n".format(np.mean(var)) \
@@ -23,10 +29,14 @@ def MyLabel(var,label="",stat="std"):
                 + "$n$ : {:d} \n".format(len(var)) \
                 + r"$\bar{n}$ : "+"{:5.3f}\n".format(np.mean(var)) \
                 + r"$Med.$ : "+" {:5.3f}".format(np.median(var))
+    elif stat == None:
+        legend =  label  \
+                + "$n$ : {:d}".format(len(var))
+                
     return legend
 
  ###----------------------------------------------------------------------------
-def single_legend(ax):
+def single_legend(ax,**kwargs):
     """
     Avoid duplicating labels in legend
 
@@ -43,7 +53,7 @@ def single_legend(ax):
     from collections import OrderedDict
     handles, labels = ax.get_legend_handles_labels()
     by_label = OrderedDict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())
+    ax.legend(by_label.values(), by_label.keys(),**kwargs)
     return
 ###----------------------------------------------------------------------------
 # Annotation on the side of any plot referred from the axis
@@ -57,6 +67,26 @@ def stamp(ax,text):
             rotation=270,
             s=text)
     return
+###----------------------------------------------------------------------------
+def projected_scatter(xsize=12, ysize=8, left=0.1, width=0.7, bottom=0.1, height=0.7, spacing=0.02):
+    """
+    from https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html#sphx-glr-gallery-lines-bars-and-markers-scatter-hist-py
+    """
+    import matplotlib
+    
+    rect_scatter = [left, bottom, width, height]
+    rect_histx   = [left, bottom + height + spacing, width, 0.2]
+    rect_histy   = [left + width + spacing, bottom, 0.2, height]
+
+    fig = matplotlib.pyplot.figure(figsize=(xsize, ysize))
+    ax  = fig.add_axes(rect_scatter)
+    axh = fig.add_axes(rect_histx, sharex=ax)
+    axv = fig.add_axes(rect_histy, sharey=ax)
+
+    axh.tick_params(axis="x", labelbottom=False)
+    axv.tick_params(axis="y", labelleft=False)    
+    
+    return fig, ax, axh, axv
 #------------------------------------------------------------------------------
 def t_fmt(t):
     """
