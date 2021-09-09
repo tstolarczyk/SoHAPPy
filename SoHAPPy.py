@@ -233,10 +233,10 @@ def main(argv):
     welcome(log)
     cf.print(log)
 
-    # Backup configuration to output folder
+    # Create output folder if not existing
     cf.create_output()
     
-    # Backup configutaion to output folder
+    # Backup configuration to output folder
     cf.write()
     
     # Check if something can be analysed
@@ -249,7 +249,7 @@ def main(argv):
     else: dump_dir = None
     
     # Start chronometer
-    start_all = time.time() # Starts chronometer
+    start_all = time.time() # Starts chronometer #1
 
     # GRB list to be analysed
     if type(cf.ifirst)!=list:
@@ -262,9 +262,7 @@ def main(argv):
         grblist = cf.ifirst
         first = str(grblist[0])
 
-
-
-    start_pop = time.time() # Start chronometer
+    start_pop = time.time() # Start chronometer #2
 
     with open(sim_filename, 'w') as pop:
 
@@ -343,6 +341,7 @@ def main(argv):
                 mc = MonteCarlo(niter     = cf.niter,
                                 method    = cf.method,
                                 fluctuate = cf.do_fluctuate,
+                                nosignal  = cf.signal_to_zero,
                                 seed      = cf.seed,
                                 debug     = cf.dbg,
                                 name      = name)
@@ -391,6 +390,7 @@ def main(argv):
             mc = MonteCarlo(niter     = cf.niter,
                             method    = cf.method,
                             fluctuate = cf.do_fluctuate,
+                            nosignal  = cf.signal_to_zero,
                             seed      = cf.seed,
                             debug     = cf.dbg,
                             name      = name)
