@@ -11,13 +11,9 @@ import matplotlib.dates as mdates
 # from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes,inset_axes
 # from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
-from   pathlib import Path
-
 import astropy.units as u
 from   astropy.visualization import quantity_support
 from   astropy.coordinates   import AltAz
-
-import mcsim_config as mcf
 
 # from utilities import MyLabel, stamp
 
@@ -59,7 +55,7 @@ def show(mc,loc="nowhere"):
 
     return
 ###############################################################################
-def plot_on_off(ax,nex,nb,
+def plot_on_off(ax,nex,nb,alpha=1/5,
                 color = None,
                 desc  = None,
                 marker=".",
@@ -68,8 +64,8 @@ def plot_on_off(ax,nex,nb,
     Plot Non versus Noff from the background and excess counts.
     Draw the error bars from the variances
     """
-    non      = np.add(nex,nb)
-    noff     = np.true_divide(nb,mcf.alpha)
+    non       = np.add(nex,nb)
+    noff      = np.true_divide(nb,alpha)
     non_mean  = np.mean(non)
     non_std   = np.std(non)
     noff_mean = np.mean(noff)
