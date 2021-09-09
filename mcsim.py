@@ -39,16 +39,16 @@ __all__ = ['MonteCarlo']
 class MonteCarlo():
     """
     This class handles a GRB simulation and analysis, either on one of the two
-    sites, or silmutaneously on the two sites.
+    sites, or simultaneously on the two sites.
     It requires the following additionnal modules :
     - mcsim_config, that contains a certain number of analysis parameters
     (e.g. detection level)
     - mcsim_res : dump the results on screen and in a csv file.
     - mcsim_plot : display plots related to the analysis for each event.
-    It makes an aperture phtometry analysis of a GRB and is particulary suited
+    It makes an aperture photometry analysis of a GRB and is particulary suited
     to a population studies.
     The extraction of the energy spectrum is done through standalone notebooks
-    from the save simualtion for individual GRBs.
+    from the save simulation for individual GRBs.
     """
     ###------------------------------------------------------------------------
     def __init__(self,
@@ -56,6 +56,7 @@ class MonteCarlo():
                  method = 0,
                  debug  = 0,
                  fluctuate = True,
+                 nosignal  = False,
                  seed = 'random-seed',
                  name = "Unknown"):
         """
@@ -72,6 +73,8 @@ class MonteCarlo():
         fluctuate : Boolean, optional
             If false, generate one simulation with no fluctuation.
             The default is True.
+        nosignal: Boolean, optional
+            If True force signal to stricly zero. Default is False.
         seed : String or integer, optional
             The value of the seed to obtain the random state. Using a fix
             number will have as consequence to have, for all GRB, the same
@@ -95,6 +98,7 @@ class MonteCarlo():
         self.niter     = niter     # Number of trials
         self.method    = method    # Analysis method
         self.fluctuate = fluctuate # Poisson fluctuate the count numbers
+        self.nosignal  = nosignal  # Force signal count to zero
         self.slot      = None      # The time slot (slices) of this simulation
         self.name      = name
 
@@ -165,8 +169,6 @@ class MonteCarlo():
         dump_dir : String, optional
             If defined, will dump information on problematic slices to a text file.
             The default is None.
-        debug : Boolean, optional
-            If True, verbose mode. The default is False.
 
         Returns
         -------
@@ -269,8 +271,6 @@ class MonteCarlo():
 
         Parameters
         ----------
-        debug : Boolean, optional
-            If True, verbose mode. The default is False.
 
         Returns
         -------
@@ -306,6 +306,9 @@ class MonteCarlo():
                 else: # 0.18.2
                     ns   = ds.npred_signal().data[ds.mask_safe].sum()
                     nb   = ds.npred_background().data[ds.mask_safe].sum()
+
+                if self.nosignal: ns = 0
+                                    
                 non  += (ns+nb)
                 noff += (nb/mcf.alpha)
                 
@@ -332,6 +335,8 @@ class MonteCarlo():
                 sig =  wstat.sqrt_ts # ? check
             nb  = mcf.alpha*noff
             ns  = non - nb
+
+                
 
             # Much faster to append list than arrays
             # Array appending create a new object
