@@ -112,7 +112,7 @@ def result(mc,grb, log=None, header=True,pop=None):
     - ealt5s: Error on mean altitude at 5 sigma (deg) (5.2f)
     - eaz5s : Error on mean azimuth at 5 sigma  (deg) (6.2f)
     - d5s   : Number of trials above 5 sigma (4d)
-    - mct   : computing time per trial (s) (5.2f)
+    - mct   : computing time per trial (ms) (5.2f)
     - err   : general error code (4d)
     - err_slice : list of slices for which an error or a warning is reported
 
@@ -336,7 +336,7 @@ def result(mc,grb, log=None, header=True,pop=None):
             "az5s"     : {"v": az5s.value,          "f": ">6.2f" },
             "eaz5s"    : {"v": e_az5s.value,        "f": ">6.2f" },
             "d5s"      : {"v": mc.detect_5s,              "f": ">4d"   },
-            "mct"      : {"v": mc.mctime,                 "f": ">5.2f" },
+            "mct"      : {"v": 1000*mc.mctime,      "f": ">5.2f" },
             "err"      : {"v": mc.err,                    "f": ">4d"   },
             "err_slice": {"v": '"'+str(mc.err_slice)+'"', "f": ""      },
     }
