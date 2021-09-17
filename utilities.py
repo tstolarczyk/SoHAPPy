@@ -54,18 +54,30 @@ def single_legend(ax,**kwargs):
     handles, labels = ax.get_legend_handles_labels()
     by_label = OrderedDict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(),**kwargs)
+    
     return
 ###----------------------------------------------------------------------------
 # Annotation on the side of any plot referred from the axis
-def stamp(ax,text):
-    ax.text(x=1,
-            y=0.,
-            fontsize=8,
-            horizontalalignment='left',
-            verticalalignment='bottom',
-            transform=ax.transAxes,
-            rotation=270,
-            s=text)
+def stamp(file,where="right",axis=None,**kwargs):
+    import gammapy
+    text = file.parent.name + " " + gammapy.__version__
+    if   where =="right":  
+        (x,y) = (  1, 0.5)
+        rotation = 270
+    elif where =="left":   
+        (x,y) = (  0, 0.5)
+        rotation = 90
+    elif where =="top":    
+        (x,y) = (0.5,   1)
+        rotation = 0
+    elif where =="bottom": 
+        (x,y) = (0.5,   0)
+        rotation = 0
+    
+    axis.text(x=x,y=y,s=text,
+              horizontalalignment='center',
+              verticalalignment="center",
+              rotation=rotation)
     return
 ###----------------------------------------------------------------------------
 def projected_scatter(xsize=12, ysize=8, left=0.1, width=0.7, bottom=0.1, height=0.7, spacing=0.02):
