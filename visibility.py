@@ -726,7 +726,8 @@ class Visibility():
         None.
 
         """
-
+        if log == None: log = Log()
+        
         log.prt("=================   {:10s}   {:10s}   ================"
           .format(self.name,self.status))
         log.prt(' Visible : {} - tonight, prompt : {}, {})'
