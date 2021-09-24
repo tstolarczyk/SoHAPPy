@@ -378,7 +378,7 @@ def main(argv):
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
-                    mc.write(cf.res_dir + "/" +name + "_sim.bin")
+                    mc.write(Path(cf.res_dir,name + "_sim.bin"))
 
             ###--------------------------------------------###
             #   Check GRB seen on both sites
