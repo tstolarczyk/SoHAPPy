@@ -47,186 +47,135 @@ def pause():
     return
 
 ###############################################################################
-def show(mc,loc="nowhere"):
-    stat(mc)
+def show(mc,ax=None, loc="nowhere"):
+    
+    sigma_vs_time(mc, ax)
+    if (mc.niter > 1): # Otherwise plot one single point
+        non_vs_noff(mc,ax)
+
     story(mc,loc=loc,ref="VIS")
     story(mc,loc=loc,ref="GRB")
     pause()
 
     return
-###############################################################################
-def plot_on_off(ax,nex,nb,alpha=1/5,
-                color = None,
-                desc  = None,
-                marker=".",
-                log   = False):
-    """
-    Plot Non versus Noff from the background and excess counts.
-    Draw the error bars from the variances
-    """
-    non       = np.add(nex,nb)
-    noff      = np.true_divide(nb,alpha)
-    non_mean  = np.mean(non)
-    non_std   = np.std(non)
-    noff_mean = np.mean(noff)
-    noff_std  = np.std(noff)
 
-    if (log == True):
-        non       = np.log10(non)
-        non_mean  = np.log10(non_mean)
-        non_std   = np.log10(non_std)
-        noff      = np.log10(noff)
-        noff_mean = np.log10(noff_mean)
-        noff_std  = np.log10(noff_std)
-
-
-    ax.plot(noff, non,
-            alpha=0.5,
-            marker=marker,
-            markersize=20,
-            markerfacecolor="none",
-            markeredgewidth = 1.5,
-            markeredgecolor =color,
-            ls="",
-            label=desc)
-    ax.errorbar(x    = noff_mean,    y    = non_mean,
-                xerr = np.std(noff), yerr = np.std(non),
-                color = color)
-
-    return
-
-###############################################################################
-def stat(mc):
-    """
-    Plot result of the simulations of the current grb:
-        - evolution of sigma with observation time
-        - distibutions of Non versus Noff
-        
-    """
-
-    if (mc.method != 0):
-        sig = '$\sigma_{\sqrt{TS}}$'
-        if (mc.slot.site == "Both"):
-            Warning(" No Stat plot with Both site")
-            return
-    else:
-        sig = '$\sigma_{Li&Ma}$'
-
-
-    ###
-    ### Compute relevant quantities
-    ###
-
+###----------------------------------------------------------------------------
+def sigma_vs_time(mc, ax=None):
+    
+    
     # Measurement points
     t_s = np.asarray([s.tobs().value for s in mc.slot.slices])
-
+    
     # Max siginificance and error and time
     tmax     = [mc.slot.slices[i].tobs().value
                 for i in mc.id_smax_list]
     smax     = np.mean(mc.smax_list)
     err_smax = np.std(mc.smax_list)
-
+    
     # 3 sigma and 5 sigma times
     t3s = [mc.slot.slices[i].tobs().value
              for i in mc.id_3s_list]
     t5s = [mc.slot.slices[i].tobs().value
-             for i in mc.id_5s_list]
-
-    fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,10))
+             for i in mc.id_5s_list]    
+    
+    if ax == None:
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
 
     with quantity_support():
 
         ### Mean significance at each slice
-        ax1.errorbar(t_s,
-                     mc.sigma_mean,
-                     yerr = mc.sigma_std,
-                     fmt  ='o')
-        xmin, xmax = ax1.get_xlim()
-        ymin, ymax = ax1.get_ylim()
+        ax.errorbar(t_s, mc.sigma_mean, yerr = mc.sigma_std, fmt  ='o')
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
 
-        ### Max significance
-        ax1.errorbar(x    = np.mean(tmax), y    = smax,
-                     xerr = np.std(tmax),  yerr = err_smax,
-                     fmt="o",color=colmx,
-                     label = "$\sigma_{max}$")
-        ax1.vlines(np.mean(tmax), ymin = ymin, ymax = smax,
-                   alpha=0.5,ls=":",color=colmx)
-        ax1.hlines(smax, xmin=xmin,ls=":", xmax=np.mean(tmax),
-                   alpha=0.5,color=colmx)
+        tlist    = [tmax, t3s, t5s]
+        siglist  = [smax, 3, 5]
+        errlist  = [err_smax, 0, 0]
+        collist  = [colmx, col3, col5]
+        taglist  = ["$\sigma_{max}$","$3\sigma$","$5\sigma$"]
+        for t, sig, errs, c, tag  in zip(tlist,
+                                         siglist,
+                                         errlist,
+                                         collist,
+                                         taglist):
+            ax.errorbar(x    = np.mean(t), y    = sig,
+                         xerr = np.std(t),  yerr = errs,
+                         fmt="o",color=c,
+                         label = tag)
+            ax.vlines(np.mean(t), ymin = ymin, ymax = smax,
+                       alpha=0.5,ls=":",color=c)
+            ax.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
+                       alpha=0.5,color=c)
 
-        ### 3 sigma
-        ax1.errorbar(x = np.mean(t3s),y = 3.,xerr = np.std(t3s),
-                     fmt="o",color=col3,
-                     label = "$3\sigma$")
-        ax1.vlines(np.mean(t3s), ymin = ymin, ymax = 3,
-                   alpha=0.5,ls=":",color=col3)
-        ax1.hlines(3, xmin=xmin,ls=":", xmax=np.mean(t3s),
-                   alpha=0.5,color=col3)
-
-        ### 5 sigma
-        ax1.errorbar(x = np.mean(t5s),
-                     y = 5.,
-                     xerr = np.std(t5s),
-                     fmt="o",color=col5,
-                     label = "$5\sigma$")
-        ax1.vlines(np.mean(t5s), ymin = ymin, ymax = 5,
-                   alpha=0.5,ls=":",color=col5)
-        ax1.hlines(5, xmin=xmin,ls=":", xmax=np.mean(t5s),
-                   alpha=0.5,color=col5)
-
-        ax1.set_xlabel('Observation duration (s)')
-        ax1.set_ylabel(sig)
-        ax1.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
-        ax1.set_xscale("log", nonposx='clip')
-        ax1.grid(which='both',alpha=0.2)
-
+    
+        ax.set_xlabel('Observation duration (s)')
+        ax.set_ylabel("Significance $\sigma$")
+        ax.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
+        ax.set_xscale("log", nonposx='clip')
+        ax.grid(which='both',alpha=0.2)    
+        
+        
+        # Sigma max distribution inset (if niter > 1)
         if (mc.niter >1):
-            #ax11 = ax1.inset_axes([0.1,0.5,0.3,0.5]) # lower corner x,y, w, l
-            ax11 = ax1.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
-            n, bins,_ = ax11.hist(mc.smax_list,
+            axx = ax.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
+            n, bins,_ = axx.hist(mc.smax_list,
                         bins  = max(int(mc.niter/2),1), # Cannot be < 1
                         range = [smax-3*err_smax,smax+3*err_smax],
                         alpha=0.5,
                         color = "grey",
                         label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
-            ax11.tick_params(axis='x', labelsize=10,pad=0.)
-            ax11.tick_params(axis='y', labelsize=10,pad=0.)
-            ax11.set_xlabel(sig,fontsize=12,labelpad=0)
-            ax11.set_ylabel('Trials',fontsize=12,labelpad=0)
+            axx.tick_params(axis='x', labelsize=10,pad=0.)
+            axx.tick_params(axis='y', labelsize=10,pad=0.)
+            axx.set_xlabel(sig,fontsize=12,labelpad=0)
+            axx.set_ylabel('Trials',fontsize=12,labelpad=0)
 
-        ax1.legend(loc="upper right")
+        ax.legend(bbox_to_anchor=[1,1])
+    
+    return ax
 
-        ### Non, Noff - Log
-        logscale = True
+###----------------------------------------------------------------------------
+def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
+    """
+    Plot Non versus Noff from the background and excess counts.
+    Draw the error bars from the variances
+    """
+    if ax == None:
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
 
-        plot_on_off(ax2,mc.nex_3s_list,mc.nb_3s_list,
-                    color=col3,
-                    desc = "$3\sigma$",
-                    log=logscale)
+    nexlist = [mc.nex_3s_list, mc.nex_5s_list, mc.nex_smax_list ]
+    nblist  = [mc.nb_3s_list,  mc.nb_5s_list,  mc.nb_smax_list]
+    collist = [col3, col5, colmx]
+    taglist = ["$3\sigma$","$5\sigma$","$\sigma_{max}$"]
+        
+    for nex, nb, col, tag in zip(nexlist, nblist, collist, taglist):
 
-        plot_on_off(ax2,mc.nex_5s_list,mc.nb_5s_list,
-                    color=col5,
-                    desc = "$5\sigma$",
-                    log=logscale)
-
-        plot_on_off(ax2,mc.nex_smax_list,mc.nb_smax_list,
-                    color=colmx,
-                    desc = "$\sigma_{max}$",
-                    marker="+",
-                    log=logscale)
-
-        if (logscale):
-            ax2.set_xlabel("$log<N_{off}>$")
-            ax2.set_ylabel("$log<N_{on}>$")
-        else:
-            ax2.set_xlabel("$<N_{off}>$")
-            ax2.set_ylabel("$<N_{on}>$")
-        ax2.legend()
-
-        plt.tight_layout()
-        plt.show(block=block)
-
-    return
+        non       = np.add(nex,nb)
+        noff      = np.true_divide(nb,alpha)
+        non_mean  = np.mean(non)
+        non_std   = np.std(non)
+        noff_mean = np.mean(noff)
+        noff_std  = np.std(noff) 
+        xlabel    = "$<N_{off}>$"
+        ylabel    = "$<N_{on}>$"
+        if logscale:
+            non       = np.log10(non)
+            non_mean  = np.log10(non_mean)
+            non_std   = np.log10(non_std)
+            noff      = np.log10(noff)
+            noff_mean = np.log10(noff_mean)
+            noff_std  = np.log10(noff_std)  
+            xlabel    = "$log_{10}$" + xlabel
+            ylabel    = "$log_{10}$" + ylabel
+        
+        ax.plot(noff, non, alpha=0.2,label=tag, marker= ".", ls ="")
+        ax.errorbar(x    = noff_mean,    y    = non_mean,
+                xerr = np.std(noff), yerr = np.std(non),
+                color = col)
+        
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.legend()       
+    return ax
 
 ###############################################################################
 def story(mc, loc="nowhere", ref="VIS"):
