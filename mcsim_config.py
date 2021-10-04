@@ -24,13 +24,17 @@ alpha       = 0.2 # 5 zones (1/0.2) to define the off region for B estimate
 
 containment = 0.68
 
-on_size     = { "FullArray": 0.4*u.deg,
-                "LST"      : 0.4*u.deg,
-                "MST"      : 0.2*u.deg } # On region size
+on_size     = { "FullArray"   : 0.4*u.deg,
+                "4LSTs09MSTs" : 0.4*u.deg,
+                "LST"         : 0.4*u.deg,
+                "MST"         : 0.2*u.deg,
+                "14MSTs37SSTs": 0.2*u.deg } # On region size
 
-offset      = { "FullArray": 0.75*u.deg,
-                "LST"      : 0.75*u.deg,
-                "MST"      : 0.4*u.deg} # Offset, so that regions do not overlap
+offset      = { "FullArray"   : 0.75*u.deg,
+                "4LSTs09MSTs" : 0.75*u.deg,
+                "LST"         : 0.75*u.deg,
+                "MST"         : 0.4*u.deg,
+                "14MSTs37SSTs": 0.4*u.deg} # Offset, so that regions do not overlap
 # on_size     = 1.3*u.deg # On region size
 # offset      = 1.3*u.deg # Offset
 
