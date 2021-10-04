@@ -22,15 +22,27 @@ zenith_list =  {"20deg": 20*u.deg,
                 "40deg": 40*u.deg,
                 "60deg": 60*u.deg }
 
-dt_list     =  {"100s" : (100*u.s),
-                "30m"  : (30*u.min).to(u.s),
-                "05h"  : (5*u.h).to(u.s),
-                "50h"  : (50*u.h).to(u.s) }
+dt_list     =  {"prod3":
+                    {"100s" : (100*u.s),
+                     "30m"  : (30*u.min).to(u.s),
+                     "05h"  : (5*u.h).to(u.s),
+                     "50h"  : (50*u.h).to(u.s) },
+                 "prod5":
+                     {"1800s"  : (1800*u.s),   # 30 min
+                      "18000s" : (18000*u.s),  # 5h
+                      "180000s": (180000*u.s)} # 50h
+                }
 
-dtl         =  {"100s" : np.log10((100*u.s).value),
-                "30m"  : np.log10((30*u.min).to(u.s).value),
-                "05h"  : np.log10((5*u.h).to(u.s).value),
-                "50h"  : np.log10((50*u.h).to(u.s).value) }
+dtl         =  {"prod3":
+                    {"100s" : np.log10((100*u.s).value),
+                     "30m"  : np.log10((30*u.min).to(u.s).value),
+                     "05h"  : np.log10((5*u.h).to(u.s).value),
+                     "50h"  : np.log10((50*u.h).to(u.s).value) },
+                "prod5":
+                    {"1800s"   : np.log10((1800*u.s).value),    # 30 min
+                     "18000s"  : np.log10((18000*u.s).value),   # 5h
+                     "180000s" : np.log10((180000*u.s).value) } # 50h
+                }
 
 # Validity range of IRF in zenith (see documentation of this module).
 # The 60deg IRF is allowed to be used down to alitude zero for tests
@@ -45,15 +57,26 @@ zenith_valid = {"20deg": [0*u.deg, 33*u.deg],
 # The edge values are the following :
 # 0, 424.26 s, 5692.01 s (94.9'), 56921.0 s (15.8h)
 
-dt_log_valid = {"100s": [0,
-                         10**(0.5*( dtl["100s"] + dtl["30m"] )) ],
-                "30m" : [10**(0.5*( dtl["100s"] + dtl["30m"] )),
-                         10**(0.5*( dtl["30m"]  + dtl["05h"] )) ],
-                "5h"  : [10**(0.5*( dtl["30m"]  + dtl["05h"] )),
-                         10**(0.5*( dtl["05h"]  + dtl["50h"] )) ],
-                "50h" : [10**(0.5*( dtl["05h"]  + dtl["50h"] )),
-                         np.Inf]
-                }
+dt_log_valid = \
+{"prod3":
+    {"100s": [0,
+             10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )) ],
+    "30m" : [10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )),
+             10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["05h"] )) ],
+    "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["05h"] )),
+             10**(0.5*( dtl["prod3"]["05h"]  + dtl["prod3"]["50h"] )) ],
+    "50h" : [10**(0.5*( dtl["prod3"]["05h"]  + dtl["prod3"]["50h"] )),
+             np.Inf]
+    },
+ "prod5":
+    {"1800s" : [0,
+                10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] ))],
+    "18000s" : [10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] )),
+                10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"] ))],
+    "180000s": [10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["18000s"])),
+                 np.inf]
+    }
+}
 
 # Minimal acceptable energies depending on the IRF
 # (resp. generated and reconstructed energies)
@@ -69,18 +92,26 @@ egen_min = {"20deg": 12.6*u.GeV,
             "60deg": 105.3*u.GeV
             }
 
-erec_min = {"FullArray": {"20deg": 30*u.GeV -safe_margin,
-                          "40deg": 40*u.GeV -safe_margin,
-                          "60deg": 110*u.GeV -safe_margin
-                          },
-             "LST"      : {"20deg": 30*u.GeV -safe_margin,
-                          "40deg": 40*u.GeV -safe_margin,
-                          "60deg": 110*u.GeV -safe_margin
-                          },
-             "MST"     : {"20deg": 110*u.GeV -safe_margin,
-                          "40deg": 110*u.GeV -safe_margin,
-                          "60deg": 250*u.GeV -safe_margin
-                          }
+erec_min = {"FullArray"  :    {"20deg": 30*u.GeV -safe_margin,
+                               "40deg": 40*u.GeV -safe_margin,
+                               "60deg": 110*u.GeV -safe_margin
+                              },
+            "4LSTs09MSTs":    {"20deg": 30*u.GeV -safe_margin,
+                               "40deg": 40*u.GeV -safe_margin,
+                               "60deg": 110*u.GeV -safe_margin
+                              },
+             "LST"       :    {"20deg": 30*u.GeV -safe_margin,
+                               "40deg": 40*u.GeV -safe_margin,
+                               "60deg": 110*u.GeV -safe_margin
+                              },
+             "MST"       :    {"20deg": 110*u.GeV -safe_margin,
+                               "40deg": 110*u.GeV -safe_margin,
+                               "60deg": 250*u.GeV -safe_margin
+                              },             
+             "14MSTs37SSTs" : {"20deg": 110*u.GeV -safe_margin,
+                               "40deg": 110*u.GeV -safe_margin,
+                               "60deg": 250*u.GeV -safe_margin
+                              }
             }
 
 erec_max = {"20deg": 10*u.TeV + safe_margin,
@@ -210,7 +241,7 @@ class IRF():
 
     ###------------------------------------------------------------------------
     def find_best_keys(zenith, azimuth, obstime,
-                       closest=False, fixed_zenith=None):
+                       closest=False, fixed_zenith=None, prod=None):
         """
         Find the best keys to later identify the IRF data file.
 
@@ -229,6 +260,7 @@ class IRF():
         fixed_zenith : Quantity angle, optional
             If defined, the zenith is fixed at the given value, wathever the
             observation (for tests). The default is None.
+        prod: S
 
         Returns
         -------
@@ -265,10 +297,10 @@ class IRF():
 
         # Observation time
         if (closest):
-            kdt =find_closest_key(dt_list, obstime.to(u.s))
+            kdt =find_closest_key(dt_list[prod], obstime.to(u.s))
         else:
             found = False
-            for k,v in dt_log_valid.items():
+            for k,v in dt_log_valid[prod].items():
                 if obstime.to(u.s).value >= v[0] \
                    and obstime.to(u.s).value < v[1] :
                     kdt = k
@@ -332,17 +364,33 @@ class IRF():
             sys.exit("from_observation : location should be defined")
 
         # Find best keys (IRF interpolation)
+        idx = irf_dir.find("prod")
+        prod = irf_dir[idx:idx+5]
         kzen, kaz, kdt = cls.find_best_keys(zenith, azimuth, obstime,
-                                            closest = closest)
-
+                                                closest = closest,
+                                                prod=prod)
+            
         # Find base folder from the keys
-        folder = Path(irf_dir,subarray,loc,kzen)
+        if prod=="prod3":
+            folder = Path(irf_dir,subarray,loc,kzen)
+                    # Build the filename, get the IRF
+            if (subarray != "FullArray"):
+                kaz = kaz+"_"+subarray
+            subfolder = loc+"_z"+kzen[:2]+"_"+kaz+"_"+kdt
+            irf_file = Path(folder,subfolder,"irf_file.fits.gz")
 
-        # Build the filename, get the IRF
-        if (subarray != "FullArray"):
-            kaz = kaz+"_"+subarray
-        subfolder = loc+"_z"+kzen[:2]+"_"+kaz+"_"+kdt
-        irf_file = Path(folder,subfolder,"irf_file.fits.gz")
+        elif prod=="prod5":
+            folder = Path(irf_dir,subarray)
+            if kaz=="average":
+                filename = "Prod5-"+loc+"-"+kzen+"-AverageAz-"\
+                    +subarray+"."+kdt+"-v0.1.fits.gz"
+            else:
+                sys.exit("Azimuth, only average is implemented")
+                
+            irf_file = Path(folder,filename)
+            
+        else:
+            sys;exit("Not implemented")
 
         irf = load_cta_irfs(irf_file)
 
@@ -395,21 +443,21 @@ class IRF():
                    ereco_max = erec_max[kzen])
 
     ###------------------------------------------------------------------------
-    def containment_plot(self,eunit="GeV",subarray=None,ax=None):
+    def containment_plot(self,eunit="GeV",subarray=None,tag=None, ax=None):
 
         import matplotlib.pyplot as plt
         plt.style.use('seaborn-poster') # Bug with normal x marker !!!
 
         if (ax == None):
             ax = plt.subplots()[1]
-        irfname =  self.filename.parts[-2]
+        # irfname =  self.filename.parts[-2]
 
         radii = self.irf['psf'].containment_radius(energy=self.ereco.edges,
                                                  theta = mcf.offset[subarray],
                                                  fraction=mcf.containment)[0]
 
         ax.plot(self.ereco.edges.to(eunit).value,radii.value,
-                marker="o",label=irfname)
+                marker="o",label= tag)
         ax.axvline(self.ereco_min.to(eunit).value,ls=":")
         ax.axvline(self.ereco_max.to(eunit).value,ls=":")
         ax.set_xlabel("Energy ("+eunit+")")
@@ -418,8 +466,6 @@ class IRF():
         ax.legend()
 
         return
-
-
 
     ###------------------------------------------------------------------------
     def print(self):
@@ -487,9 +533,10 @@ def generate_E_edges(E1=10*u.GeV, E2=100*u.TeV,
     print(e_edges)
 
     return
+
 ###------------------------------------------------------------------------
-def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, nmaxcol=4,
-                      debug=False):
+def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
+                      nmaxcol=4, debug=False):
     """
     On-off geometry skeches as a function of reconstrcuted energy edges
     for the current IRF
@@ -589,7 +636,7 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, nmaxcol=4,
     fig, ax = plt.subplots(ncols=ncols, nrows=nrows,
                            figsize=(xsize*ncols,ysize*nrows),
                            sharex=True, sharey=True)
-    fig.suptitle(irf.filename.parts[-2],fontsize=24)
+    fig.suptitle(irf.filename.parts[-2]+tag,fontsize=24)
 
     iplot = 0
     import itertools
@@ -618,7 +665,7 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, nmaxcol=4,
     # fig.suptitle("Title centered above all subplots", fontsize=14)
     fig.tight_layout(h_pad=0,w_pad=0)
 
-    #; Adjsut AFTER tight_layout
+    # Adjsut AFTER tight_layout
     #plt.subplots_adjust(top=0.4,hspace=None,wspace=None)
     plt.subplots_adjust(hspace=0,wspace=0,top=0.95)
 
@@ -658,8 +705,9 @@ def  aeff_plot(irf,min_fraction = 0.05, unit="GeV"):
     print()
             #axis.legend()
     plt.tight_layout(h_pad=0)
-
+    
     return
+
 ###############################################################################
 if __name__ == "__main__":
     """
@@ -669,96 +717,120 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import gammapy
 
-    # irf_dir = "../input/irf/OnAxis/"
-    irf_dir = "D:\CTA\Analyse\SoHAPPY-IRF\prod3-v2"
+    print(" Running with gammapy ",gammapy.__version__)
 
+    # irf_dir = "../input/irf/OnAxis/"
+    irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod3-v2"
     array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
     #array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
 
+    # irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod5-v0.1"
+    # array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
 
-    print(" Running with gammapy ",gammapy.__version__)
+    idx = irf_dir.find("prod")
+    prod = irf_dir[idx:idx+5]
+    print(" Processing ",prod," files")
+    show = ["containment", "onoff", "effearea","generic"]
+    show = ["containment"]
+    
+    ###-------------------------
+    ### Generic    
+    ###-------------------------
+    if "generic" in show:
+        for loc in ["North","South"]:
+            irf = IRF.from_observation(loc=loc,
+                                        subarray   = array[loc],
+                                        zenith  = 20*u.deg,
+                                        azimuth = 123*u.deg,
+                                        obstime = 100*u.s,
+                                        irf_dir = irf_dir )
+            irf.print()
+            irf.irf["psf"].peek()
+            irf.irf["edisp"].peek()
+    
+        print(dt_log_valid)
+        generate_E_edges() # <- egenrate optimal edges with this
+    
+    ###-------------------------
+    ### Show containment radii    
+    ###-------------------------
+    if "containment" in show:
+        for loc in ["North","South"]:
+            fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(20,10))
+            fig.suptitle(array[loc]+" "+loc,fontsize=30)
+            for ztag, axi in zip(zenith_list,ax):
+                for dt in dt_list[prod].values():           
+                    irf = IRF.from_observation(loc       = loc,
+                                                subarray = array[loc],
+                                                zenith   = zenith_list[ztag],
+                                                azimuth  = 123*u.deg,
+                                                obstime  = dt,
+                                                irf_dir  = irf_dir )    
+                    print("---->",irf.filename,dt)
+                    irf.containment_plot(ax=axi,
+                                         subarray=array[loc],
+                                         tag=ztag+" - "+str(dt))
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.95)
+            
+    ###-------------------------
+    ### Show on-off sketch / containment radii
+    ###-------------------------   
+    if "onoff" in show: 
+        # for loc in ["North","South"]:
+        for loc in ["North","South"]:
+            for ztag in zenith_list:
+                for dt in dt_list[prod].values():
+    
+                    irf = IRF.from_observation(loc       = loc,
+                                                subarray = array[loc],
+                                                zenith   = zenith_list[ztag],
+                                                azimuth  = 123*u.deg,
+                                                obstime  = dt,
+                                                irf_dir  = irf_dir )
+                    print("---->",irf.filename)
+                    Emin = erec_min[array[loc]][ztag]
+                    onoff_sketch_plot(irf,Emin=Emin,nmaxcol=3,
+                                      subarray=array[loc],
+                                      tag=" - "+ztag+"° - "+str(dt))
+               
+                    irf.containment_plot(ax=axi,subarray=array[loc])
+                        
+                    plt.show()
 
-    # Show containment radii
-    for loc in ["North","South"]:
-        fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(20,10))
-        fig.suptitle(array[loc]+" "+loc,fontsize=30)
-        for z, axi in zip([20, 40,57],ax):
-            for dt in [10*u.s,0.5*u.h, 10*u.h, 20*u.h]:
-                irf = IRF.from_observation(loc       = loc,
-                                            subarray = array[loc],
-                                            zenith   = z*u.deg,
-                                            azimuth  = 123*u.deg,
-                                            obstime  = dt,
-                                            irf_dir  = irf_dir )
-                print(" Found : ",irf.filename)
-                irf.containment_plot(ax=axi,subarray=array[loc])
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.95)
-
-    #Show on-off sketch
-    for loc in ["North","South"]:
-        for z in [20, 40, 57]:
-            for dt in [10*u.s,0.5*u.h, 10*u.h, 20*u.h]:
-
-                irf = IRF.from_observation(loc       = loc,
-                                            subarray = array[loc],
-                                            zenith   = z*u.deg,
-                                            azimuth  = 123*u.deg,
-                                            obstime  = dt,
-                                            irf_dir  = irf_dir )
-                onoff_sketch_plot(irf,Emin=100*u.GeV,nmaxcol=3,
-                                  subarray=array[loc])
-
-    # # Effectiva area plots
-    # unit = "GeV"
-    # min_fraction = 0.05
-
-    # print(" *** Threshold for {:2.0f}% eff.max ({:3s})  *** "
-    #       .format(100*min_fraction,unit))
-
-    # for loc in ["North","South"]:
-    #     fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(20,15),
-    #                                 sharex=True, sharey=True)
-    #     fig.suptitle(array[loc] + "-" + loc,fontsize=30)
-
-    #     print("{:5s} {:10s} {:7s} {:7s} {:7s}"
-    #           .format(loc,array[loc],"0°","0.5°","1.0°"))
-
-    #     i=0
-    #     for z, axi in zip([20, 40,57],ax):
-    # #       print(axi)
-    #         for dt in [100*u.s,0.5*u.h, 10*u.h, 20*u.h]:
-    #             irf = IRF.from_observation(loc      = loc,
-    #                                         subarray = array[loc],
-    #                                         zenith   = z*u.deg,
-    #                                         azimuth  = 123*u.deg,
-    #                                         obstime  = dt,
-    #                                         irf_dir  = irf_dir )
-    #             #print(" Found : ",irf.filename)
-    #             print("{:13s} :"
-    #                   .format(str(z)+"° "+str(dt.value)+" "+str(dt.unit)),end="")
-
-    #             aeff_plot(irf,unit=unit,min_fraction=min_fraction)
-    #             i+=1
-    #     plt.subplots_adjust(top=0.95)
-
-
-
-
-
-    # for loc in ["North","South"]:
-    #     irf = IRF.from_observation(loc=loc,
-    #                                subarray   = array[loc],
-    #                                zenith  = 20*u.deg,
-    #                                azimuth = 123*u.deg,
-    #                                obstime = 100*u.s,
-    #                                irf_dir = irf_dir )
-    #     irf.print()
-    #     irf.irf["psf"].peek()
-    #     irf.irf["edisp"].peek()
-
-    # print(dt_log_valid)
-    # generate_E_edges() # <- egenrate optimal edges with this
-
-
+    ###-------------------------
+    ### Effectiva area plots    
+    ###-------------------------
+    if "effarea" in show: 
+        unit = "GeV"
+        min_fraction = 0.05
+    
+        print(" *** Threshold for {:2.0f}% eff.max ({:3s})  *** "
+              .format(100*min_fraction,unit))
+    
+        for loc in ["North","South"]:
+            fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(20,15),
+                                        sharex=True, sharey=True)
+            fig.suptitle(array[loc] + "-" + loc,fontsize=30)
+    
+            print("{:5s} {:10s} {:7s} {:7s} {:7s}"
+                  .format(loc,array[loc],"0°","0.5°","1.0°"))
+    
+            i=0
+            for z, axi in zip([20, 40,57],ax):
+        #       print(axi)
+                for dt in [100*u.s,0.5*u.h, 10*u.h, 20*u.h]:
+                    irf = IRF.from_observation(loc      = loc,
+                                                subarray = array[loc],
+                                                zenith   = z*u.deg,
+                                                azimuth  = 123*u.deg,
+                                                obstime  = dt,
+                                                irf_dir  = irf_dir )
+                    #print(" Found : ",irf.filename)
+                    print("{:13s} :"
+                          .format(str(z)+"° "+str(dt.value)+" "+str(dt.unit)),end="")
+    
+                    aeff_plot(irf,unit=unit,min_fraction=min_fraction)
+                    i+=1
+            plt.subplots_adjust(top=0.95)
 
