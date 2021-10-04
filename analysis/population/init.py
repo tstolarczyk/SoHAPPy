@@ -4,7 +4,6 @@ Created on Mon Nov 16 16:47:25 2020
 
 @author: Stolar
 """
-import os
 import sys
 import numpy as np
 from pathlib import Path
@@ -12,7 +11,23 @@ import matplotlib.pyplot as plt
 from   astropy.table import Table
 import pandas as pd
 
+from utilities import MyLabel
+from setup import col_3, col_5
+    
+
 __all__ = ["get_data", "create_csv"]
+###-------------------------------------------------------------
+
+###-------------------------------------------------------------
+def get_eff_lvl(grb):
+    
+    import mcsim_config as mcf
+    detlvl  = mcf.det_level # get this from the config file in case of changes
+    niter   = max(set(grb.err)) 
+    eff_lvl = detlvl * niter
+    print(" Detection level = ",detlvl," niter = ",niter," -> Eff. det. level is ",eff_lvl)
+
+    return eff_lvl
 ###-------------------------------------------------------------
 def get_data(filename,maxgrb=2000, debug=False):
     """
@@ -57,6 +72,10 @@ def get_data(filename,maxgrb=2000, debug=False):
         print(" Inconstistency in GRB name list - CHECK ")
     else:
         names = gs[:maxgrb].name
+    
+    # Warn user in case the maximal GRB limit is below the data content
+    if len(names) > maxgrb:
+        print(" WARNING : limited statistics (",len(names),") >",maxgrb)
 
     # Add cobinatory to data frame for the name list
     add_combinatory(names,grb,unvis=unvis,debug=False)
@@ -90,8 +109,8 @@ def get_data(filename,maxgrb=2000, debug=False):
           .format("Not visible","Fully analyzed","Aborted"))
         print(" {:^15d} {:^15d} {:^15d}"
           .format(len(grb[  grb.err == unvis]),
-                  len(grb[  grb.err == niter_3s]),
-                  len(grb[ (grb.err != niter_3s) & (grb.err!=unvis) ])))
+                  len(grb[  grb.err == niter]),
+                  len(grb[ (grb.err != niter) & (grb.err!=unvis) ])))
         print()
         print(" Raw statistics - max per site =",maxgrb)
         print("  - total      : ",len(grb))
@@ -110,8 +129,9 @@ def get_data(filename,maxgrb=2000, debug=False):
     return (grb, gn0, gs0, gn, gs, gb)
 
 ###-------------------------------------------------------------------
-def sanity_check(file, grb, gn0, gs0, gn, gs, gb,maxgrb=2000, debug=False, old=False):
-    print("+----------------------- Sanity checks----------------------+")
+def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
+                 maxgrb=2000, debug=False, old=False):
+    print("+======================== Sanity checks =========================+")
 
 
     # Min altitude
@@ -144,10 +164,12 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,maxgrb=2000, debug=False, old=F
                    label=str(delay.value)+" "+str(delay.unit))
 
         axi.set_title("Time delay to $3 \sigma$  - "+loc)
-        axi.set_xlim(xmin=0,xmax=200)
+        axi.set_xlim(xmin=0,xmax=10+1.3*delay.value)
         #axi.set_yscale("log")
         axi.legend()
         print(" Estimated total delay in ",loc," :",min(gpop[gpop.t3s>=0].t3s))
+    print("+================================================================+")
+
     return
 
 ###-------------------------------------------------------------------
@@ -412,13 +434,62 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
 
     return csvfilename
 
+###-------------------------------------------------------------------------
+def computing_time(gpop,eff_lvl, nbin=25, ax=None, **kwargs):
+    
+    niter = max(gpop.err)
+
+    ax = plt.gca() if ax is None else ax
+    
+    n, bins, _ = ax.hist(niter*gpop.mct,bins=nbin,
+                          facecolor="none",
+                          edgecolor="black",
+                          label=MyLabel(niter*gpop.mct,stat="med"))
+
+    ax.hist(niter*gpop[gpop.d3s>eff_lvl].mct,
+             bins=bins,
+             alpha=0.5,
+             facecolor = col_3, 
+             label=MyLabel(niter*gpop[gpop.d3s>eff_lvl].mct,
+                           "$3\sigma$ det.",stat="med"),
+             **kwargs)
+
+    ax.hist(niter*gpop[gpop.d5s>eff_lvl].mct,
+             bins=bins,
+             alpha=0.5,
+             facecolor = col_5, 
+             label=MyLabel(niter*gpop[gpop.d5s>eff_lvl].mct,
+                           "$5\sigma$ det.",stat="med"),
+             **kwargs)
+    
+    ax.set_title(f"Simulation duration ({niter:3d} iter.)")
+    ax.set_xlabel("Time (s)")
+    ax.set_yscale("log")
+    ax.legend(bbox_to_anchor=[1,1])
+
+    return
+###-------------------------------------------------------------
+def detection_level(var,cl=0.9,nbin=25, ax=None, **kwargs):
+
+    ax = plt.gca() if ax is None else ax
+    
+    ax.hist(100*var, bins=nbin, range=[0,100], **kwargs)
+    ax.set_yscale("log")
+    ax.axvline(x=100*cl,
+               color="red",ls=":",label="min. C.L. (%)")
+    ax.legend()
+    ax.set_xlabel("Confidence level (%)")
+    ax.set_ylabel("Event counts")
+    ax.grid("both")
+    
+    return
+
 ###-------------------------------------------------------------
 if __name__ == "__main__":
 
-    import init as init
-
-    file = init.create_csv()
-    (grb, gn0, gs0, gn, gs, gb) = init.get_data(file, debug=True)
-    init.sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
-    rate(grb)
-    rate(grb,nyears=44)
+    file = create_csv(file="analysis/population/parameter.yaml",debug=True)
+    (grb, gn0, gs0, gn, gs, gb) = get_data(file, debug=True)
+    # sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
+    # rate(grb)
+    # rate(grb,nyears=44)
+    # computing_time(grb)
