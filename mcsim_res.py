@@ -66,6 +66,13 @@ def result(mc,grb, log=None, header=True,pop=None):
     Keywords:
     - name  : source name (10s)
     - eiso  : Eiso (8.2e)
+    - epeak : Epeak (8.2e)
+    - t90   : t90 (8.2f)
+    - G0H   : G0H (6.2f)
+    - G0W   : G0W (6.2f)
+    - Fpeak : fluxpeak  (8.2e)
+    - gamle : gamma_le (5.2f)
+    - gamhe : gamma_he (5.2f)
     - z     : Redshift (5.2f)
     - site  : South, North, Both (5s)
     - ra    : Right ascension of the source (6.2f)
@@ -287,8 +294,15 @@ def result(mc,grb, log=None, header=True,pop=None):
     # Solution : do not print out unviible GRB ? But then output data file will
     #  have mmissing lines for some GRB
     records = {
-            "name"     : {"v": grb.name,                      "f": ">10s"  },
+            "name"     : {"v": grb.name,                      "f": ">10s"   },
             "Eiso"     : {"v": grb.Eiso.value,                "f": ">8.2e"  },
+            "Epeak"    : {"v": grb.Epeak.value,               "f": ">8.2e"  },
+            "t90"      : {"v": grb.t90.value,                 "f": ">8.2f"  },
+            "G0H"      : {"v": grb.G0H,                       "f": ">6.2f"  },
+            "G0W"      : {"v": grb.G0W,                       "f": ">6.2f"  },
+            "Fpeak"    : {"v": grb.Fluxpeak.value,            "f": ">8.2e"  },
+            "gamle"    : {"v": grb.gamma_le,                  "f": ">8.2e"  },
+            "gamhe"    : {"v": grb.gamma_he,                  "f": ">8.2e"  },
             "z"        : {"v": grb.z,                         "f": ">5.2f"  },
             "site"     : {"v": mc.name[mc.name.find("-")+1:], "f": ">5s"  },
             "ra"       : {"v": grb.radec.ra.value,  "f": ">6.2f" },
