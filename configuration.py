@@ -255,11 +255,13 @@ class Configuration(object):
             log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
     
         if (self.fixed_zenith != None):
-             log.warning(  "Zenith angle requested to be fixed at keyword '{:5s}'     "
+             log.warning(  "Zenith angle requested to be fixed at value '{:5s}'     "
                     .format(self.fixed_zenith))
         if (self.magnify !=1):
             log.warning(  "GRB flux values are multiplied by {}"
-                    .format(self.magnify))
+                    .format(self.magnify))        
+        if (self.forced_visible):
+            log.warning(  "GRB always visible (infinite nights, always above horizon, no Moon) ")
     
         if (self.niter == 0):
             log.failure(  " Cannot run simulation with ZERO trials")
