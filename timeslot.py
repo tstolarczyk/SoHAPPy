@@ -117,8 +117,8 @@ class Slot():
         for s in self.slices: s.dress(self.grb,
                                       irf_dir = irf_dir,
                                       arrays  = arrays,
-                                      opt=self.opt,
-                                      zenith = zenith)
+                                      opt     = self.opt,
+                                      zenith  = zenith)
 
         # After dressing, two consecutives slices can be associated to the
         # same spectrum id and should be merged
