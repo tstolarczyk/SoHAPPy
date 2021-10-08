@@ -112,7 +112,7 @@ class Visibility():
 
         # Rise and set of the target - list of pair
         self.t_event    = [[Time('2000-01-01 00:00:00', scale='utc'),
-                           Time('2000-01-01 08:00:00', scale='utc')]]
+                            Time('2000-01-01 08:00:00', scale='utc')]]
 
         # Nights
         self.t_night  = [[]]
@@ -128,6 +128,26 @@ class Visibility():
 
         return
 
+     ###-----------------------------------------------------------------------
+    def force_visible(self):
+        
+        # Visible any moment of the year from the site
+        self.vis         = True
+        # Visible any moment within the 24h after the trigger from the site
+        self.vis_tonight = True
+        # Visible at the moment of the GRB trigger
+        self.vis_prompt  = True
+
+        # Visible above min. alt. - list of pair
+        self.t_true     = [[self.tstart, self.tstop]]
+
+        # Astronomical twilight - list of pair
+        self.t_twilight = [[self.tstart, self.tstop]]
+
+        # Rise and set of the target - list of pair
+        self.t_event    = [[self.tstart,self.tstop]]       
+        return
+    
     ###-----------------------------------------------------------------------
     @classmethod
     def from_fits(cls, grb, hdr, hdul, hdu=1, loc="None"):
