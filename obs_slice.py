@@ -227,7 +227,10 @@ class Slice():
         for site in site_list:
             # Altitude at slice start where the flux is expected larger
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
+            
+            # Zenith is obtained from altaz except if fixed beforehand
             if zenith == None: zenith   = 90*u.degree-altaz.alt
+            else: zenith = u.Quantity(zenith) # Was string so far
 
             irf = IRF.from_observation(zenith   = zenith,
                                        azimuth  = altaz.az,
