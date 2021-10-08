@@ -200,7 +200,7 @@ def main(argv):
         - Check the N+S case if GRB visible on both sites
             - Create a MC object
             - Modify the time slot fopr the visibility including the delays
-            - Dress the GRB slot with physici (IRF and spectra)
+            - Dress the GRB slot with physics (IRF and spectra)
             - Run the simulation
             - Display results
 
@@ -291,20 +291,22 @@ def main(argv):
             import visibility as vis
 
             for loc in ["North","South"]:
-                if (cf.vis_dir != None):
-                    name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
-                    grb.vis[loc] = vis.Visibility.read(name)
-                elif (cf.vis_cmp):
-                    grb.vis[loc] = vis.Visibility.compute(grb,
-                                         loc,
-                                         altmin    = cf.altmin,
-                                         altmoon   = cf.altmoon,
-                                         moondist  = cf.moondist,
-                                         moonlight = cf.moonlight,
-                                         depth     = cf.depth,
-                                         skip      = cf.skip,
-                                         debug     = bool(cf.dbg>2))
-
+                if (cf.forced_visible):
+                    grb.vis[loc].force_visible()                    
+                else:
+                    if (cf.vis_dir != None):
+                        name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
+                        grb.vis[loc] = vis.Visibility.read(name)
+                    elif (cf.vis_cmp):
+                        grb.vis[loc] = vis.Visibility.compute(grb,
+                                             loc,
+                                             altmin    = cf.altmin,
+                                             altmoon   = cf.altmoon,
+                                             moondist  = cf.moondist,
+                                             moonlight = cf.moonlight,
+                                             depth     = cf.depth,
+                                             skip      = cf.skip,
+                                             debug     = bool(cf.dbg>2))
 
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
