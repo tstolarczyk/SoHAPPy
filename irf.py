@@ -25,7 +25,7 @@ zenith_list =  {"20deg": 20*u.deg,
 dt_list     =  {"prod3":
                     {"100s" : (100*u.s),
                      "30m"  : (30*u.min).to(u.s),
-                     "05h"  : (5*u.h).to(u.s),
+                     "5h"   : (5*u.h).to(u.s),
                      "50h"  : (50*u.h).to(u.s) },
                  "prod5":
                      {"1800s"  : (1800*u.s),   # 30 min
@@ -36,7 +36,7 @@ dt_list     =  {"prod3":
 dtl         =  {"prod3":
                     {"100s" : np.log10((100*u.s).value),
                      "30m"  : np.log10((30*u.min).to(u.s).value),
-                     "05h"  : np.log10((5*u.h).to(u.s).value),
+                     "5h"  : np.log10((5*u.h).to(u.s).value),
                      "50h"  : np.log10((50*u.h).to(u.s).value) },
                 "prod5":
                     {"1800s"   : np.log10((1800*u.s).value),    # 30 min
@@ -62,10 +62,10 @@ dt_log_valid = \
     {"100s": [0,
              10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )) ],
     "30m" : [10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )),
-             10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["05h"] )) ],
-    "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["05h"] )),
-             10**(0.5*( dtl["prod3"]["05h"]  + dtl["prod3"]["50h"] )) ],
-    "50h" : [10**(0.5*( dtl["prod3"]["05h"]  + dtl["prod3"]["50h"] )),
+             10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )) ],
+    "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )),
+             10**(0.5*( dtl["prod3"]["5h"]  + dtl["prod3"]["50h"] )) ],
+    "50h" : [10**(0.5*( dtl["prod3"]["5h"]  + dtl["prod3"]["50h"] )),
              np.Inf]
     },
  "prod5":
@@ -254,7 +254,7 @@ class IRF():
         obstime : Quantity, time
             Observation duration.
         closest : Boolean, optional
-            If True, obtaine zenith and observation time from the closest
+            If True, obtain zenith and observation time from the closest
             available sampling, instead of using the predefined validity value.
             The default is False.
         fixed_zenith : Quantity angle, optional
@@ -277,10 +277,9 @@ class IRF():
         ###--------------------------
 
         # Zenith
+
         if (closest):
-            kzen = find_closest_key(zenith_list, obstime)
-        elif (fixed_zenith != None):
-            kzen = fixed_zenith
+            kzen = find_closest_key(zenith_list, zenith)
         else:
             found = False
             for k,v in zenith_valid.items():
