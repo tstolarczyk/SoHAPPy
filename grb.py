@@ -189,13 +189,13 @@ class GammaRayBurst(object):
         self.vis  = { "North": Visibility(self,"North"),
                       "South": Visibility(self,"South")
                                           }
-
         # GRB spectral and spatial model
         self.spectra = [] # Gammapy models (one per t slice)
 
         self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
 
         return
+
 
     ###########################################################################
     @classmethod
