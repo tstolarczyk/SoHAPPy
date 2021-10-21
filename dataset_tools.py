@@ -481,6 +481,8 @@ def createonoff_from_simulation(mc, random_state='rendom-seed', debug=False):
     for ds_site in dset_list:
 
         for ds in ds_site:
+            # Remove NAN background (corrected in 0.19)
+            ds.background.data = np.nan_to_num(ds.background.data )
 
             # It seems that above 0.17, dataset need to be simulated in order
             # to go to on-off
