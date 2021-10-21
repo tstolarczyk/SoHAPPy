@@ -1,5 +1,3 @@
-
-
 import os
 import sys, getopt
 
@@ -10,22 +8,25 @@ import astropy.units as u
 from pathlib import Path
 
 from utilities    import Log, warning
+
+def_conf = "config.yaml"
 ###############################################################################
 class Configuration(object):
     """
     """
     ###------------------------------------------------------------------------    
-    def __init__(self, argv, def_file="config.yaml", debug=False):
+    def __init__(self, argv, conf_file=def_conf, copy=True, debug=False):
         """
-        The defalut configuartion file is found in the code repository
+        The defaut configuration file is found in the code repository, but it 
+        can be changed for tests changing the def_conf variable in the 
+        configuration module.
 
         Parameters
         ----------
         argv : list
             Command line arguments
-        def_file: string
-            Default configuration file name without path 
-            (Assumed to be sored where SoHAPPy scripts are)
+        conf_file: string
+            Default configuration file name without.
         Returns
         -------
         None.
@@ -78,7 +79,7 @@ class Configuration(object):
             # Default parameter read from an existing default file
             # Where the code is
             basefolder = Path(__file__).parent
-            self.filename = Path(basefolder,def_file)
+            self.filename = Path(basefolder,conf_file)
             
         # Change filename to absolute Path
         self.filename = self.filename.resolve()
@@ -108,19 +109,22 @@ class Configuration(object):
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): self.show = 0
         else: self.show = abs(self.dbg)
-    
-        if (self.do_fluctuate == False): self.niter = 1
-        #if (self.niter == 1): self.do_fluctuate=False
-        if (self.dbg>0): self.silent = False
-    
-        # Avoid writing mutliple datasets when iteration number > 1
-        if (self.niter > 1):
-            self.save_dataset = False
 
+        # If debugging is requested, cannot be silent        
+        if (self.dbg>0): self.silent = False
+
+        # If the simulation is saved, it is not fluctuated
+        if self.save_dataset or self.save_simu:
+            self.do_fluctuate = False 
+       
+        # If no fluctuation, one simulation is enough !
+        if self.do_fluctuate == False: 
+            self.niter = 1
+        
         return
         
     ###------------------------------------------------------------------------    
-    def create_output(self):
+    def create_output_folder(self):
     
         # Get output folder absolute repository 
         # (from where the code is launched,not the code repository)
@@ -192,7 +196,11 @@ class Configuration(object):
 
         """
         log.prt(" Configuration file      : {} ".format(self.filename))
+        log.prt("Observatory              : {}".format(self.observatory))
         log.prt(" Simulation:")
+        if self.save_simu:
+             log.prt("     Save simulation     : {}".format(self.save_simu))
+           
         if type(self.ifirst)!=list and not isinstance(self.ifirst, str):
             log.prt("     Number of sources*  : {:>5d}".format(self.ngrb))
             log.prt("     First source*       : {:>5d}".format(self.ifirst))
@@ -221,16 +229,17 @@ class Configuration(object):
         # elif (self.method == 1):
         #     method = "On-off Energy dependent"
         log.prt(" Analysis (ndof)         : {}".format(self.method))
-        if (self.vis_dir != None):
-            log.prt(" Vis. read from          : {}".format(self.vis_dir))
-        elif (self.vis_cmp):
-            # vis_self.print(log)
-            log.prt(" Vis. computed up to     : {} night(s)".format(self.depth))
-            log.prt(" Skip up to              : {} night(s)".format(self.skip))
-            log.prt(" Minimum altitude        : {}".format(self.altmin))
-            log.prt(" Moon max. altitude      : {}".format(self.altmoon))
-            log.prt(" Moon min. distance      : {}".format(self.moondist))
-            log.prt(" Moon max. brightness    : {}".format(self.moonlight))
+        if not self.forced_visible:
+            if (self.vis_dir != None):
+                log.prt(" Vis. read from          : {}".format(self.vis_dir))
+            elif (self.vis_cmp):
+                # vis_self.print(log)
+                log.prt(" Vis. computed up to     : {} night(s)".format(self.depth))
+                log.prt(" Skip up to              : {} night(s)".format(self.skip))
+                log.prt(" Minimum altitude        : {}".format(self.altmin))
+                log.prt(" Moon max. altitude      : {}".format(self.altmoon))
+                log.prt(" Moon min. distance      : {}".format(self.moondist))
+                log.prt(" Moon max. brightness    : {}".format(self.moonlight))
     
         else:
             log.prt(" Visibility              : default")
