@@ -17,10 +17,59 @@ import astropy.units as u
 from   astropy.time import Time
 from   astropy.coordinates import AltAz, get_moon
 from   astropy.table         import Table
+from   astropy.coordinates   import EarthLocation, Angle
 
 from   astroplan import Observer, FixedTarget, moon_illumination
 
 import warnings
+
+### Site poisitions
+site_xyz = { 
+    "CTA":
+         { "North": EarthLocation.from_geocentric( float(5327448.9957829),
+                                                   float(-1718665.73869569),
+                                                   float(3051566.90295403),
+                                                   unit="m"),
+           "South": EarthLocation.from_geocentric( float(1946404.34103884),
+                                                   float(-5467644.29079852),
+                                                   float(-2642728.20144425),
+                                                   unit="m")
+           # Requires to have an internet connection
+           # Get all possible sites with : EarthLocation.get_site_names()
+           # "North": EarthLocation.of_site('Roque de los Muchachos'),
+           # "South": EarthLocation.of_site('Paranal Observatory')
+           # Values taken from Maria Grazia Bernardini (July 28, 2020)
+           # "North": EarthLocation.from_geocentric( 5327285.09211954,
+           #                                        -1718777.11250295,
+           #                                         3051786.7327476,
+           #                                         unit="m"),
+           # "South": EarthLocation.from_geocentric(1946635.7979987,
+           #                                       -5467633.94561753,
+           #                                       -2642498.5212285,
+           #                                        unit="m")   
+           # Alternative :
+           # "North": EarthLocation.from_geodetic('342.1184',
+           #                                       '28.7606',2326.* u.meter)
+           # "South": EarthLocation.from_geodetic('289.5972',
+           #                                      '-24.6253',2635.* u.meter)
+         },
+         
+  # from default values in
+  # https://www.mpi-hd.mpg.de/hfm/HESS/pages/home/visibility/
+  # Warning : use CTA-North for virtual HESS North
+  "HESS":
+        { "North": EarthLocation.from_geocentric( float(5327448.9957829),
+                                                   float(-1718665.73869569),
+                                                   float(3051566.90295403),
+                                                   unit="m"),
+          "South": EarthLocation.from_geodetic(lat=Angle('-23d16m18.0s'),
+                                      lon=Angle('16d30m0.0s'),
+                                      height=1800*u.m)
+        }
+ }
+
+
+
 
 __all__ = ["Visibility"]
 ###------------------------------------------------------------------------
@@ -67,7 +116,7 @@ class Visibility():
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self,grb,loc):
+    def __init__(self,grb,loc,observatory="CTA"):
         """
         Visibility constructor. The members follow the elements of the
         original default visibility files.
@@ -86,7 +135,7 @@ class Visibility():
         """
         
         self.status  = "init"
-        self.site    = grb.pos_site[loc]
+        self.site    = site_xyz[observatory][loc]
         self.target  = FixedTarget(coord=grb.radec, name=grb.name)
         self.tstart  = grb.t_trig
         self.tstop   = grb.t_trig + grb.tval[-1]
@@ -103,16 +152,13 @@ class Visibility():
         self.vis_prompt  = True
 
         # Visible above min. alt. - list of pair
-        self.t_true     = [[Time('2000-01-01 00:00:00', scale='utc'),
-                           Time('2000-01-01 08:00:00', scale='utc')]]
+        self.t_true     = [[self.tstart, self.tstop]]
 
         # Astronomical twilight - list of pair
-        self.t_twilight = [[Time('2000-01-01 00:00:00', scale='utc'),
-                           Time('2000-01-01 8:00:00', scale='utc')]]
+        self.t_twilight = [[self.tstart, self.tstop]]
 
         # Rise and set of the target - list of pair
-        self.t_event    = [[Time('2000-01-01 00:00:00', scale='utc'),
-                            Time('2000-01-01 08:00:00', scale='utc')]]
+        self.t_event    = [[self.tstart,self.tstop]]  
 
         # Nights
         self.t_night  = [[]]
@@ -126,26 +172,6 @@ class Visibility():
         self.moon_too_bright = [] # Moon brigthness above threshold
         self.moon_too_close  = [] # Moon distance too small
 
-        return
-
-     ###-----------------------------------------------------------------------
-    def force_visible(self):
-        
-        # Visible any moment of the year from the site
-        self.vis         = True
-        # Visible any moment within the 24h after the trigger from the site
-        self.vis_tonight = True
-        # Visible at the moment of the GRB trigger
-        self.vis_prompt  = True
-
-        # Visible above min. alt. - list of pair
-        self.t_true     = [[self.tstart, self.tstop]]
-
-        # Astronomical twilight - list of pair
-        self.t_twilight = [[self.tstart, self.tstop]]
-
-        # Rise and set of the target - list of pair
-        self.t_event    = [[self.tstart,self.tstop]]       
         return
     
     ###-----------------------------------------------------------------------
@@ -208,14 +234,16 @@ class Visibility():
     ###-----------------------------------------------------------------------
     @classmethod
     def compute(cls,grb, loc, 
-                    altmin     = 10*u.degree,
-                    altmoon    = 0*u.degree,
-                    moondist   = 0*u.degree,
-                    moonlight  = 1,
-                    depth      = 3,
-                    skip       = 0,
-                    npt        = 150,
-                    debug=True):
+                    observatory = "CTA",
+                    altmin      = 10*u.degree,
+                    altmoon     = 0*u.degree,
+                    moondist    = 0*u.degree,
+                    moonlight   = 1,
+                    depth       = 3,
+                    skip        = 0,
+                    npt         = 150,
+                    force_vis   = False,
+                    debug       = True):
 
         """
         Compute the visibility periods for a given GRB and site. This constructor takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), and all the parameters required for the computation.
@@ -254,7 +282,7 @@ class Visibility():
   
         """
 
-        cls = Visibility(grb,loc)  # This calls the constructor
+        cls = Visibility(grb,loc,observatory=observatory)  # This calls the constructor
         
         ###---------------------------------------------------
         def valid(t0,tslices):
@@ -276,22 +304,28 @@ class Visibility():
         cls.status    = "Updated"
 
         obs  = Observer(location  = cls.site,
-                        name = cls.name,
-                        timezone ="utc")
+                        name      = cls.name,
+                        timezone  ="utc")
 
         ### Find the nights  ---
-        is_night, t_night  = cls.nights(obs, skip=skip, npt=npt)
+        if force_vis: 
+            t_night = [[cls.tstart.jd, cls.tstop.jd]]
+            is_night = True
+        else: is_night, t_night  = cls.nights(obs, skip=skip, npt=npt)
 
         ### MOON VETOES (high enough, close enough, bright enough) ---
-        t_moon_alt_veto    = cls.moon_alt_veto(obs, npt=npt)
-
-        t_moon_veto = []
-        for dt in t_moon_alt_veto:
-            (too_bright, too_close) = cls.moonlight_veto(dt)
-            cls.moon_too_bright.append(too_bright)
-            cls.moon_too_close.append(too_close)
-            if too_bright or too_close: t_moon_veto.append(dt)
-        if len(t_moon_veto) == 0: t_moon_veto = [[]]
+        if force_vis:
+            t_moon_alt_veto = [[]]
+            t_moon_veto = [[]]
+        else:
+            t_moon_alt_veto    = cls.moon_alt_veto(obs, npt=npt)
+            t_moon_veto = []
+            for dt in t_moon_alt_veto:
+                (too_bright, too_close) = cls.moonlight_veto(dt)
+                cls.moon_too_bright.append(too_bright)
+                cls.moon_too_close.append(too_close)
+                if too_bright or too_close: t_moon_veto.append(dt)
+            if len(t_moon_veto) == 0: t_moon_veto = [[]]
 
         ### HORIZON ---
         (high, t_above) = cls.horizon(obs)
@@ -376,7 +410,7 @@ class Visibility():
             for elt in t_moon_alt_veto:
                 cls.t_moon_up.append( [Df(elt[0]), Df(elt[1])] )
 
-        # Finalise visibility wondows, taking into account the depth
+        # Finalise visibility windows, taking into account the depth
         # and additionnal moon vetoes.
         # If no visibility window is left, re-assign vis_tonight
         if len(t_vis) == 0 :
@@ -432,7 +466,7 @@ class Visibility():
             infile.close()
             if (debug): print(" <<<< Visibility read from : ",filename)
         else:
-            sys.exit(" Visibility file ",filename," does not exist !")
+            sys.exit(" Visibility file "+filename.name+" does not exist !")
 
         return cls
 
@@ -520,7 +554,8 @@ class Visibility():
                                                         n_grid_points = npt)
             if (inight >= skip):
                 tnights.append([t_dusk.jd, t_dawn.jd])
-                inight +=1
+            
+            inight +=1
 
         # For test, add the previous night
         # t_dawn0 = obs.twilight_morning_astronomical(self.grb.t_trig,
