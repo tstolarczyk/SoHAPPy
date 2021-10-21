@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 
+import astropy
 import astropy.units as u
 from   astropy.coordinates   import AltAz
 from   astropy.coordinates import get_moon
@@ -371,7 +372,8 @@ def period_plot(twindow,
 
     if (len(twindow[0]) == 0): return ax
     for elt in twindow:
-        if elt[0].value >= 0 and elt[1].value >=0 :  # Check if -9, i.e. undefined
+        # if elt[0] == astropy.time.core.Time \
+        #     and elt[1] == astropy.time.core.Time :  # Check if -9, i.e. undefined
                 t1  = (elt[0] - tshift).datetime
                 t2  = (elt[1] - tshift).datetime
                 if isinstance(tag, list):
@@ -549,6 +551,7 @@ def visibility_plot(grb,
         ### GRB (main plot)
         source_alt_and_flux(grb, vis, tobs, site=vis.site, ax=ax[0])
         ax[0]. set_title(vis.name)
+        ax[0].grid("both",ls="--",alpha=0.5)
 
         ### GRB above horizon
         period_plot(vis.t_event,
@@ -569,6 +572,8 @@ def visibility_plot(grb,
                         ax =ax[1],color="tab:orange",alpha=0.2, tag="Moon veto")
             period_plot(vis.t_moon_up,
                         ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
+            ax[1].grid("both",ls="--",alpha=0.5)
+            ax[2].grid("both",ls="--",alpha=0.5)
 
             ### Moon altitude
             alt = radec.transform_to(AltAz(location=vis.site, obstime=tobs)).alt
@@ -602,7 +607,7 @@ def visibility_plot(grb,
         axis.set_xlabel("Date (DD-HH:MM) UTC")
         axis.tick_params(axis='x', rotation=45)
         axis.set_xlabel("Date")
-
+        axis.grid("both",ls="--",alpha=0.5)
         axis.set_xlim([F(min(tobs)),F(max(tobs))])
 
     fig.tight_layout(h_pad=0, w_pad=0)
