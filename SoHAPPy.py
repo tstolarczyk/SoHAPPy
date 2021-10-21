@@ -52,7 +52,6 @@ iers.conf.auto_download = False
 # download_IERS_A
 # print(" ->Done")
 
-
 __all__ = ["main", "get_grb_fromfile", "get_delay"]
 
 ###############################################################################
@@ -120,7 +119,7 @@ def get_grb_fromfile(item,
             from yaml.loader import SafeLoader
             with open(filename) as f:
                 data = yaml.load(f, Loader=SafeLoader)
-                grb = GammaRayBurst.from_yaml(data,ebl=eblmodel())
+                grb  = GammaRayBurst.from_yaml(data,ebl=eblmodel)
         elif isinstance(item, int):
             filename = Path(grb_folder
                             + "LONG_FITS/"
@@ -143,7 +142,7 @@ def get_grb_fromfile(item,
                                             magnify = magnify)
         else:
             # use default visibility
-            sys.exit(" Redshift shouldbe provided")
+            sys.exit(" Redshift should be provided")
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=None,
                                             ebl = eblmodel,
@@ -223,8 +222,10 @@ def main(argv):
     log = logging.getLogger("gammapy.irf")
     log.setLevel(logging.ERROR)   
     
-    # Read Configuration
+    # Read Configuration - (create output folder)
     cf = Configuration(sys.argv[1:])
+    cf.create_output_folder() # Create output folder
+    
     sim_filename    = Path(cf.res_dir, cf.datafile)
     log_filename    = Path(cf.res_dir, cf.logfile)
     log = Log(name  = log_filename, talk=not cf.silent)    
@@ -232,9 +233,6 @@ def main(argv):
     # Print welcome message and configuration summary
     welcome(log)
     cf.print(log)
-
-    # Create output folder if not existing
-    cf.create_output()
     
     # Backup configuration to output folder
     cf.write()
@@ -288,25 +286,25 @@ def main(argv):
                           debug = bool(cf.dbg>1))
 
             # Recompute visbility windows if requested
-            import visibility as vis
+            from visibility import Visibility
 
             for loc in ["North","South"]:
-                if (cf.forced_visible):
-                    grb.vis[loc].force_visible()                    
-                else:
-                    if (cf.vis_dir != None):
-                        name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
-                        grb.vis[loc] = vis.Visibility.read(name)
-                    elif (cf.vis_cmp):
-                        grb.vis[loc] = vis.Visibility.compute(grb,
-                                             loc,
-                                             altmin    = cf.altmin,
-                                             altmoon   = cf.altmoon,
-                                             moondist  = cf.moondist,
-                                             moonlight = cf.moonlight,
-                                             depth     = cf.depth,
-                                             skip      = cf.skip,
-                                             debug     = bool(cf.dbg>2))
+
+                if (cf.vis_dir != None):
+                    name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
+                    grb.vis[loc] = Visibility.read(name)
+                elif (cf.vis_cmp):
+                    grb.vis[loc] = Visibility.compute(grb,
+                                         loc,
+                                         observatory = cf.observatory,
+                                         altmin      = cf.altmin,
+                                         altmoon     = cf.altmoon,
+                                         moondist    = cf.moondist,
+                                         moonlight   = cf.moonlight,
+                                         depth       = cf.depth,
+                                         skip        = cf.skip,
+                                         force_vis   = cf.forced_visible,
+                                         debug       = bool(cf.dbg>2))
 
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
