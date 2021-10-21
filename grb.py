@@ -24,7 +24,6 @@ from   astropy.table         import Table
 from   astropy.io            import fits
 from   astropy.time          import Time
 from   astropy.coordinates   import SkyCoord
-from   astropy.coordinates   import EarthLocation
 from   astropy.coordinates   import AltAz
 
 from visibility import Visibility
@@ -39,47 +38,6 @@ from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import PointSpatialModel
 
 
-# The following information can be obtained from EarthLocation.of_site
-# but this requires to have an internet connection
-# Get all available site names :
-# sitelist = EarthLocation.get_site_names()
-
-# Get coordinattes of Paranal and LaPalma
-# Note : with the Gammapy-0.12 environment,this requires to
-#        downgrade numpy to version 1.16.2 (instead on >1.18)
-#        See discussion here :
-#        https://github.com/astropy/astropy/issues/9306
-
-# xyz_north = EarthLocation.of_site('Roque de los Muchachos')
-# xyz_south = EarthLocation.of_site('Paranal Observatory')
-
-xyz_north = EarthLocation.from_geocentric( float(5327448.9957829),
-                                          float(-1718665.73869569),
-                                            float(3051566.90295403),
-                                            unit="m")
-xyz_south = EarthLocation.from_geocentric( float(1946404.34103884),
-                                          float(-5467644.29079852),
-                                          float(-2642728.20144425),
-                                            unit="m")
-# from default values in
-# https://www.mpi-hd.mpg.de/hfm/HESS/pages/home/visibility/
-from astropy.coordinates import Angle
-xyz_HESS= EarthLocation.from_geodetic(lat=Angle('-23d16m18.0s'),
-                                      lon=Angle('16d30m0.0s'),
-                                      height=1800*u.m)
-# xyz_south = xyz_HESS
-# Values taken from Maria Grazia Bernardini - See Readme, July 28, 2020
-# xyz_north = EarthLocation.from_geocentric( 5327285.09211954,
-#                                           -1718777.11250295,
-#                                           3051786.7327476,
-#                                           unit="m")
-# xyz_south = EarthLocation.from_geocentric(1946635.7979987,
-#                                           -5467633.94561753,
-#                                           -2642498.5212285,
-#                                           unit="m")
-
-# xyz_north = EarthLocation.from_geodetic('342.1184','28.7606',2326.* u.meter)
-# xyz_south = EarthLocation.from_geodetic('289.5972','-24.6253',2635.* u.meter)
 
 __all__ = ["GammaRayBurst","GRBDummy"]
 
@@ -175,7 +133,8 @@ class GammaRayBurst(object):
         self.site_keys = ["North","South"] # Put it somewhere else !
         self.site      = {"North": 'Roque de los Muchachos',
                           "South": 'Paranal'}
-        self.pos_site  = {"North":xyz_north, "South":xyz_south}
+        # self.pos_site  = {"North":site_xyz["CTA"]["North"], 
+        #                   "South":site_xyz["CTA"]["South"]}
 
         # GRB alert received
         self.t_trig   = Time('2000-01-01 02:00:00', scale='utc')
@@ -246,7 +205,7 @@ class GammaRayBurst(object):
         cls.t90      = hdr['Duration']*u.s
         cls.G0H      = hdr['G0H']
         cls.G0W      = hdr['G0W']
-        cls.Fluxpeak = hdr['EISO']*u.erg
+        cls.Fluxpeak = hdr['PHFLUX']*u.Unit("ph.cm-2.s-1")
         cls.gamma_le = hdr['LOWSP']
         cls.gamma_he = hdr['HIGHSP']
 
@@ -340,9 +299,16 @@ class GammaRayBurst(object):
         cls.z      = data["z"]
         cls = GammaRayBurst(ebl_model=ebl,z=cls.z) # This calls the constructor
 
-        cls.name   = data["name"]
-        cls.radec  = SkyCoord(data["ra"], data["dec"], frame='icrs')
-        cls.Eiso   = u.Quantity(data["Eiso"])
+        cls.name     = data["name"]
+        cls.radec    = SkyCoord(data["ra"], data["dec"], frame='icrs')
+        cls.Eiso     = u.Quantity(data["Eiso"])
+        cls.Epeak    = u.Quantity(data['Epeak'])
+        cls.t90      = u.Quantity(data['t90'])
+        cls.G0H      = data['G0H']
+        cls.G0W      = data['G0W']
+        cls.Fluxpeak = u.Quantity(data['Fluxpeak'])
+        cls.gamma_le = data['gamma_le']
+        cls.gamma_he = data['gamma_he']
         cls.t_trig = Time(data["t_trig"], format="datetime",scale="utc")
 
         ### Energies, times and fluxes ---
@@ -394,12 +360,11 @@ class GammaRayBurst(object):
             # (A Quantity is passed as requested but the underlying numpy
             # dtype is not supported by energy.data.tolist()
             tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
-                                        values = cls.fluxval[i],
-                                        norm   = 1.,
-                                        interp_kwargs={"values_scale": "log"})
-
+                                          values = cls.fluxval[i],
+                                          interp_kwargs={"values_scale": "log"})  
+                
             if (cls.eblabs != None) and (ebl != "built-in"):
-                model = AbsorbedSpectralModel(tab,cls.eblabs,cls.z)
+                model = tab*cls.eblabs
             else:
                 model = tab
 
@@ -526,7 +491,7 @@ class GammaRayBurst(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             altaz = self.radec.transform_to(AltAz(obstime  = dt + self.t_trig,
-                                                  location = self.pos_site[loc]))
+                                                  location = self.vis[loc].site))
 
         return altaz
 
@@ -552,7 +517,7 @@ class GammaRayBurst(object):
         txt += '  t90           : {:6.2f}\n'.format(self.t90)
         txt += '  G0H / G0W     : {:6.2f} / {:6.2f}\n' \
         .format(self.G0H,self.G0W)
-        txt += '  Flux peak     : {:6.2f}\n'.format(self.FluxPeak)
+        txt += '  Flux peak     : {:6.2f}\n'.format(self.Fluxpeak)
         txt += '  gamma LE / HE : {:6.2f} / {:6.2f}\n' \
         .format(self.gamma_le,self.gamma_he)
 
