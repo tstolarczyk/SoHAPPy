@@ -152,6 +152,28 @@ erec_edges = np.asarray([3.00000000e+01, # LST 20°
                         1.00000000e+04,
                         1.5e+04])*u.GeV
 
+# Denser
+# erec_edges = np.asarray([ 30.,
+#                           37.0,       
+#                           40.33143141,
+#                           47.0,
+#                           54.22081198,
+#                           65.0,
+#                           72.89343197,
+#                           110.,
+#    131.74470232,   177.11508083,   250,  
+#                         3.16227766e+02,
+#                         5.62341325e+02,
+#                         1.00000000e+03,
+#                         1.77827941e+03,
+#                         3.16227766e+03,
+#                         5.62341325e+03,
+#                         1.00000000e+04,
+#                         1.5e+04])*u.GeV
+
+
+
+
 __all__=['IRF']
 
 ###############################################################################
@@ -517,8 +539,8 @@ def generate_E_edges(E1=10*u.GeV, E2=100*u.TeV,
 
     # Compute the number of bins to be generated from the number of decades
     ndecade = np.log10(Emax/Emin) # Number of decades covered
-    nbin = ndecade*nbin_per_decade
-
+    nbin = ndecade*nperdecade
+    print("Total number of bins =",nbin)
     e_edges = np.logspace(np.log10(Emin),np.log10(Emax),int(nbin+1))*unit_ref
     print("Initial edging :")
     print(e_edges)
@@ -732,6 +754,9 @@ if __name__ == "__main__":
     show = ["containment", "onoff", "effearea","generic"]
     show = ["containment"]
     
+    generate_E_edges(E1=30*u.GeV,E2=15*u.TeV,nperdecade=8)
+    
+    sys.exit()
     ###-------------------------
     ### Generic    
     ###-------------------------
