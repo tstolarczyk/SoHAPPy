@@ -189,7 +189,7 @@ def story(mc, loc="nowhere", ref="VIS"):
     # GRB lifetime together with visibility
     grb = mc.slot.grb
 
-    coord = grb.pos_site[loc]
+    coord = grb.vis[loc].site
     dtplot = 500*u.s # Add some space for the plot
 
 
