@@ -30,7 +30,6 @@ from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import SkyModel
 
 #------------------------------------------------------------------------------
-
 def generate_dataset(Eflux, flux, Erange = None,
                      tstart   = Time('2000-01-01 02:00:00',scale='utc'),
                      tobs     = 100*u.s,
@@ -198,7 +197,7 @@ def generate_dataset(Eflux, flux, Erange = None,
                 ds.fake(npred_background=ds.npred_background())
                 
         else:
-            ds.fake(random_state = randome_state)
+            ds.fake(random_state = random_state)
 
     print("ds.energy_range = ",ds.energy_range)
 
@@ -483,7 +482,7 @@ def createonoff_from_simulation(mc, random_state='rendom-seed', debug=False):
 
         for ds in ds_site:
 
-            # It seems that above 0.17, dataset need to be simulatein order
+            # It seems that above 0.17, dataset need to be simulated in order
             # to go to on-off
             if gammapy.__version__ != "0.17": # 0.18.2
                 ds.fake(random_state = random_state)
