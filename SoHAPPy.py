@@ -15,7 +15,6 @@ from __init__ import __version__
 
 import os
 import sys
-
 from   mcsim  import MonteCarlo
 
 os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
