@@ -130,15 +130,10 @@ def generate_dataset(Eflux, flux, Erange = None,
     # Load IRF
     irf  = load_cta_irfs(irf_file)
 
-    if gammapy.__version__ == "0.17":
-        spec = TemplateSpectralModel(energy = Eflux, 
-                                     values= flux, 
-                                     norm = 1.,
-                                     interp_kwargs={"values_scale": "log"})
-    elif gammapy.__version__ == "0.18.2":
-         spec = TemplateSpectralModel(energy = Eflux, 
-                                      values= flux, 
-                                      interp_kwargs={"values_scale": "log"})        
+
+spec = TemplateSpectralModel(energy = Eflux, 
+                             values= flux, 
+                             interp_kwargs={"values_scale": "log"})        
 
     model = SkyModel(spectral_model = spec, name  = "Spec"+str(name))
     obs   = Observation.create(obs_id   = 1, 
@@ -148,34 +143,21 @@ def generate_dataset(Eflux, flux, Erange = None,
                                deadtime_fraction = 0,
                                reference_time = tstart)
     
-    if gammapy.__version__ == "0.17":
-        ds_empty = SpectrumDataset.create(e_reco = ereco_axis.edges,
-                                          e_true = etrue_axis.edges,
-                                          region = on_region,
-                                          name   = name)
-        maker = SpectrumDatasetMaker(selection=["aeff", "edisp", "background"])
-        ds = maker.run(ds_empty, obs)
-        ds.models = model
-        mask = ds.mask_safe.geom.energy_mask(emin = Erange[0],
-                                            emax = Erange[1])
-
-    elif gammapy.__version__ == "0.18.2":
-        ds_empty  = SpectrumDataset.create(e_reco = ereco_axis, # Ereco.edges,
-                                       e_true = etrue_axis, #Etrue.edges,
-                                       region = on_region,
-                                       name   = name)
-        maker = SpectrumDatasetMaker(containment_correction=False,
-                                      selection=["exposure", "background","edisp"]) 
-        ds = maker.run(ds_empty, obs)
-        ds.models = model
-        mask = ds.mask_safe.geom.energy_mask(energy_min = Erange[0],
-                                            energy_max = Erange[1])
+    ds_empty  = SpectrumDataset.create(e_reco = ereco_axis, # Ereco.edges,
+                                   e_true = etrue_axis, #Etrue.edges,
+                                   region = on_region,
+                                   name   = name)
+    maker = SpectrumDatasetMaker(containment_correction=False,
+                                  selection=["exposure", "background","edisp"]) 
+    ds = maker.run(ds_empty, obs)
+    ds.models = model
+    mask = ds.mask_safe.geom.energy_mask(energy_min = Erange[0],
+                                        energy_max = Erange[1])
 
     mask = mask & ds.mask_safe.data
     ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
 
-    if gammapy.__version__ == "0.18.2": # Fake is mandatory ?
-        ds.fake(random_state = random_state)    
+    ds.fake(random_state = random_state)   # Fake is mandatory ?
     
     # Transform SpectrumDataset into SpectrumDatasetOnOff if needed
     if (onoff):
@@ -190,12 +172,7 @@ def generate_dataset(Eflux, flux, Erange = None,
     if fake:
         print(" Fluctuations : seed = ",seed)
         if (onoff):
-            if gammapy.__version__ == "0.17":
-                ds.fake(random_state=random_state,
-                        background_model=ds.background)
-            elif gammapy.__version__ == "0.18.2":
-                ds.fake(npred_background=ds.npred_background())
-                
+            ds.fake(npred_background=ds.npred_background())
         else:
             ds.fake(random_state = random_state)
 
@@ -216,23 +193,15 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
         # e_axis = dsets[0].aeff.data.axes[0] # E true sampling from the IRF
         flux_org = ds.models[0].spectral_model(e_axis.center)
         mask_org = ds.mask_safe.data.flatten()
-        if gammapy.__version__ == "0.17":
-            spec = TemplateSpectralModel(energy = e_axis.center,
-                                         values = flux_org*mask_org,
-                                         norm   = 1.,
-                                         interp_kwargs ={"values_scale": "log"})
-        else:#0.18.2
-            spec = TemplateSpectralModel(energy = e_axis.center,
-                                         values = flux_org*mask_org,
-                                         interp_kwargs ={"values_scale": "log"})
+
+        spec = TemplateSpectralModel(energy = e_axis.center,
+                                     values = flux_org*mask_org,
+                                     interp_kwargs ={"values_scale": "log"})
         model = SkyModel(spectral_model = spec, name  = "Stack"+"-"+ds.name)
 
     else:
         flux_stacked = ds_stack.models[0].spectral_model(e_axis.center)
-        if gammapy.__version__ == "0.17":
-            dt_stack     = ds_stack.livetime # Duration on present stack
-        else: # 0.18.2
-            dt_stack     = ds_stack.gti.time_sum # Duration on present stack
+        dt_stack     = ds_stack.gti.time_sum # Duration on present stack
 
         flux_org = ds.models[0].spectral_model(e_axis.center)
         mask_org = ds.mask_safe.data.flatten()
@@ -243,20 +212,14 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
         flux_new  = (dt_stack.value*flux_stacked + dt.value*flux_org*mask_org)/(dt_stack.value+dt.value)
 
         # Create a new SkyModel from the flux template model
-        if gammapy.__version__ == "0.17":
-            spec = TemplateSpectralModel(energy = e_axis.center,
-                                     values = flux_new,
-                                     norm   = 1.,
-                                     interp_kwargs ={"values_scale": "log"})
-        else: #0.18.2
-            spec = TemplateSpectralModel(energy = e_axis.center,
+        spec = TemplateSpectralModel(energy = e_axis.center,
                                      values = flux_new,
                                      interp_kwargs ={"values_scale": "log"})
         model = SkyModel(spectral_model = spec, name  = "Stack"+"-"+ds.name)
 
         if debug:
-
-            livetime     = ds.gti.time_sum # Duration on present stack                  print(72*"-")
+            livetime     = ds.gti.time_sum # Duration on present stack                  
+            print(72*"-")
             print(" Current dataset dt={:10.2f} - {} with model {}"
                   .format(livetime, ds.name,ds.models[0].name))
             print("    On stack  : dt=",dt_stack," F0 = ",flux_stacked[0])
@@ -277,12 +240,8 @@ def compare_stacked_dataset(dsets,dsets_stacked,count="pred"):
           .format("Id","dt",count,"dtsum",count+"sum","dtnew",count+"new"))
     for ds,dss in zip(dsets,dsets_stacked):
         if count=="pred":
-            if gammapy.__version__ == "0.17":
-                masked_counts  = ds.npred_sig().data[ds.mask_safe].sum()
-                stacked_counts = dss.npred_sig().data[dss.mask_safe].sum()
-            else: #0.18.2
-                masked_counts  = ds.npred_signal().data[ds.mask_safe].sum()
-                stacked_counts = dss.npred_signal().data[dss.mask_safe].sum()
+            masked_counts  = ds.npred_signal().data[ds.mask_safe].sum()
+            stacked_counts = dss.npred_signal().data[dss.mask_safe].sum()
         elif count=="excess":
             masked_counts  = ds.excess.data[ds.mask_safe].sum()
             stacked_counts = dss.excess.data[dss.mask_safe].sum()
@@ -386,13 +345,8 @@ def get_masked_dataset(ds0):
     """
     # print("dataset_tools/get_maked_dataset(ds) : masking disabled")
     # return ds0
-
-    if gammapy.__version__ == "0.17":
-        e_true = ds0.aeff.energy.edges
-        e_reco = ds0.counts.geom.axes[0].edges
-    else: # 0.18.2
-        e_true = ds0.exposure.geom.axes["energy_true"]
-        e_reco = ds0.counts.geom.axes[0]
+    e_true = ds0.exposure.geom.axes["energy_true"]
+    e_reco = ds0.counts.geom.axes[0]
     region = ds0.counts.geom.region
     masked_dataset = SpectrumDataset.create(
         e_true=e_true, e_reco=e_reco, region=region, name=ds0.name
@@ -486,19 +440,14 @@ def createonoff_from_simulation(mc, random_state='rendom-seed', debug=False):
 
             # It seems that above 0.17, dataset need to be simulated in order
             # to go to on-off
-            if gammapy.__version__ != "0.17": # 0.18.2
-                ds.fake(random_state = random_state)
+            ds.fake(random_state = random_state)
 
             ds_onoff = SpectrumDatasetOnOff.from_spectrum_dataset(
                                             dataset        = ds,
                                             acceptance     = 1,
                                             acceptance_off = 1/mcf.alpha)
 
-            if gammapy.__version__ == "0.17":
-                ds_onoff.fake(background_model=ds_onoff.background,
-                              random_state = random_state)
-            else: # 0.18.2
-                ds_onoff.fake(npred_background=ds_onoff.npred_background())
+            ds_onoff.fake(npred_background=ds_onoff.npred_background())
 
             if (debug): print(ds_onoff)
 
@@ -539,10 +488,7 @@ def get_axis(dsets, tunit = u.s, Eunit=u.GeV, debug=False):
     dt = []
     t = 0
     for ds in dsets:
-        if gammapy.__version__ == "0.17":
-            t += ds.livetime.to(tunit).value
-        else: #0.18.2
-            t += ds.gti.time_delta[0].to(tunit).value
+        t += ds.gti.time_delta[0].to(tunit).value
 
         dt.append(t)
     dt = np.asarray(dt)
@@ -616,24 +562,14 @@ def check_dataset(ds, tag="?", e_unit="GeV",
     if (ds.models == None):
         import sys
         sys.exit("Please, define a Dataset model")
-    if gammapy.__version__ == "0.17":
-
-        npred   = ds.npred_sig().data[mask]
-        print(90*"=")
-        print(" {:3s}  {:>8s}    {:6.2f} {:10.2f} {:10.2f} {:10.2f} {:10.2f}   {:6s} "
-          .format(tag, ds.name, ds.livetime,
+        
+    npred   = ds.npred_signal().data[mask]
+    print(90*"=")
+    print(" {:3s}  {:>8s}    {:6.2f} {:10.2f} {:10.2f} {:10.2f} {:10.2f}   {:6s} "
+          .format(tag, ds.name, ds.gti.time_sum,
                   ncounts_sum, nbck.sum(), nxs_sum,
                   npred.sum(), ds.models[0].name
                   ))
-
-    else: #0.18.2
-        npred   = ds.npred_signal().data[mask]
-        print(90*"=")
-        print(" {:3s}  {:>8s}    {:6.2f} {:10.2f} {:10.2f} {:10.2f} {:10.2f}   {:6s} "
-              .format(tag, ds.name, ds.gti.time_sum,
-                      ncounts_sum, nbck.sum(), nxs_sum,
-                      npred.sum(), ds.models[0].name
-                      ))
 
     # If requested go into the energy bins
     if (deeper):
