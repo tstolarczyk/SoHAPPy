@@ -56,23 +56,51 @@ def single_legend(ax,**kwargs):
     ax.legend(by_label.values(), by_label.keys(),**kwargs)
     
     return
+
 ###----------------------------------------------------------------------------
-# Annotation on the side of any plot referred from the axis
-def stamp(file,where="right",axis=None,**kwargs):
+def stamp(text,where="right",x=None, y=None, rotation=0, axis=None,**kwargs):
+    """
+    Annotation on the side of any plot referred from the axis, including
+    the gammapy version
+    
+    Parameters
+    ----------
+    text : String
+        Text to be displayed
+    where : String, optional
+        position of the text with respect to the axis. The default is "right".
+   x : float, optional
+       Text x position - If not given use default. The default is None.
+   y : float, optional
+       Text x position - If not given use default. The default is None.
+   rotation : float, optional
+       Text rotation - If not given use default. The default is None.
+    axis : matplotlib axis, optional
+        DESCRIPTION. The default is None.
+    **kwargs : 
+        Any additionnal arguments for matplotlib.axes.text
+
+    Returns
+    -------
+    None.
+    """
+
     import gammapy
-    text = file.parent.name + " " + gammapy.__version__
-    if   where =="right":  
-        (x,y) = (  1, 0.5)
-        rotation = 270
-    elif where =="left":   
-        (x,y) = (  0, 0.5)
-        rotation = 90
-    elif where =="top":    
-        (x,y) = (0.5,   1)
-        rotation = 0
-    elif where =="bottom": 
-        (x,y) = (0.5,   0)
-        rotation = 0
+    text = text + " - " + gammapy.__version__
+    
+    if x==None or y== None:
+        if   where =="right":  
+            (x,y) = (  1, 0.5)
+            rotation = 270
+        elif where =="left":   
+            (x,y) = (  0, 0.5)
+            rotation = 90
+        elif where =="top":    
+            (x,y) = (0.5,   1)
+            rotation = 0
+        elif where =="bottom": 
+            (x,y) = (0.5,   0)
+            rotation = 0
     
     axis.text(x=x,y=y,s=text,
               horizontalalignment='center',
@@ -100,6 +128,10 @@ def projected_scatter(xsize=12, ysize=8, left=0.1, width=0.7, bottom=0.1, height
     
     return fig, ax, axh, axv
 #------------------------------------------------------------------------------
+def t_str(t):
+    t = t_fmt(t)
+    return str( round(t.value,2)) +" "+ str(t.unit)
+#------------------------------------------------------------------------------
 def t_fmt(t):
     """
     A utility to have reasonable duration format displayed
@@ -124,9 +156,7 @@ def t_fmt(t):
     elif t.value > 60:
         t = t.to(u.min)
 
-    tobs = str( round(t.value,2)) +" "+ str(t.unit)
-
-    return tobs
+    return t
 ###----------------------------------------------------------------------------
 # Colored text
 def textcol(text,t="black",b="white",s=None):
