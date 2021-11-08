@@ -9,9 +9,32 @@ angles.
 
 IRF data file organisation
 ==========================
+prod5 v1
+--------
+This correspnd to teh alpha configuration, with 4 LST and 9 MST in NOrth, and 14 MST and 37 SST in South (no LST). The instrument response function (IRF) files are expected to be found in a
+dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF).  
+..  code-block::
 
++ FullArray 
+	+-- North
+		+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.1800s-v0.1.fits.gz
+		+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.18000s-v0.1.fits.gz
+    	+-- ...
+
+    +-- South
+    	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.1800s-v0.1.fits.gz
+    	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.18000s-v0.1.fits.gz
+    	+-- ...
+
++ MST
+
++ SST
+
+
+prod3 v2
+--------
 The instrument response function (IRF) files are expected to be found in a
-dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF). The IRF data are in gzip files named irf_file.fits.gz in specific folder with name corresponding to the IRF parameter. Here is an excerpt of the organisation :
+dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF). The IRF data are in gzip files named irf_file.fits.gz. Here is an excerpt of the organisation :
 
 ..  code-block::
 
@@ -46,8 +69,7 @@ Angular "interpolation"
 
 *Zenith*
 
-The zenith windows should be defined following a 1/cos(theta) law, which means
-(Iftach says) that depending on the zenith angle the following IRF should be
+The zenith windows should be defined following a 1/cos(theta) law, which means that depending on the zenith angle the following IRF should be
 used :
 - zen < 33        : "20deg"
 - 33 <= zen < 54  : "40deg"
@@ -74,9 +96,7 @@ Minimum *generated* energies are the following:
 - 40deg —> E_gen >= 26.4 GeV
 - 60deg —> E_gen >= 105.3 GeV
 
-Minimum *reconstructed* energies are the following (Iftach suggests these
-values but does not say it this is his conclusion or more generally accepted
-values):
+Minimum *reconstructed* energies are the following (suggested values):
 - 20deg —> E_grb >= 30 GeV
 - 40deg —> E_grb >= 40 GeV
 - 60deg —> E_grb >= 110 GeV

@@ -21,11 +21,12 @@ The SoHAPPy repository has 2 subfolders:
 
 Launching the code
 ==================
-The steering parametres are obtained from the yaml configuration file. Two example are given by default:
+The steering parametres are obtained from the yaml configuration file (`conf.yaml` is used by default if it is present). 
+Two example are given by default:
 * config_population.yaml, for a large population study, with minimal debugging output
 * config_singlesource.yaml, with the all processing messages and the infiviadual simulation saved on disk for further use. 
 
-The most important parametres can be passed on the command line (they supersede parameters of the configuration fle).
+The most important parametres can be passed on the command line, in particular the configuration file name (they supersede parameters of the configuration fle).
 Type:
 ``python SoHAPPy.py -h``
 to have the list explicited.
@@ -35,4 +36,4 @@ hours on a I5 -16GB laptop, including the visibility computation.
 With 100 iterations the computing time is only slightly increased.
 
 Producing the visibility alone and writing it to disk takes 2hr.
-Running SoHAPPy with pre-computed visibilities takes XXX.
+Running SoHAPPy with pre-computed visibilities takes 35 minutes to one hour (when no Moon veto)with one trial and 50 minutes with 100 trials.

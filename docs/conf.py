@@ -15,8 +15,12 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-print(sys.path)
-import gammapy
+sys.path.insert(0, os.path.abspath('../analysis'))
+sys.path.insert(0, os.path.abspath('../analysis/population'))
+sys.path.insert(0, os.path.abspath('../analysis/prompt'))
+sys.path.insert(0, os.path.abspath('../analysis/single_object'))
+sys.path.insert(0, os.path.abspath('../analysis/EBL'))
+print("SYS PATH :",sys.path)
 
 # -- Project information -----------------------------------------------------
 
@@ -167,7 +171,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'SoHAPPy.tex', 'SoHAPPy Documentation',
-     'Th; Stolarczyk', 'manual'),
+     'Th. Stolarczyk', 'manual'),
 ]
 
 

@@ -8,6 +8,8 @@ Various
 - Can we suppress simulation for large S and B. yes, but how well ?
 - Inject Fermi data and IRF, compute response
 - Interpolate time counts within the time slices;
+- Use papermill to have the jupyter notebbok automatically run;
+- Use jupyter nbconvert to convert executed jupyter notebook into html files;
 
 
 Masking the first dataset in a stacked Datasets
