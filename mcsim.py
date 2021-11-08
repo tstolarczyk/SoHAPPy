@@ -303,12 +303,8 @@ class MonteCarlo():
 
             # Cumulate on and off counts from potentially several sites
             for ds in ds_site:
-                if gammapy.__version__ == "0.17":
-                    ns   = ds.npred_sig().data[ds.mask_safe].sum()
-                    nb   = ds.background.data[ds.mask_safe].sum()
-                else: # 0.18.2
-                    ns   = ds.npred_signal().data[ds.mask_safe].sum()
-                    nb   = ds.npred_background().data[ds.mask_safe].sum()
+                ns   = ds.npred_signal().data[ds.mask_safe].sum()
+                nb   = ds.npred_background().data[ds.mask_safe].sum()
 
                 if self.nosignal: ns = 0
                                     
@@ -332,10 +328,8 @@ class MonteCarlo():
             wstat = WStatCountsStatistic(n_on  = non,
                                          n_off = noff,
                                          alpha = mcf.alpha)
-            if gammapy.__version__ == "0.17":
-                sig =  wstat.significance[0] # This is sigma*sign(nxs)
-            else: # 0.18.2
-                sig =  wstat.sqrt_ts # ? check
+
+            sig =  wstat.sqrt_ts # ? check
                 
             # Much faster to append list than arrays
             # Array appending create a new object
@@ -560,24 +554,16 @@ class MonteCarlo():
                 # Create dataset - correct for containment - add model
                 ds_name  = aslice.site()+"-"+str(aslice.idt())+"-"+str(ip)
                 
-                if gammapy.__version__== "0.17":
-                    e_reco = perf.ereco.edges
-                    e_true = perf.etrue.edges
-                else: # 0.18.2
-                    e_reco = perf.ereco
-                    e_true = perf.etrue
-                    
+                e_reco = perf.ereco
+                e_true = perf.etrue
+                
                 ds_empty = SpectrumDataset.create(e_reco = e_reco,
                                                   e_true = e_true,
                                                   region = on_region,
                                                   name   = ds_name)
 
-                if gammapy.__version__ == "0.17":
-                    maker = SpectrumDatasetMaker(
-                            selection=["aeff", "edisp", "background"])
-                else: #0.18.2
-                    maker = SpectrumDatasetMaker(
-                            selection=["exposure", "background","edisp"])  
+                maker = SpectrumDatasetMaker(
+                        selection=["exposure", "background","edisp"])  
                     
                 ds = maker.run(ds_empty, obs)
 
@@ -586,19 +572,13 @@ class MonteCarlo():
                 # cannot be changed anymore.
                 # This feature (bug) was discussed in Gammapy issue #3016 on
                 # Sept 2020.
-                if gammapy.__version__== "0.17":
-                    ds.aeff.data.data  *= mcf.containment
-                    ds.background.data *= perf.factor
-                    ds.models           = model
-                    mask = ds.mask_safe.geom.energy_mask(emin = perf.ereco_min,
-                                                         emax = perf.ereco_max)
-                else: #0.18.2
-                    # ds.exposure.data   *= mcf.containment
-                    ds.exposure   *= mcf.containment
-                    ds.background.data *= perf.factor.reshape((-1, 1, 1))
-                    ds.models           = model
-                    mask = ds.mask_safe.geom.energy_mask(energy_min = perf.ereco_min,
-                                                         energy_max = perf.ereco_max)
+
+                # ds.exposure.data   *= mcf.containment
+                ds.exposure   *= mcf.containment
+                ds.background.data *= perf.factor.reshape((-1, 1, 1))
+                ds.models           = model
+                mask = ds.mask_safe.geom.energy_mask(energy_min = perf.ereco_min,
+                                                     energy_max = perf.ereco_max)
                     
                 mask = mask & ds.mask_safe.data
                 ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
