@@ -7,7 +7,7 @@ Created on Thu Sep  5 11:22:11 2019
 import numpy as np
 import astropy.units as u
 import mcsim_config as mcf
-#from utilities import warning, failure, success, highlight,banner
+from utilities import t_fmt #warning, failure, success, highlight,banner
 
 ###########################################################################
 def welcome(subarray,log=None):
@@ -56,7 +56,60 @@ def mean_values(mc, idlist):
 
     return  t_det, e_t_det, alt_det, e_alt_det, az_det, e_az_det
 
-###########################################################################
+###############################################################################
+def status(mc,log=None):
+    
+    if  (mc.err < 0):
+        log.prt("+--------------+-------------------------------------------------+")
+        log.prt("| Status       |  ===> ",end="")
+        log.failure("Simulation not possible (GRB not visible)",end="")
+        log.prt(" |")
+        log.prt("+--------------+-------------------------------------------------+")
+    if (mc.err> 0 and mc.err != mc.niter):
+        log.prt("\n+--------------+-------------------------------------------------+")
+        log.prt("| Status       |  ===> ",end="")
+        log.failure("Simulation was aborted at trial {:>3d}".format(mc.err),end="")
+        log.prt("       |")
+        log.prt("+--------------+-------------------------------------------------+")
+    if (mc.err == mc.niter):
+        if (mc.detect_5s/mc.niter >= mcf.det_level):
+            message = "5 sigma detected"
+        elif (mc.detect_3s/mc.niter >= mcf.det_level):
+            message = "3 sigma detected"
+        else:
+            message = "NOT detected    "
+        log.prt("\n+--------------+-------------------------------------------------+")
+        log.prt("| Status       |  ===> ",end="")
+        log.highlight(message,end="")
+        log.prt("                          |")
+        log.prt("+--------------+-------------------------------------------------+")
+    
+    return
+
+#######################################################################
+def summary(mc):
+    grb = mc.slot.grb
+    tmx,e_tmx,altmx,e_altmx,azmx, e_azmx = mean_values(mc,mc.id_smax_list)
+    t3s,e_t3s,alt3s,e_alt3s,az3s, e_az3s = mean_values(mc,mc.id_3s_list)
+    t5s,e_t5s,alt5s,e_alt5s,az5s, e_az5s = mean_values(mc,mc.id_5s_list)
+
+    tmx = t_fmt(np.mean(tmx))
+    t3s = t_fmt(np.mean(t3s))
+    t5s = t_fmt(np.mean(t5s))
+
+    print(" GRB {:<4} {:<s}".format(grb.name[5:],mc.slot.site))
+    print("  z    = {:6.2f}".format(grb.z))
+    print("  Eiso = {:6.2e}".format(grb.Eiso))
+    print("  Detection")
+    print("   - Visible : {:6.2f} - {:4.2f}"
+          .format(t_fmt(mc.slot.tstart),t_fmt(mc.slot.tstop)))
+    print("   - Slices  : {:d}".format(len(mc.slot.slices)))
+    print("   - Delay   : {:6.2f} ".format(t_fmt(mc.slot.delay),))
+    print("   - sigmax  : {:<6.2f} @ {:<6.2f}".format(np.mean(mc.smax_list),tmx))
+    print("   - 5 sigma @ {:<6.2f}".format(t5s))
+
+    return
+#######################################################################
 def result(mc,grb, log=None, header=True,pop=None):
 
     """
@@ -132,33 +185,9 @@ def result(mc,grb, log=None, header=True,pop=None):
 
     """
 
-    ###----------------------------
     ### General status message
-    ###----------------------------
-    if  (mc.err < 0):
-        log.prt("+--------------+-------------------------------------------------+")
-        log.prt("| Status       |  ===> ",end="")
-        log.failure("Simulation not possible (GRB not visible)",end="")
-        log.prt(" |")
-        log.prt("+--------------+-------------------------------------------------+")
-    if (mc.err> 0 and mc.err != mc.niter):
-        log.prt("\n+--------------+-------------------------------------------------+")
-        log.prt("| Status       |  ===> ",end="")
-        log.failure("Simulation was aborted at trial {:>3d}".format(mc.err),end="")
-        log.prt("       |")
-        log.prt("+--------------+-------------------------------------------------+")
-    if (mc.err == mc.niter):
-        if (mc.detect_5s/mc.niter >= mcf.det_level):
-            message = "5 sigma detected"
-        elif (mc.detect_3s/mc.niter >= mcf.det_level):
-            message = "3 sigma detected"
-        else:
-            message = "NOT detected    "
-        log.prt("\n+--------------+-------------------------------------------------+")
-        log.prt("| Status       |  ===> ",end="")
-        log.highlight(message,end="")
-        log.prt("                          |")
-        log.prt("+--------------+-------------------------------------------------+")
+    status(mc,log=log)
+    
 
     ###-----------------------------------------
     ### Compute results if everything went well
@@ -200,7 +229,7 @@ def result(mc,grb, log=None, header=True,pop=None):
             az_stop = altaz[1].az    
 
         log.prt(" Window : {:6.2f} - {:6.2f} * Delay: {:6.2f} * {:3d} slices"
-              .format(tstart,tstop,mc.slot.delay,ntbins))
+              .format(t_fmt(tstart),t_fmt(tstop),t_fmt(mc.slot.delay),ntbins))
         log.prt("+----------------------------------------------------------------+")
 
     if (mc.err == mc.niter):
@@ -255,7 +284,9 @@ def result(mc,grb, log=None, header=True,pop=None):
               .format(smax_mean,e_smax))
 
         log.prt("                  time = {:>8.1f}  +/- {:<8.1f} {:5s}"
-               .format(tmx.value,e_tmx.value,tmx.unit))
+               .format(t_fmt(tmx).value,
+                       t_fmt(e_tmx.to(tmx.unit)).value,
+                       t_fmt(tmx).unit))
         log.prt("                  alt. = {:>8.1f}  +/- {:<8.1f} {:5s}"
                .format(altmx.value,e_altmx.value,altmx.unit))
         log.prt("                   az. = {:>8.1f}  +/- {:<8.1f} {:5s}"
@@ -269,12 +300,15 @@ def result(mc,grb, log=None, header=True,pop=None):
         log.prt("                           3 sig                   5 sig")
         log.prt("+----------------------------------------------------------------+")
         log.prt(" Time ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
-              .format(t3s.unit, t3s.value, e_t3s.value,
-                                t5s.value , e_t5s.value))
-        log.prt(" Alt.({:3s})      = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
+              .format(t_fmt(t3s).unit, 
+                      t_fmt(t3s).value, 
+                      t_fmt(e_t3s).value,
+                      t5s.to(t_fmt(t3s).unit).value , 
+                      e_t5s.to(t_fmt(t3s).unit).value))
+        log.prt(" Alt. ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
               .format(alt3s.unit,alt3s.value, e_alt3s.value,
                                  alt5s.value, e_alt5s.value))
-        log.prt(" Az.({:3s})       = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
+        log.prt(" Az.  ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
               .format(az3s.unit , az3s.value, e_az3s.value,
                                   az5s.value, e_az5s.value))
         log.prt(" Det. level (%) =  {:>8.2f}                {:>8.2f}"
