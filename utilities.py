@@ -149,11 +149,11 @@ def t_fmt(t):
     """
     # Get and format livetimes
     t = t.to(u.s)
-    if t.value > 3600*24:
+    if t.value > 1.5*3600*24:
         t = t.to(u.d)
-    elif t.value > 3600:
+    elif t.value > 1.5*3600:
         t = t.to(u.h)
-    elif t.value > 60:
+    elif t.value > 2*60:
         t = t.to(u.min)
 
     return t
