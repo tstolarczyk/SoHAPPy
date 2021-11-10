@@ -116,16 +116,20 @@ class GammaRayBurst(object):
         self.site_keys = ["North","South"] # Put it somewhere else !
         self.site      = {"North": 'Roque de los Muchachos',
                           "South": 'Paranal'}
-        # self.pos_site  = {"North":site_xyz["CTA"]["North"], 
-        #                   "South":site_xyz["CTA"]["South"]}
-
+  
         # GRB alert received
-        self.t_trig   = Time('2000-01-01 02:00:00', scale='utc')
+        self.t_trig   = Time('2000-01-01 02:00:00', scale='utc')                
 
-        # Flux table - Flux at a series of points
+        # Afterglow Flux table - Flux at a series of points
         self.Eval           = [0]*u.GeV
         self.tval           = [0]*u.s
         self.fluxval        = [0]*u.Unit("1 / (cm2 GeV s)")
+
+        # Prompt energy spectrum
+        self.prompt      = False # Default : no prompt
+        self.id90        = -1 
+        self.E_prompt    = [0]*u.GeV
+        self.flux_prompt = [0]*u.Unit("1 / (cm2 GeV s)")
 
         # Visibility (requires GRB points interavl)
         self.vis  = { "North": Visibility(self,"North"),
@@ -138,7 +142,25 @@ class GammaRayBurst(object):
         return
    
     ###########################################################################   
-    def EBLabsorbed(self, tab, model, debug=True):
+    def EBLabsorbed(self, tab, model, debug=False):
+        """
+        
+
+        Parameters
+        ----------
+        tab : TYPE
+            DESCRIPTION.
+        model : TYPE
+            DESCRIPTION.
+        debug : TYPE, optional
+            DESCRIPTION. The default is True.
+
+        Returns
+        -------
+        attflux : TYPE
+            DESCRIPTION.
+
+        """
         
         attflux = tab
         if (model == "gilmore"):
@@ -156,7 +178,8 @@ class GammaRayBurst(object):
         
     ###########################################################################
     @classmethod
-    def from_fits(cls, filename, ebl= None, newis=False, magnify=1):
+    def from_fits(cls, filename, prompt=False, ebl= None, newis=False, 
+                  magnify=1):
 
         """
         Fluxes are given for a series of (t,E) values
@@ -224,6 +247,7 @@ class GammaRayBurst(object):
         cls.vis["North"] = cls.vis["North"].from_fits(cls, hdr, hdul,hdu=1,loc="North")
         cls.vis["South"] = cls.vis["South"].from_fits(cls, hdr, hdul,hdu=1,loc="South")
 
+        ### Store the flux
         #flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
         # flux_unit    = u.Unit(flux.meta["UNITS"]) # Removes ph
         flux_unit = u.Unit("1/(cm2 GeV s)")
@@ -236,6 +260,11 @@ class GammaRayBurst(object):
         for i in range(0,icol_t):
             for j in range(0,jrow_E):
                 cls.fluxval[i][j] = magnify* flux[j][i]*flux_unit # transp!
+        
+        ### Get the prompt if potentially visible and if rerqueste
+        if prompt:
+            if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
+                prompt_spectrum = cls.get_prompt(grb_id = cls.name[5:])
 
         for i,t in enumerate(cls.tval):
             
@@ -254,12 +283,14 @@ class GammaRayBurst(object):
             #    cls.Eval.astype(float)
             # (A Quantity is passed as requested but the underlying numpy
             # dtype is not supported by energy.data.tolist()
-            
 
             tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
                                         values = cls.fluxval[i],
                                         interp_kwargs={"values_scale": "log"})  
-            
+
+            if (i<= cls.id90): # id90 is -1 if prompt no available
+                tab = tab+prompt_spectrum
+                
             model = cls.EBLabsorbed(tab,ebl)
             cls.spectra.append(model)
 
@@ -346,11 +377,97 @@ class GammaRayBurst(object):
                                           values = cls.fluxval[i],
                                           interp_kwargs={"values_scale": "log"})  
                 
-            model = cls.EBLabosrbed(tab, ebl)
+            model = cls.EBLabsorbed(tab, ebl)
             cls.spectra.append(model)
 
         return cls
 
+    ###########################################################################
+    def get_prompt(self,grb_id = None, 
+                   folder= "../input/lightcurves/prompt/ctagrbs_spop",
+                   debug = False):
+        
+        from utilities import warning, failure
+        
+        # Open file - read the lines
+        if grb_id == None: 
+            sys.exit(" Provide a GRB identifier")
+        
+        if grb_id in [6, 30 ,191]:
+            failure(" GRB prompt",grb_id," simulated with a Wind profile")
+            failure(" It cannot be associated to the current afterglow !")
+            return -1, None
+        
+        file  = open(Path(folder,grb_id+"-spec.dat"),"r")
+        lines = file.readlines()
+        
+        # get Gamma and z
+        data = lines[0].split()
+        gamma_prompt = float(data[2])
+        redshift = float(data[5])
+        
+        # Get units - omit "ph" in flux unit
+        data = lines[1].split()
+        unit_e   = data[0][1:-1]
+        unit_flx = ''.join([ x + " " for x in data[2:]])[1:-2]
+        
+        # Get flux points - assign units to data, use afterglow units
+        data = lines
+        Eval = []
+        fluxval = []
+        for line in lines[4:]:
+            data = line.split()
+            Eval.append(float(data[0]))
+            fluxval.append(float(data[1]))
+        
+        self.E_prompt    = Eval*u.Unit(unit_e)
+        self.flux_prompt = fluxval*u.Unit(unit_flx)
+        
+        if (unit_e != self.Eval[0].unit):
+            warning("Converting energy units")
+            self.E_prompt = self.E_prompt.to(self.Eval[0].unit)
+            
+        if (unit_flx != self.fluxval[0][0].unit):
+            warning("Converting flux units")
+            self.flux_prompt = self.flux_prompt.to(self.fluxval[0][0].unit) 
+            
+        # Fill unique template spectrum
+        model = TemplateSpectralModel(energy = self.E_prompt,
+                                      values = self.flux_prompt,
+                                      interp_kwargs={"values_scale": "log"}) 
+        
+        # Consistency check - Zeljka data are rounded at 2 digits
+        if np.abs(self.z - redshift)>0.01 or \
+           np.abs(self.G0H - gamma_prompt)>0.01:
+            failure(" Problem in redshift or Lorentz factor matching")
+            
+        # Find the closest time bin at t90 in the Afterglow
+        self.id90 = np.where(self.tval>= self.t90)[0][0]
+        
+        
+        if debug:
+            print("Prompt associated to ",self.name)
+            print("Gamma = ",gamma_prompt," redshift =",redshift)
+            print("  {:8} : {:10}".format(unit_e, unit_flx))
+            for E, flux in zip(self.E_prompt,self.flux_prompt):
+                print("  {:8.2f} : {:10.2e}".format(E.value,flux.value) )  
+            print("End of prompt: ",self.tval[self.id90-1],self.tval[self.id90])
+        
+        # Fill the time slices with a Model Spectrum
+        dt_tot = self.tval[self.id90] - self.tval[0]
+        fraction_tot = 0
+        for i in range(self.id90):
+            t1 = self.tval[i]
+            t2 = self.tval[i+1] 
+            dt = t2 - t1
+            fraction = dt.value/dt_tot.value
+            fraction_tot += fraction
+ 
+            if debug:
+                print("{:2d} : {:5.2f} - {:5.2f} dt={:5.2f} {:5.2f} {:5.2f}"
+                  .format(i, t1.value , t2.value , dt.value, fraction, fraction_tot))        
+            
+        return model
     ###########################################################################
     @classmethod
     def read_prompt(cls, filename, glow= None, ebl= None,
@@ -520,11 +637,11 @@ if __name__ == "__main__":
     import grb_plot as gplt
 
     dbg      = 0
-
     ngrb     = 1 # 250
-    ifirst   = 343
+    ifirst   = [980]
+    grb_folder = "../input/lightcurves/"
     # ifirst = ["190829A"]
-
+    print(ifirst)
     save_grb = False # (False) GRB saved to disk -> use grb.py main
     res_dir  = "."
 
@@ -546,10 +663,10 @@ if __name__ == "__main__":
     # Loop over GRB list
     for i in grblist:
 
-        grb = get_grb_fromfile(i,log=log)
+        grb = get_grb_fromfile(i,grb_folder = grb_folder,log=log)
         print(grb)
         gplt.spectra(grb,opt="Packed")
-        gplt.visibility_plot(grb, loc ="North")
-        gplt.visibility_plot(grb, loc ="South")
+        # gplt.visibility_plot(grb, loc ="North")
+        # gplt.visibility_plot(grb, loc ="South")
 
         if (save_grb): grb.write(res_dir) # Save GRB if requested
