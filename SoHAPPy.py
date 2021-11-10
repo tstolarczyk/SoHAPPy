@@ -99,7 +99,7 @@ def get_grb_fromfile(item,
     
     if config == None:
         test_prompt = False 
-        eblmodel    = None
+        eblmodel    = "dominguez"
         magnify     = 1
         afterglow   = False 
     else:
@@ -120,10 +120,7 @@ def get_grb_fromfile(item,
                 data = yaml.load(f, Loader=SafeLoader)
                 grb  = GammaRayBurst.from_yaml(data,ebl=eblmodel)
         elif isinstance(item, int):
-            filename = Path(grb_folder
-                            + "LONG_FITS/"
-                            + "Event"
-                            + str(item)+".fits")
+            filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits")
             grb = GammaRayBurst.from_fits(filename,
                                      ebl     = eblmodel,
                                      magnify = magnify)
