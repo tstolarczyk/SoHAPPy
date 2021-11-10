@@ -131,6 +131,7 @@ def result(mc,grb, log=None, header=True,pop=None):
     - ra    : Right ascension of the source (6.2f)
     - dec   : Declination of the source (6.2f)
     - ttrig : Trigger date (mjd) (15s)
+    - vis   : True if prompt during a visibility window (5s) 
     - t1    : Observ. start since trigger (s) (9.2f) (incl. slewing time)
     - t2    : Observ. stop since trigger (s) (9.2f)
     - alt1  : Altitude at t1 (deg) (5.2f)
@@ -327,6 +328,8 @@ def result(mc,grb, log=None, header=True,pop=None):
     # but unvisble have no slot defined
     # Solution : do not print out unviible GRB ? But then output data file will
     #  have mmissing lines for some GRB
+    loc = mc.name[mc.name.find("-")+1:]
+    prompt = -1 if loc=="Both" else grb.vis[loc].vis_prompt 
     records = {
             "name"     : {"v": grb.name,                      "f": ">10s"   },
             "Eiso"     : {"v": grb.Eiso.value,                "f": ">8.2e"  },
@@ -338,10 +341,11 @@ def result(mc,grb, log=None, header=True,pop=None):
             "gamle"    : {"v": grb.gamma_le,                  "f": ">8.2e"  },
             "gamhe"    : {"v": grb.gamma_he,                  "f": ">8.2e"  },
             "z"        : {"v": grb.z,                         "f": ">5.2f"  },
-            "site"     : {"v": mc.name[mc.name.find("-")+1:], "f": ">5s"  },
+            "site"     : {"v": loc,                           "f": ">5s"  },
             "ra"       : {"v": grb.radec.ra.value,  "f": ">6.2f" },
             "dec"      : {"v": grb.radec.dec.value, "f": ">6.2f" },
             "ttrig"    : {"v": grb.t_trig.mjd,      "f": ">15.8f"},
+            "vis"      : {"v": prompt,"f": ">3d"},
             "t1"       : {"v": tstart.value,      "f": ">9.2f" },
             "t2"       : {"v": tstop.value,       "f": ">9.2f" },
             "alt1"     : {"v": alt_start.value,   "f": ">5.2f" },
