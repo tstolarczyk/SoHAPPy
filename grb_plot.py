@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 
-import astropy
 import astropy.units as u
 from   astropy.coordinates   import AltAz
 from   astropy.coordinates import get_moon
@@ -27,8 +26,6 @@ plt.style.use('seaborn-poster') # Bug with normal x marker !!!
 # If False, avoid scirpt to be paused when a plot is popped-up (plt.show)
 block = False
 #-----------------------------------------------------------------------------#
-n_t_2disp = 8 # Number of curves to show in lighcurve plots
-n_E_2disp = 5 # Number of curves to show in energy spectra
 coln = "blue" # color for North site plots
 cols = "red"  # color for South site plots
 #-----------------------------------------------------------------------------#
@@ -68,91 +65,148 @@ def pause():
 # Plot Energy and time spectra
 #
 ###############################################################################
-def energy_and_time_packed(grb):
+def energy_spectra(grb, n_E_2disp = 5, ymin = 1e-16,  ax=None):
+    """
+    Energy spectra for various measurement points in time
+    Note: the plot methods handle the labels, should not be overwritten   
 
+    Parameters
+    ----------
+    grb : GammaRayBurst instance
+        A GRB.
+    n_E_2disp : TYPE, optional
+        Number of curves to show in energy spectra. The default is 5.
+    ax : matplotlib.axes, optional
+        Current matplotlib axis. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    if ax == None:
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+
+    # Compute number of spectra to be shown
+    nspectra = len(grb.tval)-1
+    if (nspectra > n_E_2disp):
+        dnt = int(round(nspectra/n_E_2disp))
+        tidx = list(range(0,nspectra,dnt))
+        # tidx = list(range(0,grb.id90))
+        # tidx = [12, 13, 14, 15] + tidx # Typical Prompt times
+    else:
+        dnt=1
+        tidx = [1]
+    
+ 
+    # Plot in color some of the energy spectra and the initial data points
     with quantity_support():
-
-        ### Energy spectra for various measurement points in time
-        # Note: the plot methods handle the labels, should not be overwritten
-        nspectra = len(grb.tval)-1
-        if (nspectra > n_E_2disp):
-            dnt = int(round(nspectra/n_E_2disp))
-            tidx = list(range(0,nspectra,dnt))
-            #tlist = [12, 13, 14, 15] + tlist # Typical Prompt times
-        else:
-            dnt=1
-            tidx = [1]
-
-        ymin = 1e-16
-
-        fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,12))
-
         for i in tidx:
-            #print(" energy_and_time_packed",i)
-            t = grb.tval[i]
+            t    = grb.tval[i]
+            flux = grb.fluxval[i,:] # Afterglow
+            
+            # WRONG IMPLEMENTATION
+            if i <= grb.id90: # if no prompt id90 =-1
+                flux += grb.flux_prompt[i] # Prompt
+        
+            # Plot the GRB interpolated spectra
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
-                                ax1,
-                                label="t={:>8.1f}".format(t))
-            c = ax1.lines[-1].get_color() # Last color
-            ax1.plot(grb.Eval.to(u.TeV),
-                     grb.fluxval[i,:].to(1/u.cm**2/u.s/u.TeV),
-                     ls='--',
-                     lw=1.,
-                     marker=".",
-                     alpha=0.5,
-                     color=c)
-
+                                ax, label="t={:>8.1f}".format(t))
+            
+            # Plot the initial data points (should fit)
+            c = ax.lines[-1].get_color() # Last color
+            ax.plot(grb.Eval.to(u.TeV),
+                    flux.to(1/u.cm**2/u.s/u.TeV) ,
+                     ls='--', lw=1., marker=".", alpha=0.5, color=c)   
+        
+        # Plot the rest faded out
         for i in range(0,nspectra):
             t = grb.tval[i]
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],
-                                ax1,
-                                alpha=0.2,
-                                color="grey",
-                                lw=1)
-
-        ax1.set_xscale("log")
-        ax1.set_yscale("log")
-        ax1.set_ylim(ymin=ymin)
-
-        ax1.axvline(10*u.GeV, color="grey",alpha=0.2)
-        ax1.text(x = 10*u.GeV, y=ymin*50, s="10 GeV",
+                                ax, alpha=0.2, color="grey",lw=1)
+            
+    
+        ax.axvline(10*u.GeV, color="grey",alpha=0.2)
+        ax.text(x = 10*u.GeV, y=ymin*50, s="10 GeV",
                  rotation=270, fontsize=14,va="bottom")
         title = "{}: {:>2d} Flux points".format(grb.name,len(grb.tval))
-        ax1.set_title(title,fontsize=12)
-        if (n_E_2disp<=15): ax1.legend(fontsize=12) # Too many t slices
+            
+    if (n_E_2disp<=15): ax.legend(fontsize=12) # Too many t slices
+    ax.set_title(title,fontsize=12)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_ylim(ymin=ymin)
+    
+    return
 
-        # Light curve for some energy bins
-        nlightcurves = len(grb.Eval)
-        if (nlightcurves> n_t_2disp):
-            dnE = int(round(nlightcurves/ n_t_2disp))
-        else:
-            dnE=1
+###############################################################################
+def time_spectra(grb, n_t_2disp = 8, ymin=1.e-16, ax=None):
 
+    
+    if ax == None:
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+        
+    # Light curve for some energy bins
+    nlightcurves = len(grb.Eval)
+    if (nlightcurves> n_t_2disp):
+        dnE = int(round(nlightcurves/ n_t_2disp))
+    else:
+        dnE=1
+
+    with quantity_support():
         for i in range(0,nlightcurves,dnE):
             flux = [f[i].value for f in grb.fluxval ]* grb.fluxval[0].unit
-            ax2.plot(grb.tval,
+            ax.plot(grb.tval,
                      flux,
                      marker=".",
                      label="E= {:>8.2f}".format(grb.Eval[i]))
-
-        ax2.axvline(30*u.s,color="grey",alpha=0.2)
-        ax2.text(x=30*u.s,
+    
+        ax.axvline(30*u.s,color="grey",alpha=0.2)
+        ax.text(x=30*u.s,
                  y=(flux[len(flux)-1]),
                  s="30 s",
                  rotation=0,
                  fontsize=14)
 
-        if len(grb.tval) > 2 : ax2.set_xscale("log")
-        ax2.set_yscale("log")
-        ax2.set_xlabel("Time (s)")
-        title = "{}: {:>2d} E points".format(grb.name,len(grb.Eval))
-        ax2.set_title(title,fontsize=12)
+    if len(grb.tval) > 2 : ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Time (s)")
+    title = "{}: {:>2d} E points".format(grb.name,len(grb.Eval))
+    ax.set_title(title,fontsize=12)
 
-        if (n_t_2disp<=8):
-            ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+    if (n_t_2disp<=8):
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_ylim(ymin=ymin)
+    
+    return
+###############################################################################
+def energy_and_time_packed(grb, n_t_2disp = 8, n_E_2disp = 5 ):
+    """
+    
 
-        plt.tight_layout()
-        plt.show(block=block)
+    Parameters
+    ----------
+    grb : TYPE
+        DESCRIPTION.
+    n_t_2disp : integer, optional
+        Number of curves to show in lighcurve plots. The default is 8.
+    n_E_2disp : integer, optional
+        Number of curves to show in energy spectra. The default is 5.
+
+    Returns
+    -------
+    None.
+
+    """
+    fig, (ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(10,12))
+    energy_spectra(grb,n_E_2disp = n_E_2disp, ax=ax1)
+    time_spectra(grb,n_t_2disp = n_t_2disp,   ax=ax2)
+
+    plt.tight_layout()
+    plt.show(block=block)
 
     return
 ###############################################################################
@@ -612,3 +666,37 @@ def visibility_plot(grb,
 
     fig.tight_layout(h_pad=0, w_pad=0)
     return
+
+#------------------------------------------------------------------------------
+if __name__ == "__main__":
+
+    """
+    A standalone function to read a GRB plot the spectra
+    """
+
+    from SoHAPPy import get_grb_fromfile
+    import grb_plot as gplt
+    
+    dbg      = 0
+    ngrb     = 1 # 250
+    ifirst   = [980]
+    grb_folder = "../input/lightcurves/"
+    # ifirst = ["190829A"]
+    print(ifirst)
+    save_grb = False # (False) GRB saved to disk -> use grb.py main
+    res_dir  = "."
+    
+    # GRB list to be analysed
+    if type(ifirst)!=list:
+        grblist = list(range(ifirst, ifirst + ngrb))
+    else:
+        grblist = ifirst
+
+    # Loop over GRB list
+    for i in grblist:
+
+        grb = get_grb_fromfile(i,grb_folder = grb_folder,log=None)
+        print(grb)
+        # gplt.spectra(grb,opt="Packed")
+        # gplt.energy_spectra(grb)        
+        gplt.time_spectra(grb)
