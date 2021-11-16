@@ -68,9 +68,6 @@ site_xyz = {
         }
  }
 
-
-
-
 __all__ = ["Visibility"]
 ###------------------------------------------------------------------------
 def Df(x):
@@ -330,9 +327,6 @@ class Visibility():
         ### HORIZON ---
         (high, t_above) = cls.horizon(obs)
 
-        # Prompt appears above horizon during night
-        if (high and is_night): cls.vis_prompt = True
-
         # Now prepare the ticks from all the intervals
         ticks = [cls.tstart.jd] # ,cls.tstop.jd] is night end
 
@@ -387,8 +381,10 @@ class Visibility():
                               bright, dark, above, not moon, visible),end="")
                 if (visible): print(" *")
                 else: print()
-
-        # Write back all intervals into Time and into Class
+                
+        ###---------------------------------------        
+        ### Write back all intervals into Time and into Class
+        ###---------------------------------------        
         if len(t_night[0])==0 :
             cls.t_twilight  = [[]]
         else:
@@ -415,18 +411,23 @@ class Visibility():
         # If no visibility window is left, re-assign vis_tonight
         if len(t_vis) == 0 :
             cls.t_true  = [[]]
+            cls.vis_pompt   = False
             cls.vis_tonight = False
             cls.vis         = False
         else:
             ### At least one visibility period is found
-            # Will it survive moon distance and brigthness cut ?
             cls.vis_tonight = True
             cls.t_true  = []
+            
             for elt in t_vis:
-#                if not moonlight_veto(t_vis):
-                #cls.t_moon_alt.append( [Df(elt[0]), Df(elt[1])] )
-                #if (elt[end_of_day] - cls.tstart.jd <= cls.depth):
                 cls.t_true.append( [Df(elt[0]), Df(elt[1])] )
+
+            # If first visible interval is after the GRB trigger
+            # Prompt i not visible.
+            if t_vis[0][0] > cls.tstart.jd :
+                cls.vis_prompt = False
+            else:
+                cls.vis_prompt = True
 
         return cls
 
