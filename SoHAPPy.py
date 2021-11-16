@@ -286,10 +286,10 @@ def main(argv):
 
             for loc in ["North","South"]:
 
-                if (cf.vis_dir != None):
+                if  cf.vis_dir != None and not cf.vis_cmp:
                     name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
                     grb.vis[loc] = Visibility.read(name)
-                elif (cf.vis_cmp):
+                elif cf.vis_cmp:
                     grb.vis[loc] = Visibility.compute(grb,
                                          loc,
                                          observatory = cf.observatory,
@@ -301,6 +301,8 @@ def main(argv):
                                          skip        = cf.skip,
                                          force_vis   = cf.forced_visible,
                                          debug       = bool(cf.dbg>2))
+                else:
+                    sys.exit(" Check your visibility options")
 
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
