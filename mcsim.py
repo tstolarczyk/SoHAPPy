@@ -17,16 +17,14 @@ import mcsim_config as mcf
 
 from dataset_tools import check_dataset
 
-# Avoid deprecation Astropy warnings in gammapy.maps
 from gammapy.modeling.models import SkyModel
 from gammapy.utils.random import get_random_state
 from gammapy.stats import WStatCountsStatistic
-from gammapy.maps import RegionNDMap
+from gammapy.maps import RegionNDMap, MapAxis
 
+
+# Avoid deprecation Astropy warnings in gammapy.maps
 import warnings
-
-import gammapy
-
 with warnings.catch_warnings():
     from gammapy.data import Observation
 
@@ -533,8 +531,10 @@ class MonteCarlo():
             dset_site = []
             for ip, perf in enumerate(aslice.irf()):
 
-                on_size = mcf.on_size[perf.subarray]
-                offset  = mcf.offset[perf.subarray]
+                array = perf.subarray
+                kzen = perf.kzen
+                on_size = mcf.on_size[array]
+                offset  = mcf.offset[array]
                 # The on-region is on the GRB
                 on_region = CircleSkyRegion(center = self.slot.grb.radec,
                                             radius = on_size)
@@ -554,7 +554,17 @@ class MonteCarlo():
                 # Create dataset - correct for containment - add model
                 ds_name  = aslice.site()+"-"+str(aslice.idt())+"-"+str(ip)
                 
-                e_reco = perf.ereco
+                # Reconstructed energy axis
+                # Stacking requires same original binning -> uses largest interval
+                # Ensure that all possible edges are in, later apply masking
+                # Use the Optimised binning
+                # There is a bug in 0.17 (unit not taken into account
+                # correctly)preventig from simply writing
+                # erec_axis = MapAxis.from_edges(erec_edges,name="energy")
+                e_reco = MapAxis.from_edges(mcf.erec_edges[array].to("TeV").value,
+                                            unit="TeV",
+                                            name="energy",
+                                            interp="log")
                 e_true = perf.etrue
                 
                 ds_empty = SpectrumDataset.create(e_reco = e_reco,
@@ -567,6 +577,27 @@ class MonteCarlo():
                     
                 ds = maker.run(ds_empty, obs)
 
+                # Compute containmentfactor  
+                # The PSF being given versus true energy, using the reconstructed energy
+                # axis to compute the factor assumes that the reconstructed energy is
+                # strictly equals to the true energy, which is certainly not the case at
+                # the lowest energies.
+                # Maybe this could desserve a specific study.                       
+                radii = perf.irf['psf'].containment_radius(energy   = e_reco.center,
+                                                           theta    = mcf.offset[array],
+                                                           fraction = mcf.containment)[0]
+                factor  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[array]))
+                # If factor is too large above threshold, error
+                idx = np.where((e_reco.center)[np.where(factor>1 )] >= mcf.erec_min[array][kzen])
+                if (np.size(idx)):
+                    # Get guilty energies
+
+                    print(" E = ",e_reco.center[idx])
+                    print(" R = ",radii[idx].value," max = ",
+                                  mcf.on_size[array].value)
+                    print(" F = ",factor[idx])
+                    #sys.exit("IRF : Initial region too small")
+
                 # In Gammapy 0.17, it is mandatory to change the effective
                 # area before the mpdel is set, since once the model is set it
                 # cannot be changed anymore.
@@ -575,10 +606,10 @@ class MonteCarlo():
 
                 # ds.exposure.data   *= mcf.containment
                 ds.exposure   *= mcf.containment
-                ds.background.data *= perf.factor.reshape((-1, 1, 1))
+                ds.background.data *= factor.value.reshape((-1, 1, 1))
                 ds.models           = model
-                mask = ds.mask_safe.geom.energy_mask(energy_min = perf.ereco_min,
-                                                     energy_max = perf.ereco_max)
+                mask = ds.mask_safe.geom.energy_mask(energy_min = mcf.erec_min[array][kzen],
+                                                     energy_max = mcf.erec_max[kzen])
                     
                 mask = mask & ds.mask_safe.data
                 ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
