@@ -34,7 +34,7 @@ from   utilities import Log
 ifirst  = 1
 ngrb    = 1000 # 250
 
-conditions = "normal"
+conditions = "maximum"
 save_vis   = True # Save to disk in vis_folder
 read_vis   = False # Read from disk in vis_folder
 
@@ -51,7 +51,7 @@ elif conditions == "minimum":
     moondist  =   0*u.deg   # The Moon distance do not veto the visibility
     moonlight = 1.0         # The Moon brightness is not a limitation    
 elif conditions == "maximum":
-    vis_folder = "../output/vis_24_fullmoonveto/"
+    vis_folder = "../output/vis_24_strictmoonveto/"
     altmin    =    24*u.deg # CTA requirement horizon
     altmoon   = -0.25*u.deg # Moon above horizon
     moondist  =   180*u.deg # The Moon vetoes even if far away
@@ -62,9 +62,6 @@ skip  = 0        # (0) Number of first nights to be skipped
 dbg   = 0
 show  = 0
 
-
-
-
 # GRB list to be analysed
 if type(ifirst)!=list:
     grblist = list(range(ifirst,ifirst+ngrb))
@@ -72,13 +69,11 @@ else:
     grblist = ifirst
 
 # Compute and save visibility
-
 if save_vis:
     start = time.time() # Starts chronometer
     os.makedirs(vis_folder, exist_ok=True) # Create output folder
     print("Writing visibility to Output folder : ",vis_folder)
     log        = Log(name  = vis_folder+"visibility_write.log",talk=True)
-
 
     # Loop over GRB list
     for i in grblist:
