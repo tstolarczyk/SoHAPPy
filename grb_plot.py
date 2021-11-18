@@ -494,28 +494,32 @@ def source_alt_and_flux(grb, vis, times, site="None", tshift=0*u.s,
     return ax
 
 ###---------------------------------------------------------------------------
-def moon_alt_plot(vis, times, alt, ax=None, color="darkblue"):
+def moon_alt_plot(vis, times, alt, ax=None, alpha=1, color="darkblue"):
 
     if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
 
     with quantity_support():
-        ax.plot(times.datetime,alt,color=color,label="Moon altitude")
-        ax.axhline(y=vis.moon_maxalt , color= color, ls=":")
+        ax.plot(times.datetime,alt,
+                color=color,alpha=alpha,label="Moon altitude")
+        ax.axhline(y=vis.moon_maxalt , 
+                   color= color, alpha=alpha, ls=":")
     ax.set_ylabel("Alt.(°)")
     ax.legend()
 
     return ax
 ###---------------------------------------------------------------------------
-def moon_dist_plot(vis, grb,times, radec, site="None", ax=None, color="purple"):
+def moon_dist_plot(vis, grb,times, radec, site="None", 
+                   ax=None, alpha=1, color="purple"):
 
     if (ax==None): fig, ax = plt.subplots(figsize=(21,5))
 
     dist = radec.separation(grb.radec)
 
     with quantity_support():
-        ax.plot(times.datetime,dist,color=color,label="Moon distance")
-        ax.axhline(y=vis.moon_mindist , color= color, ls=":",
-                   label="Min. distance")
+        ax.plot(times.datetime,dist,
+                color=color,alpha=alpha, label="Moon distance")
+        ax.axhline(y=vis.moon_mindist , 
+                   color= color, ls=":", alpha=alpha, label="Min. distance")
     ax.set_ylabel("Dist.")
     ax.legend()
 
@@ -589,8 +593,8 @@ def visibility_plot(grb,
 
     if (moon):
         fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True,
-                               gridspec_kw={'height_ratios': [5,2,2]},
-                               figsize=(25, 14))
+                               gridspec_kw={'height_ratios': [7,2,2]},
+                               figsize=(17, 10))
     else:
         ax = plt.gca() if ax is None else ax
         ax[0] = ax
@@ -631,10 +635,11 @@ def visibility_plot(grb,
 
             ### Moon altitude
             alt = radec.transform_to(AltAz(location=vis.site, obstime=tobs)).alt
-            moon_alt_plot(vis, tobs, alt, ax = ax[1])
+            moon_alt_plot(vis, tobs, alt, ax = ax[1], alpha=0.5)
 
             ### Moon distance and brigthness
-            moon_dist_plot(vis, grb,tobs, radec,site=vis.site,ax = ax[2]) # Distance
+            moon_dist_plot(vis, grb,tobs, radec,site=vis.site,
+                           ax = ax[2],alpha=0.5) # Distance
             axx = ax[2].twinx()
             moonlight_plot(vis, tobs,ax=axx) # Brightness
             #moonphase_plot(tobs,ax=axx) # Phase (correlated to Brightness)
@@ -674,6 +679,9 @@ if __name__ == "__main__":
     A standalone function to read a GRB plot the spectra
     """
 
+    import matplotlib.pyplot as plt
+    #plt.style.use('seaborn-talk') # Make the labels readable
+    plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!
     from SoHAPPy import get_grb_fromfile
     import grb_plot as gplt
     
@@ -697,6 +705,17 @@ if __name__ == "__main__":
 
         grb = get_grb_fromfile(i,grb_folder = grb_folder,log=None)
         print(grb)
-        # gplt.spectra(grb,opt="Packed")
-        # gplt.energy_spectra(grb)        
+        #gplt.spectra(grb,opt="Packed")
+        gplt.energy_spectra(grb)        
         gplt.time_spectra(grb)
+        
+        # Read/compute a visibility and plot
+        import sys
+        from pathlib import Path
+        from configuration import Configuration
+        from visibility import Visibility
+        cf = Configuration(sys.argv[1:])
+        for loc in ["North","South"]:
+            name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
+            grb.vis[loc] = Visibility.read(name)
+            gplt.visibility_plot(grb, loc =loc)
