@@ -230,9 +230,9 @@ class Configuration(object):
         #     method = "On-off Energy dependent"
         log.prt(" Analysis (ndof)         : {}".format(self.method))
         if not self.forced_visible:
-            if (self.vis_dir != None):
+            if self.vis_dir != None and not self.vis_cmp:
                 log.prt(" Vis. read from          : {}".format(self.vis_dir))
-            elif (self.vis_cmp):
+            elif self.vis_cmp:
                 # vis_self.print(log)
                 log.prt(" Vis. computed up to     : {} night(s)".format(self.depth))
                 log.prt(" Skip up to              : {} night(s)".format(self.skip))
@@ -240,7 +240,9 @@ class Configuration(object):
                 log.prt(" Moon max. altitude      : {}".format(self.altmoon))
                 log.prt(" Moon min. distance      : {}".format(self.moondist))
                 log.prt(" Moon max. brightness    : {}".format(self.moonlight))
-    
+            else:
+                sys.exit(" Check your visibility options")
+                
         else:
             log.prt(" Visibility              : default")
     
