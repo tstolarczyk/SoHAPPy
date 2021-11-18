@@ -71,7 +71,7 @@ dt_log_valid = \
                 10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] ))],
     "18000s" : [10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] )),
                 10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"] ))],
-    "180000s": [10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["18000s"])),
+    "180000s": [10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"])),
                  np.inf]
     }
 }
@@ -342,7 +342,7 @@ class IRF():
         print(" Sub-array      : ",self.subarray) 
         print(" Zenith         : ",self.kzen) 
         print(" Azimuth        : ",self.kaz) 
-        print(" Duration       : ",self.fr) 
+        print(" Duration       : ",self.kdt) 
         return
 
 ###############################################################################
@@ -580,8 +580,8 @@ if __name__ == "__main__":
     import gammapy
     print(" Running with gammapy ",gammapy.__version__)
 
-    # irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod3-v2"
-    # array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
+    irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod3-v2"
+    array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
     # array   = {"North":"LST", "South":"LST"} # "FullArray", "LST",...
     # array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
 
@@ -594,8 +594,89 @@ if __name__ == "__main__":
     show = []
     # show = ["containment", "onoff", "effearea","generic"]
     # show = ["effarea", "containment"]
-    show = ["containment","onoff"]
+    # show = ["containment","onoff"]
+    show = ["edisp"]
+    
+    print(dt_log_valid)
+    ###-------------------------
+    ### E dispersion    
+    ###-------------------------
+    if "edisp" in show:
+        npoints = 25
+        ratio = np.linspace(0.25,1.75,npoints)
+        etrue = np.array([30,40, 60, 110, 200, 350])*u.GeV
+        zenlist = [21*u.deg, 41*u.deg, 61*u.deg]
+        dtlist  = [100*u.s, 1*u.h, 10*u.h, 100*u.h]
+        # dtlist = [100*u.s]
+        # zenlist = [21*u.deg]
         
+        for loc in ["North","South"]:
+            offset = mcf.offset[array[loc]]
+            print(loc," -> Offset = ",offset) 
+            
+            for dt in dtlist:
+                fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(17,6),sharey=True) 
+                iplot = 0    
+                # Display the 3 zenith plots
+                for ax0, zenith in zip(ax, zenlist):
+                    irf = IRF.from_observation(loc=loc,
+                                                subarray   = array[loc],
+                                                zenith  = zenith,
+                                                azimuth = 123*u.deg,
+                                                obstime = dt,
+                                                irf_dir = irf_dir )
+                    print(" ",irf.filename)
+                    # Display E dispersion
+                    irf.irf["edisp"].plot_migration(ax0,
+                                                    offset = offset,
+                                                    migra = ratio,
+                                                    energy_true = etrue,
+                                                    alpha=0.5,
+                                                    marker =".")    
+                    
+                    # Superimpose the dispersion for the threshold energy
+                    ethreshold = [mcf.erec_min[array[loc]][irf.kzen]+mcf.safe_margin]
+                    # print(ethreshold)
+                    irf.irf["edisp"].plot_migration(ax0,
+                                                    offset=offset,
+                                                    migra=ratio,
+                                                    energy_true = ethreshold,
+                                                    alpha=1.0,
+                                                    marker="o")                    
+                    
+                    # Change color of threshold and simplify labels
+                    lines, labels = ax0.get_legend_handles_labels()
+                    iline=0
+                    elist = np.append(etrue, ethreshold)
+                    for line, E in zip(lines,elist):
+                        if iline < len(lines)-1:
+                            txt = str(E.value) + " " + str(E.unit)
+                        else:
+                            txt = "Threshold"
+                            line.set_color("black")
+
+                        line.set_label(txt)
+                        # print("***",iline," ->", txt)
+                        iline+=1
+                    
+                    
+                    # Display acceptable +/- 25% area
+                    ax0.axvspan(xmin=0.75,xmax=1.25,alpha=0.2,color="grey")
+                    ax0.axvline(x=1.0,alpha=0.5,color="grey")
+                    
+                    # Titles
+                    ax0.set_title(loc+ " - "+irf.kzen+" -  "+irf.kdt+" - "+str(offset.value)+"°")                
+                
+                    # Decoration
+                    # ax0.set_yscale("log")
+                    if iplot<2: ax0.get_legend().remove()
+                    if iplot != 0 : ax0.set_ylabel(None)
+                    iplot+=1
+                    
+                ax0.legend(bbox_to_anchor=[1,0.5],fontsize=12)
+                # Rearrange the plots
+                plt.tight_layout(w_pad=0)
+            
     ###-------------------------
     ### Generic    
     ###-------------------------
@@ -610,7 +691,6 @@ if __name__ == "__main__":
             irf.print()
             irf.irf["psf"].peek()
             irf.irf["edisp"].peek()
-    
         print(dt_log_valid)
     
     ###-------------------------
