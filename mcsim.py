@@ -806,6 +806,5 @@ class MonteCarlo():
         pickle.dump(self,outfile)
         outfile.close()
 
-        from utilities import success
-        success(" Saving simulation to file : {}".format(filename))
+        print(" Saving simulation to file : {}".format(filename))
         return
