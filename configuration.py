@@ -7,7 +7,7 @@ from yaml.loader import SafeLoader
 import astropy.units as u
 from pathlib import Path
 
-from utilities    import Log, warning
+from utilities    import Log
 
 def_conf = "config.yaml"
 ###############################################################################
@@ -124,21 +124,21 @@ class Configuration(object):
         return
         
     ###------------------------------------------------------------------------    
-    def create_output_folder(self):
+    def create_output_folder(self, log):
     
         # Get output folder absolute repository 
-        # (from where the code is launched,not the code repository)
+        # (from where the code is launched, not the code repository)
         self.res_dir = Path(self.res_dir).resolve()
         
         # Check that the output folder exists, otherwise try to create it
         if not self.res_dir.exists():
-            warning("Creating {}".format(self.res_dir))
+            log.warning("Creating {}".format(self.res_dir))
             try:
                 Path.mkdir(self.res_dir)
             except:
                 sys.exit(" Could not create {}".format(self.res_dir))
         else:
-            warning(" Already exists :",self.res_dir)
+            log.warning(" Already exists :",self.res_dir)
         return
     ###------------------------------------------------------------------------    
     def read(self):
