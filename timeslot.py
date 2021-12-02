@@ -58,6 +58,7 @@ class Slot():
     def __init__(self,grb, name="naked",
                  site="?",delay=-1*u.s,opt="end",debug=False):
         """
+        
         Create a naked observation slot consisting of a GRB, a visibility
         window, naked slices, and a flag mentionning if the slot was dressed
         with physics information.
@@ -67,15 +68,19 @@ class Slot():
         ----------
         grb :  GRB class
             a GRB class instantiation
-        site : string, optional
-            The site to which this slot is associated
-            Can be North, South or Both
         name : String, optional
-            A name for the slot. The default is "naked".
+            The slot name. The default is "naked".
+        site : string, optional
+            The site to which this slot is associated.
+            Can be 'North', 'South' or 'Both'.
+            The default is '?'.
+        delay : astropy.time, optional
+            The observation delay of the slot. The default is -1*u.s.
         opt : string, optional
-            Allows choosing how the observation points are chosen.
+            Defines how the observation points are chosen.
             The default is "end".
-        Returns
+        debug : Boolean, optional
+            If True, verbosy. The default is False.        Returns
         -------
         None.
         """
@@ -100,12 +105,23 @@ class Slot():
         return
 
     #------------------------------------------------------------
-    def dress(self, name="dressed", irf_dir= "./",
-                                    arrays = None,
-                                    zenith = None,
-                                    debug  = False):
+    def dress(self, irf_dir= "./",
+                    arrays = None,
+                    zenith = None,
+                    debug  = False):
         """
-        Dress slices with physics information
+        Dress the slot slices with physics information
+
+        Parameters
+        ----------
+        irf_dir : String, optional
+            The IRF folder name. The default is "./".
+        arrays : String, optional
+            The subarray to which belong the slot. The default is None.
+        zenith : astropy.coordinates import Angle, optional
+            Observation zenith angle. The default is None.
+        debug : Boolean, optional
+            If True, becomes talkative. The default is False.
 
         Returns
         -------
@@ -137,6 +153,16 @@ class Slot():
 
     #------------------------------------------------------------
     def compact(self):
+        """
+        Scan the slot slices and merge those attached to the same
+        physical flux.
+
+        Returns
+        -------
+        None.
+
+        """
+        
 
         prev_fid = -999
         newslices = []
@@ -159,6 +185,20 @@ class Slot():
 
     #------------------------------------------------------------
     def copy(self,name="a_copy"):
+        """
+        Copy a slot, change the initial name.
+
+        Parameters
+        ----------
+        name : Sring, optional
+            The name of the slot copy. The default is "a_copy".
+
+        Returns
+        -------
+        slot_copy : TimeSlot
+            The slor copy.
+
+        """
 
         # Could change name and site here
         self.name = name
@@ -326,11 +366,11 @@ class Slot():
     #------------------------------------------------------------
     def find(self,time):
         """
-        Find the slice containing time
+        Find the slice containing the given time.
 
         Parameters
         ----------
-        time : Quantity (time)
+        time : astropy.time (time)
             An observation time
 
         Returns
@@ -352,7 +392,7 @@ class Slot():
 
         Parameters
         ----------
-        ax : matplotlib axes
+        ax : matplotlib.axes
             Axes on which the plots are shown. The default is None.
         Eref : Quantity (energy), optional
             The reference energy used to display the lightcurve
@@ -364,7 +404,8 @@ class Slot():
         None.
         """
 
-        if (ax==None): ax=plt.subplots()[1]
+        if (ax==None):         
+            fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
 
         ### GRB lightcurve near Eref ---
         iref = np.argmin(np.abs(Eref-self.grb.Eval))
@@ -574,10 +615,9 @@ if __name__ == "__main__":
     cf.newvis    = True
     cf.altmin    = 10*u.deg # Minimum altitude (original default is 10 degrees)
 
-    delay = 0*u.s
-    ifirst= [85] # 1, 85, 204
-    # ifirst = 100
-    ngrb = 1
+    delay  = 0*u.s
+    ifirst = [85] # 1, 85, 204
+    ngrb   = 1
 
     # GRB list to be analysed
     if type(ifirst)!=list:
@@ -636,10 +676,4 @@ if __name__ == "__main__":
 
     log.close()
     print("c'est fini")
-
-
-
-
-
-
 
