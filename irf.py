@@ -520,8 +520,13 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
     return
 
 ###------------------------------------------------------------------------
-def  aeff_plot(irf,min_fraction = 0.05, unit="GeV"):
+def  aeff_plot(irf, ethreshold = 100*u.GeV, 
+               min_fraction = 0.05, 
+               unit="GeV",
+               tag=""):
 
+    from utilities import single_legend
+        
     # Effective area
     effarea = irf.irf["aeff"].data
     e_edges = effarea.axes[0].center
@@ -534,28 +539,32 @@ def  aeff_plot(irf,min_fraction = 0.05, unit="GeV"):
         with quantity_support():
             
             
-            label = str(off.value)+"° " + "-" + (irf.filename.parts[-2])[6:]
+            label = tag + "\n"+str(off.value)+"° " 
             
             # effarea.evaluate(energy_true = e_edges,offset =off))
             p = axij.plot(e_edges,
                           effoff.data.evaluate(energy_true = e_edges)/1e6,
                           label=label)
-            axij.axhline(y=min_fraction*effmax/1e6,ls=":",color=p[0].get_color())
+            axij.axhline(y=min_fraction*effmax/1e6,ls="--",
+                         color=p[0].get_color(),
+                         label=str(100*min_fraction)+"%")
             # axij.axvline(x=irf.ereco_min,
             #              ls=":",color=p[0].get_color(),
             #              label="Emin")
             # axij.axvline(x=irf.ereco_max,
             #              ls=":",color=p[0].get_color(),
             #              label="Emax")
+            axij.axvline(ethreshold,color="tab:green",ls="--")
             axij.set_xscale("log")
             axij.set_yscale("log")
             axij.legend()
             if j>0 : axij.set_ylabel(None)
             if i>1 : axij.set_xlabel(None)
-            axij.grid("both",which="major",alpha=0.8)
-            axij.grid("both",which="minor",alpha=0.5)
+            axij.grid("both",which="major",alpha=0.5)
+            axij.grid("both",which="minor",alpha=0.3)
+            single_legend(axij)
+
     print()
-            #axis.legend()
     plt.tight_layout(h_pad=0, w_pad=0)
     
     return
@@ -585,8 +594,9 @@ if __name__ == "__main__":
     # array   = {"North":"LST", "South":"LST"} # "FullArray", "LST",...
     # array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
 
-    irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod5-v0.1"
-    array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
+    # irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod5-v0.1"
+    # array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
+    # array   = {"North":"4LSTs09MSTs", "South":"4LSTs14MSTs40SSTs"}
 
     idx = irf_dir.find("prod")
     prod = irf_dir[idx:idx+5]
@@ -594,8 +604,9 @@ if __name__ == "__main__":
     show = []
     # show = ["containment", "onoff", "effearea","generic"]
     # show = ["effarea", "containment"]
-    # show = ["containment","onoff"]
+    show = ["containment"]
     show = ["edisp"]
+    show = ["effarea"]
     
     print(dt_log_valid)
     ###-------------------------
@@ -761,9 +772,9 @@ if __name__ == "__main__":
               .format(100*min_fraction,unit))
     
         for loc in ["North","South"]:
-            fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(15,15),
+            fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(15,12),
                                         sharex=True, sharey=True)
-            fig.suptitle(array[loc] + "-" + loc,fontsize=30)
+            fig.suptitle(array[loc] + "-" + loc,fontsize=24)
     
             print("{:5s} {:10s} {:7s} {:7s} {:7s}"
                   .format(loc,array[loc],"0°","0.5°","1.0°"))
@@ -782,7 +793,10 @@ if __name__ == "__main__":
                     print("{:13s} :"
                           .format(str(z)+"° "+str(dt.value)+" "+str(dt.unit)),end="")
     
-                    aeff_plot(irf,unit=unit,min_fraction=min_fraction)
+                    aeff_plot(irf,unit=unit,
+                              min_fraction=min_fraction,
+                              ethreshold = mcf.erec_min[irf.subarray][irf.kzen],
+                              tag = irf.kzen + "\n" +irf.kdt)
                     i+=1
             plt.subplots_adjust(top=0.95)
 
