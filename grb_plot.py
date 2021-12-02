@@ -86,7 +86,7 @@ def energy_spectra(grb, n_E_2disp = 5, ymin = 1e-16,  ax=None):
     """
 
     if ax == None:
-        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(9,6))
 
     # Compute number of spectra to be shown
     nspectra = len(grb.tval)-1
@@ -141,11 +141,11 @@ def energy_spectra(grb, n_E_2disp = 5, ymin = 1e-16,  ax=None):
     return
 
 ###############################################################################
-def time_spectra(grb, n_t_2disp = 8, ymin=1.e-16, ax=None):
+def time_spectra(grb, n_t_2disp = 6, ymin=1.e-16, ax=None):
 
     
     if ax == None:
-        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(9,6))
         
     # Light curve for some energy bins
     nlightcurves = len(grb.Eval)
@@ -160,7 +160,7 @@ def time_spectra(grb, n_t_2disp = 8, ymin=1.e-16, ax=None):
             ax.plot(grb.tval,
                      flux,
                      marker=".",
-                     label="E= {:>8.2f}".format(grb.Eval[i]))
+                     label="E= {:>8.1f}".format(grb.Eval[i]))
     
         ax.axvline(30*u.s,color="grey",alpha=0.2)
         ax.text(x=30*u.s,
@@ -176,7 +176,8 @@ def time_spectra(grb, n_t_2disp = 8, ymin=1.e-16, ax=None):
     ax.set_title(title,fontsize=12)
 
     if (n_t_2disp<=8):
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+#         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=12)
+        ax.legend(loc='upper left',fontsize=11)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_ylim(ymin=ymin)
@@ -557,7 +558,8 @@ def moonphase_plot(times, ax=None, color="red"):
 ###---------------------------------------------------------------------------
 def visibility_plot(grb,
                     loc  = None,
-                    moon = True,
+                    moon_alt  = True,
+                    moon_dist = True,
                     ax   = None,
                     dt_before = 0.25*u.day, # Before trigger
                     dt_after  = 0.25*u.day, # After visibility window
@@ -591,13 +593,23 @@ def visibility_plot(grb,
 
     vis = grb.vis[loc]
 
-    if (moon):
-        fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True,
-                               gridspec_kw={'height_ratios': [7,2,2]},
-                               figsize=(17, 10))
+    if moon_alt:
+        if moon_dist:
+            ratio = {'height_ratios': [7,2,2]}
+            nrows = 3
+            ysize = 10
+        else:
+            ratio = {'height_ratios': [7,2]}
+            nrows = 2
+            ysize = 9
     else:
-        ax = plt.gca() if ax is None else ax
-        ax[0] = ax
+        ratio = {'height_ratios': [1]}
+        nrows = 1
+        ysize = 7        
+    
+    fig, ax = plt.subplots(nrows=nrows, ncols=1, sharex=True,
+                           gridspec_kw=ratio,
+                           figsize=(17, ysize))
 
     with warnings.catch_warnings() and quantity_support() :
         warnings.filterwarnings("ignore")
@@ -616,33 +628,36 @@ def visibility_plot(grb,
                     ax = ax[0],color="tab:blue",alpha=0.2, tag="Above horizon",
                     ymin=0.,  ymax= 0.5,)
 
+        ### Moon if requested
+        if moon_alt or moon_dist:
+            radec = get_moon(tobs, vis.site) # Moon position along time
+
+            if moon_alt:
+                ### Moon veto periods
+                period_plot(vis.t_moon_up,
+                            ax =ax[1],color="tab:orange",alpha=0.2, tag="Moon veto")
+                ax[1].grid("both",ls="--",alpha=0.5)
+
+                ### Moon altitude
+                alt = radec.transform_to(AltAz(location=vis.site, obstime=tobs)).alt
+                moon_alt_plot(vis, tobs, alt, ax = ax[1], alpha=0.5)
+
+                if moon_dist:
+                    ### Moon distance and brigthness
+                    moon_dist_plot(vis, grb,tobs, radec,site=vis.site,
+                                   ax = ax[2],alpha=0.5) # Distance
+                    period_plot(vis.t_moon_up,
+                    ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
+                    ax[2].grid("both",ls="--",alpha=0.5)
+
+                    axx = ax[2].twinx()
+                    moonlight_plot(vis, tobs,ax=axx) # Brightness
+                    #moonphase_plot(tobs,ax=axx) # Phase (correlated to Brightness)
+
         ### Nights on all plots
         for axis in ax:
             period_plot(vis.t_twilight,
                         ax =axis,color="black",alpha=0.1, tag="Night")
-
-        ### Moon if requested
-        if (moon):
-            radec = get_moon(tobs, vis.site) # Moon position along time
-
-            ### Moon veto periods
-            period_plot(vis.t_moon_up,
-                        ax =ax[1],color="tab:orange",alpha=0.2, tag="Moon veto")
-            period_plot(vis.t_moon_up,
-                        ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
-            ax[1].grid("both",ls="--",alpha=0.5)
-            ax[2].grid("both",ls="--",alpha=0.5)
-
-            ### Moon altitude
-            alt = radec.transform_to(AltAz(location=vis.site, obstime=tobs)).alt
-            moon_alt_plot(vis, tobs, alt, ax = ax[1], alpha=0.5)
-
-            ### Moon distance and brigthness
-            moon_dist_plot(vis, grb,tobs, radec,site=vis.site,
-                           ax = ax[2],alpha=0.5) # Distance
-            axx = ax[2].twinx()
-            moonlight_plot(vis, tobs,ax=axx) # Brightness
-            #moonphase_plot(tobs,ax=axx) # Phase (correlated to Brightness)
 
         ### Visibility windows - if the GRB is visible
         if vis.vis:
@@ -659,8 +674,7 @@ def visibility_plot(grb,
             axis.legend(by_label.values(), by_label.keys(),
                       loc='center left', bbox_to_anchor=(1.1, 0.5),fontsize=12)
 
-        if (moon): axis = ax[2]
-        else: axis = ax[0]
+        axis = ax[nrows-1]
 
         axis.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
         axis.set_xlabel("Date (DD-HH:MM) UTC")
@@ -671,7 +685,6 @@ def visibility_plot(grb,
 
     fig.tight_layout(h_pad=0, w_pad=0)
     return
-
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
 
