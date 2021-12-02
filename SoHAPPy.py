@@ -220,7 +220,7 @@ def main(argv):
     
     # Read Configuration - (create output folder)
     cf = Configuration(sys.argv[1:])
-    cf.create_output_folder() # Create output folder
+    cf.create_output_folder(log) # Create output folder
     
     sim_filename    = Path(cf.res_dir, cf.datafile)
     log_filename    = Path(cf.res_dir, cf.logfile)
