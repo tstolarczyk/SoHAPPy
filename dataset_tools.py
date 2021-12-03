@@ -15,10 +15,7 @@ from regions import CircleSkyRegion
 
 from utilities import t_fmt
 
-import gammapy
-
 from gammapy.utils.random import get_random_state
-
 from gammapy.datasets import SpectrumDataset, Datasets, SpectrumDatasetOnOff
 from gammapy.makers   import SpectrumDatasetMaker
 
@@ -39,16 +36,16 @@ def generate_dataset(Eflux, flux, Erange = None,
                      fake     = True,
                      onoff    = True,
                      seed     = 'random-seed',
-                     debug=False):
+                     debug    = False):
     """
     Generate a dataset from a list of energies and flux points either as
     a SpectrumDataset or a SpectrumDatasetOnOff
 
     Note :
     - in SpectrumDataset, the backgound counts are assumed precisely know and
-    are not fluctuated
+    are not fluctuated.
     - in SpectrumDatasetOnOff, the background counts (off counts) are
-    fluctuated from the IRF known value
+    fluctuated from the IRF known values.
 
     Parameters
     ----------
@@ -77,8 +74,10 @@ def generate_dataset(Eflux, flux, Erange = None,
         If True, use SpectrumDatasetOnOff, otherwise SpectrumDataSet.
         The default is True.
     seed : String, optional
-        The sedd for the randome generator; If an integer will generate the
+        The seed for the randome generator; If an integer will generate the
         same random series at each run. The default is 'random-seed'.
+    debug: Boolean
+        If True, let's talk a bit. The default is False.
 
     Returns
     -------
@@ -131,9 +130,9 @@ def generate_dataset(Eflux, flux, Erange = None,
     irf  = load_cta_irfs(irf_file)
 
 
-spec = TemplateSpectralModel(energy = Eflux, 
-                             values= flux, 
-                             interp_kwargs={"values_scale": "log"})        
+    spec = TemplateSpectralModel(energy = Eflux, 
+                                 values= flux, 
+                                 interp_kwargs={"values_scale": "log"})        
 
     model = SkyModel(spectral_model = spec, name  = "Spec"+str(name))
     obs   = Observation.create(obs_id   = 1, 
@@ -182,13 +181,39 @@ spec = TemplateSpectralModel(energy = Eflux,
 
 #------------------------------------------------------------------------------
 def stacked_model(ds, ds_stack=None, first=False, debug=False):
+    """
+    This function is not finalised and should be checked. It is intended to
+    recompute an effective spectral model from the exisiting already stacked 
+    model -from the previous call- and the current model in a dataset list. It
+    also extract the masked dataset of the first dataset in the list 
+    (when first = True)
 
-    # Get unmasked Reconstructed E bining from current dataset (but they are all identical)
+    Parameters
+    ----------
+    ds : Dataset
+        The current dataset.
+    ds_stack : Dataset, optional
+        The current stacked dataset if first is False. The default is None.
+    first : Boolean, optional
+        If True, extract the masked dataset - Valid for the first dataset of 
+        the list. The default is False.
+    debug : Boolean, optional
+        If True, let's talk a bit. The default is False.
+
+    Returns
+    -------
+    model : Skymodel
+        The current stcake model.
+
+    """
+
+    # Get unmasked Reconstructed E bining from current dataset 
+    # (but they are all identical)
     e_axis = ds.background.geom.axes[0] # E reco sampling from the IRF
 
     if first:
         # The reconstructed binning is required to apply the masking
-        # The theoretical spectrum is therefore evalauted on reconstrcuted energies which
+        # The theoretical spectrum is therefore evaluated on reconstrcuted energies which
         # assumes that the reconstructed energy is not too different from the true one.
         # e_axis = dsets[0].aeff.data.axes[0] # E true sampling from the IRF
         flux_org = ds.models[0].spectral_model(e_axis.center)
@@ -230,6 +255,26 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
     return model
 #------------------------------------------------------------------------------
 def compare_stacked_dataset(dsets,dsets_stacked,count="pred"):
+    """
+    Compare the stacked counts of a Dataset list with the counts of a stacked 
+    Dataset list (they should match).
+
+    Parameters
+    ----------
+    dsets : Dataset List
+        The original Dataset list.
+    dsets_stacked : Dataset
+        The final stacked dataset.
+    count : String, optional
+        Defines which cou_nt should be checked among "pred" (from the model), 
+        "excess" and "background". The default is "pred".
+
+    Returns
+    -------
+    None.
+
+    """
+    
 
     print(" Check cumulated "+count)
     tot_counts  = 0
@@ -265,23 +310,25 @@ def compare_stacked_dataset(dsets,dsets_stacked,count="pred"):
 #------------------------------------------------------------------------------
 def stacking(dsets, tryflux=False, debug=False):
     """
-    Create a new dataset collection (Datasets) with (consecutively) stacked datasets.
+    Create a new dataset collection (Datasets) with (consecutively) stacked 
+    datasets.
 
     Note that the first dataset has to be masked explicitely as the stacked
     ones are. Note that by default the model carried by the stacked dataset
-    is the model of the first dataset.
-    An option exists to supersede the models in each consecutively stacked
-    dataset but it essentially work only for dataset with the same mask_safe
-    (See documentation for more explanations)
+    in a stacked list is the model of the first dataset.
+    An option exists in gammapy to supersede the models in each consecutively 
+    stacked dataset but it essentially work only for dataset with the same 
+    mask_safe (See documentation for more explanations)
 
     Parameters
     ----------
-    dsets : Datasets object
+    dsets : List of Dataset object
         A collection of original datasets.
     tryflux : boolean
-        If true a mean spectrum is recomputed an assigned to the stacked models. See documentation for caveat.
+        If true a mean spectrum is recomputed an assigned to the stacked models. 
+        See documentation for caveat.
     debug : boolean
-        If True, verbosy
+        If True, let's talk a bit. Default is False.
 
     Returns
     -------
@@ -357,6 +404,26 @@ def get_masked_dataset(ds0):
     return masked_dataset
 #------------------------------------------------------------------------------
 def compactify(dsets,dtmin=1*u.h,debug=False):
+    """
+    Returns a list of stacked Dataset having a minimal total duration from an
+    original unstacked Dataset list.
+    Note that the model stacking is not applied.
+
+    Parameters
+    ----------
+    dsets : Dataset List
+        The initial list of Datasets.
+    dtmin : astropy.time, optional
+        The stacked Dataset minimal duration. The default is 1*u.h.
+    debug : Boolean, optional
+        If True, let's talk a bit. The default is False.
+
+    Returns
+    -------
+    ds_compacted : Dataset List
+        The compacted Dataset list.
+
+    """
 
     duration = 0*u.s
     tmp_stack    = Datasets()
@@ -390,7 +457,8 @@ def compactify(dsets,dtmin=1*u.h,debug=False):
 #------------------------------------------------------------------------------
 def createonoff_from_simulation(mc, random_state='rendom-seed', debug=False):
     """
-
+    Transform the stored SpectrumDataset list in the MonteCarlo class of 
+    SoHAPPy into a list of Datasets of type SpectrumDatasetOnOff.
 
     Parameters
     ----------
@@ -483,7 +551,30 @@ def read_from_ogip(file=None):
 ### UTILITIES
 #------------------------------------------------------------------------------
 def get_axis(dsets, tunit = u.s, Eunit=u.GeV, debug=False):
+    """
+    Returns the list of observing time and the reconstructed energy axis from
+    a list od Dataset
 
+    Parameters
+    ----------
+    dsets : Dataset List
+        List of Dataset.
+    tunit : astropy.unit, optional
+        The unit to express time. The default is u.s.
+    Eunit : astropy.unit, optional
+        The unit ti express energies. The default is u.GeV.
+    debug : Boolean, optional
+        If True, let's talk a bit. The default is False.
+
+    Returns
+    -------
+    Quantity List
+        list of oberving times.
+    Quantity numpy array
+        Numpy array ot the reconstructed energy axis.
+
+    """
+    
     #--- Build t axis
     dt = []
     t = 0
@@ -630,11 +721,57 @@ def check_datasets(dsets,masked=False,deeper=False,header=True):
                                masked=masked)
     return
 
+#------------------------------------------------------------------------------
+def sigmax(dsets, stacked = False):
+    """
+    Compute the max significance from the cumulated counts in a fluctuated 
+    dataset. Note: the value can change from depending on the random 
+    generation (this is not comparable to the mean maximal siginificance from
+    a full simulation).
 
+    Parameters
+    ----------
+    dsets : list of Dataset objects
+        Input datasets
+
+    Returns
+    -------
+    sig : float
+        Significance
+
+    """
+    import mcsim_config as mcf
+    from gammapy.stats import WStatCountsStatistic
+
+    non    = 0
+    noff   = 0
+    sigmax = -999
+    for i,ds in enumerate(dsets):
+        if (stacked): # Data have already been masked
+            ns = ds.excess.data.flatten().sum()
+            nb = ds.background.data.flatten().sum()
+        else: # Data should be masked
+            ns = ds.excess.data[ds.mask_safe].flatten().sum()
+            nb = ds.background.data[ds.mask_safe].flatten().sum()           
+        # ns   = ds.npred_signal().data.sum() # don't use this for merged ds !!!!
+        # if stacked: # mask applied, and existing mask if for 1st element
+        #     nb   = ds.npred_background().data.sum()
+        # else:
+        #     nb   = ds.npred_background().data[ds.mask_safe].sum()
+        on  = (ns+nb)
+        off = (nb/mcf.alpha)
+        non  += on
+        noff += off
+        wstat = WStatCountsStatistic(n_on= non, n_off= noff, alpha= mcf.alpha)
+        if wstat.sqrt_ts > sigmax: sigmax = wstat.sqrt_ts     
+
+    return sigmax
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
-
+    """
+    Test the main function
+    """
     import pickle
     from pathlib import Path
 
