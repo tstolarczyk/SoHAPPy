@@ -20,12 +20,14 @@ from utilities import stamp
 
 ###----------------------------------------------------------------------------
 def comparison_plot(GRB_id,site="South", 
+                    folder = "./",
+                    param_file="parameter.yaml",
                     merging=True, counts=True, flux=True, 
                     fit_tag = None,
                     e_min = None, e_max = None, e_fit_max = None,
                     arrays = ["omega","alpha"], debug=False):
     """
-    Plot counts for several configurations (arrays).
+    Plot counts and/or flux for several configurations (arrays).
 
     Parameters
     ----------
@@ -33,12 +35,24 @@ def comparison_plot(GRB_id,site="South",
         GRB identifier (xyz for Eventxyz.fits).
     site : String, optional
         "South", "North". The default is "South".
+    folder: String
+        Source file folder; default is local folder.
+    param_file: String
+        Name of the file where the plot and fit parameters are read.
     merging : Boolean, optional
         Indicated if the dataset has been stacked. The default is True.
     counts : Boolean, optional
         If True, compare counts. The default is True.    
     flux : Boolean, optional
         If True, compare flux. The default is True.
+    fit_tag: String
+        If None, will be read from the paramter file.
+    e_min: astropy.Quantity
+        Minimum energy in the count and flux plots.
+    e_max: astropy.Quantity
+        maximum energy in the count plots.
+    e_fit_max: astropy.Quantity
+        maximum energy in the flux plots.
     arrays : List of String, optional
         The arrays or configuration names to be compared. 
         The default is ["omega","alpha"].
@@ -50,19 +64,17 @@ def comparison_plot(GRB_id,site="South",
     None.
 
     """
-
-    
     
     #plt.style.use('seaborn-talk') # Make the labels readable
-    plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!       
+    plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!   
+    
     ###----------------------    
     ### Get data
     ###----------------------    
-    # base = Path("D:/000_Today/SoHAPPy_tests/single_sources/")
-    base = Path("D:/000_Today/SoHAPPy_tests/single_sources_denser/")
+    base = Path(folder)
     
     # Read parameters
-    par = (yaml.load(open("parameter.yaml"), Loader=SafeLoader))
+    par = (yaml.load(open(param_file), Loader=SafeLoader))
     GRB = GRB_id+site[0] # The key to find back the parameters
     
     if fit_tag == None: fit_tag = par[GRB]["fit_tag"]
@@ -179,25 +191,26 @@ def comparison_plot(GRB_id,site="South",
             elapsed = ds_1.gti.time_start[0] - mc_1.slot.grb.t_trig
             extract_spectrum(ds_1,
                              elapsed = elapsed, stacked=merging,
-                             ax = ax, style ="bar", color = "tab:blue",  lw=lw,   
+                             ax = ax, model_style ="bar", 
+                             color = "tab:blue",  lw=lw,   
                              yscale    = "log", 
                              alpha_model=0.1, alpha_fit = 0.3, fit_color="purple",
-                             pos_txt   = (1/30)*iplot,
                              e_ref     = u.Quantity(par[GRB]["e_ref"]), 
                              e_unit    = "TeV", 
                              flux_unit = "TeV-1 cm-2 s-1",
                              flux_min  = 1.e-13, 
                              flux_max  = float(par[GRB]["flux_max"]), 
                              fit_tag   = fit_tag, tag=tag1,                    
-                             e_min     = 25*u.GeV, e_max    = u.Quantity(par[GRB]["e_fitmax"]), 
+                             e_min     = 25*u.GeV, 
+                             e_max    = u.Quantity(par[GRB]["e_fitmax"]), 
                              debug = False)    
             elapsed = ds_2.gti.time_start[0] - mc_2.slot.grb.t_trig
             extract_spectrum(ds_2,
                              elapsed = elapsed, stacked = merging,
-                             ax = ax, style ="bar", color = "tab:orange", lw=lw,
+                             ax = ax, model_style ="bar", 
+                             color = "tab:orange", lw=lw,
                              yscale    = "log", 
                              alpha_model = 0.1, alpha_fit = 0.3, fit_color = "red",
-                             pos_txt   = (1/3)*iplot+0.1,
                              e_ref     = u.Quantity(par[GRB]["e_ref"]), 
                              e_unit    = "TeV", 
                              flux_unit = "TeV-1 cm-2 s-1",
@@ -223,8 +236,9 @@ if __name__ == "__main__":
     """
     Code example 
     """
+    folder = "D:/000_Today/SoHAPPy_tests/single_sources_denser/"
     gidlist = [343, 980, 465, 676, 785]
-    for gid in [785]:
+    for gid in gidlist:
         print(" **************** ",gid," *****************")
-        comparison_plot(str(gid), site="South", merging=True)
+        comparison_plot(str(gid), site="South", merging=True, folder=folder)
         plt.show()
