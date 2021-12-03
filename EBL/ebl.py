@@ -30,7 +30,7 @@ def EBL_from_file(file, debug=False):
         EBLabs = data[1:,1:]  
         if debug: print(" Dominguez from Renaud")
 
-    attenuation =interp2d(E_dat,z_dat, EBLabs)        
+    attenuation =interp2d(E_dat,z_dat, EBLabs,kind="cubic")        
     return attenuation
 
 #------------------------------------------------------------------------------------------
