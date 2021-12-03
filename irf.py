@@ -164,7 +164,8 @@ class IRF():
         fixed_zenith : Quantity angle, optional
             If defined, the zenith is fixed at the given value, wathever the
             observation (for tests). The default is None.
-        prod: S
+        prod: String
+            Monte Carlo production identifier. Default is None.
 
         Returns
         -------
@@ -241,12 +242,10 @@ class IRF():
             Observation azimuth angle. The default is 0*u.deg.
         obstime : Quantity time, optional
             Observation time. The default is 0*u.h.
-        kchain : String, optional
-            IRF version folder. The default is "prod3-v2".
-        array : String, optional
-            Sub-array folder name. The default is "FullArray".
+        subarray : String, optional
+            Subarray within the simulation. The default is None.
         loc : String, optional
-            Site location. The default is None.
+            Site location ("North", "South"). The default is None.
         nsb : TYPE, optional
             Handle special NSB cases. The default is None.
         irf_dir : string, optional
@@ -350,9 +349,37 @@ class IRF():
 ###############################################################################
 ###------------------------------------------------------------------------
 import mcsim_config as mcf
+from utilities import single_legend
+
 def containment_plot(irf,
                      eunit="GeV",erec_min =10*u.GeV, erec_max = 100*u.TeV,
                      subarray=None,tag=None, ax=None):
+    """
+    
+
+    Parameters
+    ----------
+    irf : IRF instance
+        The current IRF instance.
+    eunit : astropy.unit, optional
+        Energy unit. The default is "GeV".
+    erec_min : astropy.Quantity, optional
+        Minimal energy. The default is 10*u.GeV.
+    erec_max : astropy.Qauntity, optional
+        Maximal energy. The default is 100*u.TeV.
+    subarray : String, optional
+        Subarray. The default is None.
+    tag : String, optional
+        Plot label. The default is None.
+    ax : matplotlib.axes, optional
+        Current axis. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    
 
     import matplotlib.pyplot as plt
     plt.style.use('seaborn-poster') # Bug with normal x marker !!!
@@ -380,18 +407,28 @@ def containment_plot(irf,
     ax.legend()
 
     return
+
+###------------------------------------------------------------------------
 def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
                       nmaxcol=4, debug=False):
     """
-    On-off geometry skeches as a function of reconstrcuted energy edges
-    for the current IRF
+    On-off geometry skeches as a function of reconstructed energy edges
+    for the current IRF   
 
     Parameters
     ----------
-    eunit : String, optional
-        Energy unit used. The default is "GeV".
+    irf : IRF instance
+        Current IRF.
+    Emin : astropy.Quantity, optional
+        Minimal energy. The default is 30*u.GeV.
+    subarray : String, optional
+        Subarray. The default is None.
+    tag : String, optional
+        Legend text. The default is None.
+    nmaxcol : integer, optional
+        Maximum number of columns in the plot. The default is 4.
     debug : Boolean, optional
-        Let's' say a word on what is done. The default is False.
+        If True, let's talk a bit. The default is False.
 
     Returns
     -------
@@ -524,8 +561,28 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
                min_fraction = 0.05, 
                unit="GeV",
                tag=""):
+    """
+    Display effective area 
 
-    from utilities import single_legend
+    Parameters
+    ----------
+    irf : IRF instance
+        Current IRF.
+    ethreshold : astropy.Quantity, optional
+        Energy threshold to be displayed. The default is 100*u.GeV.
+    min_fraction : float, optional
+        A fraction of the max. effective area to be displayed. 
+        The default is 0.05.
+    unit : astropy.unit, optional
+        The plot energy unit. The default is "GeV".
+    tag : String, optional
+        A text for the label. The default is "".
+
+    Returns
+    -------
+    None.
+
+    """
         
     # Effective area
     effarea = irf.irf["aeff"].data
