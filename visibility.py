@@ -115,8 +115,10 @@ class Visibility():
     ###------------------------------------------------------------------------
     def __init__(self,grb,loc,observatory="CTA"):
         """
-        Visibility constructor. The members follow the elements of the
-        original default visibility files.
+        Visibility constructor, setting a full visibility of the GRB, from the
+        start to the stop of the GRB data. 
+        The members follow the elements of the original default visibility 
+        files. 
 
         Parameters
         ----------
@@ -124,7 +126,8 @@ class Visibility():
             The objetc to which the visibility will be attached
         loc : String
             Site (North or Souht)
-
+        observatory: String
+            The simulated observatory. default is "CTA".
         Returns
         -------
         None.
