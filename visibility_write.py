@@ -32,9 +32,9 @@ from   utilities import Log
 
 # GRB to be processed
 ifirst  = 1
-ngrb    = 1000 # 250
+ngrb    = 5 # 250
 
-conditions = "maximum"
+conditions = "minimize"
 save_vis   = True # Save to disk in vis_folder
 read_vis   = False # Read from disk in vis_folder
 
@@ -44,13 +44,13 @@ if conditions == "normal":
     altmoon   = -0.25*u.deg # Moon above horizon
     moondist  =    30*u.deg # Acceptable Moon distance
     moonlight =   0.6       # Acceptable Moon brightness    
-elif conditions == "minimum":
+elif conditions == "maximize":
     vis_folder = "../output/vis_24_nomoonveto/"
     altmin    =   24*u.deg  # CTA requirement horizon
     altmoon   =  90*u. deg  # Ensure that the moon never vetoes the visibility
     moondist  =   0*u.deg   # The Moon distance do not veto the visibility
     moonlight = 1.0         # The Moon brightness is not a limitation    
-elif conditions == "maximum":
+elif conditions == "minimize":
     vis_folder = "../output/vis_24_strictmoonveto/"
     altmin    =    24*u.deg # CTA requirement horizon
     altmoon   = -0.25*u.deg # Moon above horizon
