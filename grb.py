@@ -13,9 +13,7 @@ import sys
 sys.path.append("EBL") 
 
 import warnings
-
 from pathlib import Path
-
 import numpy as np
 
 import astropy
@@ -28,8 +26,9 @@ from   astropy.coordinates   import AltAz
 
 from visibility import Visibility
 
-from gammapy.modeling.models import EBLAbsorptionNormSpectralModel
-     
+from utilities import warning, failure
+
+from gammapy.modeling.models import EBLAbsorptionNormSpectralModel     
 from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import PointSpatialModel
 
@@ -64,34 +63,20 @@ class GammaRayBurst(object):
 
     The GRB information is read from files.
     A GRB is composed of several parameters among which, a name, a redshift,
-    a position in the sky, a visibility window, measurement points at which
-    an energy spectrum is given.
+    a position in the sky, measurement points at which
+    an energy spectrum is given and in some cases a default visibility window.
     Each energy spectrum is given as a series of flux measurements but is then
     stored as an interpolated spectrum (i.e. the energy bin width has a modest
     importance).
     The GRB properties like z, Eiso are generated in the population synthesis
-    (G. Ghirlanda) and they connect the afterglow and prompt emission together
-    (Other parameters like the magnetic field are independent in the two
-    models).
+    (G. Ghirlanda) and they connect the afterglow and prompt emission together.
 
     """
 
-    ###########################################################################
+    ###------------------------------------------------------------------------
     def __init__(self):
         """
         This initializes a default GRB.
-        The default visibility has been put by hand for backward compatibility
-        with the old file format and definitions where it was assumed that the
-        GRB was seen without any delay. The dummy GRB is visible in North and
-        South (inspired form GRB 289 in Lara's 1000 GRB files)
-
-        Parameters
-        ----------
-        ebl_model : string, optional
-            A normalized name of an EBL abosrtpion model (e.g. "dominguez")
-            from the list available in Gammapy. The default is None.
-        z : Dimensionnles quantity, optional
-            The GRB default redshift. The default is 0*u.dimensionless_unscaled.
 
         Returns
         -------
@@ -124,41 +109,43 @@ class GammaRayBurst(object):
         self.Eval           = [0]*u.GeV
         self.tval           = [0]*u.s
         self.fluxval        = [0]*u.Unit("1 / (cm2 GeV s)")
+        self.spec_afterglow = [] # Interpolated, non attenuated
 
         # Prompt energy spectrum
         self.prompt      = False # Default : no prompt
         self.id90        = -1 
         self.E_prompt    = [0]*u.GeV
         self.flux_prompt = [0]*u.Unit("1 / (cm2 GeV s)")
+        self.spec_prompt = None # One Interpolated, non attenuated E-spectrum
 
         # Visibility (requires GRB points interavl)
         self.vis  = { "North": Visibility(self,"North"),
                       "South": Visibility(self,"South")
                                           }
-        # GRB spectral and spatial model
+        # GRB cumulated spectra and spatial model
         self.spectra = [] # Gammapy models (one per t slice)
         self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
-
+        
         return
    
-    ###########################################################################   
+    ###------------------------------------------------------------------------   
     def EBLabsorbed(self, tab, model, debug=False):
         """
-        
+        Retun the EBL-abosbrbed model.
 
         Parameters
         ----------
-        tab : TYPE
-            DESCRIPTION.
-        model : TYPE
-            DESCRIPTION.
-        debug : TYPE, optional
-            DESCRIPTION. The default is True.
+        tab :  TemplateSpectralModel
+            A flux versus energy as an interpolated table.
+        model : String
+            An EBL model name among those available.
+        debug : Boolean, optional
+            If True let's talk a bit. The default is True.
 
         Returns
         -------
-        attflux : TYPE
-            DESCRIPTION.
+        attflux : TemplateSpectralModel
+            An attenuated flux versus energy as an interpolated table..
 
         """
         
@@ -176,20 +163,37 @@ class GammaRayBurst(object):
            
         return attflux
         
-    ###########################################################################
+    ###------------------------------------------------------------------------
     @classmethod
-    def from_fits(cls, filename, prompt=False, ebl= None, newis=False, 
-                  magnify=1):
+    def from_fits(cls, filename, prompt=False, ebl= None, magnify=1):
 
         """
         Fluxes are given for a series of (t,E) values
-        So far no flux is given beyond the last point.
+        So far no flux exists beyond the last point.
 
-        The spectrum is stored as a table, TableModel, that takes as an input
-        a series of flux values as a function of the energy.
+        The spectrum is stored as a table, TemplateSpectralModel, that takes as 
+        an input a series of flux values as a function of the energy.
         The model will return values interpolated in log-space with
         math::`scipy.interpolate.interp1d`, returning zero for energies
         outside of the limits of the provided energy array.
+
+        Note that TemplateSpectralModel makes an interpolation.
+        Following a question on the Slack gammapy channel on
+        November 27th, and the answer by Axel Donath:
+        The following statement later in the code gave an error
+        (dlist_onoff is a collection of Dataset)
+        dlist_onoff.write(datapath,prefix="cls",overwrite=True)
+        gives:
+        ...\gammapy\modeling\models\spectral.py", line 989, in to_dict
+        "data": self.energy.data.tolist(),
+        NotImplementedError: memoryview: unsupported format >f
+        This error comes from the fact that the energy list as to be
+        explicitely passed as a float as done below:
+            cls.Eval.astype(float)
+        (A Quantity is passed as requested but the underlying numpy
+        dtype is not supported by energy.data.tolist())
+
+        If requested, the associated prompt spectrum is read. 
 
         Parameters
         ----------
@@ -197,6 +201,8 @@ class GammaRayBurst(object):
             GammaRayBurst class instance
         filename : STRING
             GRB input file name
+        prompt: Boolean
+            If True, read information from the associated prompt component
         ebl : STRING, optional
             The EBL absorption model considered. If ebl is "built-in", uses
             the absorbed specrum from the data.
@@ -218,8 +224,7 @@ class GammaRayBurst(object):
         cls.z    = hdr['Z']
         cls.name = Path(filename.name).stem
         
-        cls.radec    = SkyCoord(hdr['RA']*u.degree,
-                                hdr['DEC']*u.degree,
+        cls.radec    = SkyCoord(hdr['RA']*u.degree, hdr['DEC']*u.degree,
                                 frame='icrs')
         cls.Eiso     = hdr['EISO']*u.erg
         cls.Epeak    = hdr['EPEAK']*u.keV
@@ -233,72 +238,76 @@ class GammaRayBurst(object):
         # GRB trigger time
         cls.t_trig   = Time(hdr['GRBJD']*u.day,format="jd",scale="utc")
 
-        ### Energies, times and fluxes ---
-        cls.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
+        ###--------------------------
+        ### Time slices - so far common to afterglow and prompt
+        ###--------------------------
         cls.tval     = Table.read(hdul,hdu=3)["Times (afterglow)"].quantity
+
+        ###--------------------------
+        ### Visibilities --- includes tval span
+        ###--------------------------
+        # One should consider not reading the default and go directly to new
+        # visibilities
+        cls.vis["North"] = cls.vis["North"].from_fits(cls, hdr, hdul,hdu=1,loc="North")
+        cls.vis["South"] = cls.vis["South"].from_fits(cls, hdr, hdul,hdu=1,loc="South")        
+
+        ###--------------------------
+        ### Afterglow
+        ###--------------------------
+        ### Read and store Energies, times and fluxes ---
+        cls.Eval     = Table.read(hdul,hdu=2)["Energies (afterglow)"].quantity
         if (ebl == "in-file"): # Read default absorbed model
             flux = Table.read(hdul,hdu=5)
         else:
             flux = Table.read(hdul,hdu=4)
 
-        ### Visibilities --- includes tval span
-        # One should consider not reading the default and go directly to new
-        # visibilities
-        cls.vis["North"] = cls.vis["North"].from_fits(cls, hdr, hdul,hdu=1,loc="North")
-        cls.vis["South"] = cls.vis["South"].from_fits(cls, hdr, hdul,hdu=1,loc="South")
-
         ### Store the flux
         #flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
         # flux_unit    = u.Unit(flux.meta["UNITS"]) # Removes ph
         flux_unit = u.Unit("1/(cm2 GeV s)")
-
-        icol_t       = len(flux.colnames)          # column number - time
-        jrow_E       = len(flux[flux.colnames[0]]) # row number
+        icol_t    = len(flux.colnames)          # column number - time
+        jrow_E     = len(flux[flux.colnames[0]]) # row number
 
         # Note the transposition from flux to fluxval
         cls.fluxval = np.zeros( (icol_t,jrow_E) )*flux_unit
         for i in range(0,icol_t):
             for j in range(0,jrow_E):
                 cls.fluxval[i][j] = magnify* flux[j][i]*flux_unit # transp!
-        
-        ### Get the prompt if potentially visible and if rerqueste
-        if prompt:
-            if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
-                prompt_spectrum = cls.get_prompt(grb_id = cls.name[5:])
-
-        for i,t in enumerate(cls.tval):
-            
-            # Note that TableModel makes an interpolation
-            # Following a question on the Slack gammapy channel on
-            # November 27th, and the answer by Axel Donath:
-            # The foloowing statemetn later in the code gave an error
-            # (dlist_onoff is a collection of Dataset)
-            # dlist_onoff.write(datapath,prefix="cls",overwrite=True)
-            # gives:
-            # ...\gammapy\modeling\models\spectral.py", line 989, in to_dict
-            # "data": self.energy.data.tolist(),
-            # NotImplementedError: memoryview: unsupported format >f
-            # This error comes from the fact that the energy list as to be
-            # explicitely passed as a float as done below:
-            #    cls.Eval.astype(float)
-            # (A Quantity is passed as requested but the underlying numpy
-            # dtype is not supported by energy.data.tolist()
-
-            tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
-                                        values = cls.fluxval[i],
-                                        interp_kwargs={"values_scale": "log"})  
-
-            if (i<= cls.id90): # id90 is -1 if prompt no available
-                tab = tab+prompt_spectrum
                 
-            model = cls.EBLabsorbed(tab,ebl)
+        # Build time series of interpolated spectra        
+        for i,t in enumerate(cls.tval):
+            glow = TemplateSpectralModel(energy = cls.Eval.astype(float),
+                                         values = cls.fluxval[i],
+                                         interp_kwargs={"values_scale": "log"})                 
+            cls.spec_afterglow.append(glow)
+            
+        ###--------------------------
+        ### Prompt - a unique energy spectrum 
+        ###--------------------------
+        ### Get the prompt if potentially visible and if rerquested
+        cls.prompt = prompt
+        if cls.prompt:
+            if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
+                # Deduce prompt folder from GRB path name
+                folder = Path(filename.absolute().parents[0], "../prompt/")
+                cls.spec_prompt = cls.get_prompt(grb_id = cls.name[5:],
+                                                 folder = folder)
+                
+        ###--------------------------
+        ### Total attenuated spectra
+        ###--------------------------
+        ### Build the total attenuated model
+        for i,t in enumerate(cls.tval):
+            spec_tot = cls.spec_afterglow[i] 
+            if i<=cls.id90: spec_tot += cls.spec_prompt[i]
+            model = cls.EBLabsorbed(spec_tot,ebl)
             cls.spectra.append(model)
-
+ 
         hdul.close()
 
         return cls
     
-    ###########################################################################
+    ###------------------------------------------------------------------------
     @classmethod
     def from_yaml(cls, data, ebl= None,magnify=1):
 
@@ -355,13 +364,15 @@ class GammaRayBurst(object):
             cls.vis[loc]  = Visibility(cls,loc)
             # Recomputing done in the main
             # cls.vis[loc].compute(debug=False)
-
+            
+        ### No prompt component forseen in this case
+        cls.prompt = False
 
         for i,t in enumerate(cls.tval):
             # Note that TableModel makes an interpolation
             # Following a question on the Slack gammapy channel on
             # November 27th, and the answer by Axel Donath:
-            # The foloowing statemetn later in the code gave an error
+            # The foloowing statement later in the code gave an error
             # (dlist_onoff is a collection of Dataset)
             # dlist_onoff.write(datapath,prefix="cls",overwrite=True)
             # gives:
@@ -382,32 +393,86 @@ class GammaRayBurst(object):
 
         return cls
 
-    ###########################################################################
-    def get_prompt(self,grb_id = None, 
-                   folder= "../input/lightcurves/prompt/ctagrbs_spop",
-                   debug = False):
+    ###------------------------------------------------------------------------
+    def get_prompt(self,grb_id = None, folder = None,
+                   subfolder= "ctagrbs_spop", debug = False):
+        """
+        Get the prompt component associated to the afterglow.
+        The prompt spectra are produced so that they correspond to the values 
+        provided by Giancarlo (Lorentz Factor, peak energy, photon flux, and 
+        redshift). 
+        A single set of spectra is given spanning over the T90 GRB duration. 
+        The flux is an "average" prompt spectrum over T90. 
+
+        Parameters
+        ----------
+        grb_id : integer, optional
+            The GRB identifier. The default is None.
+        folder : String, optional
+            Where to find the prompt data, below the 'lightcurves/prompt' 
+            folder. The default is None.
+        debug : Boolean, optional
+            If True, let's talk a bit. The default is False.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
         
-        from utilities import warning, failure
+        ###----------------------------
+        ### Check everything goes well        
+        ###----------------------------
         
-        # Open file - read the lines
-        if grb_id == None: 
-            sys.exit(" Provide a GRB identifier")
+       # Define the prompt data folder from the afterglow parent folder
+        folder = Path(folder,subfolder)
+        if not folder.exists(): sys.exit(" Wrong prompt data folder")
+
+        if grb_id == None: sys.exit(" Provide a GRB identifier")
         
         if grb_id in [6, 30 ,191]:
             failure(" GRB prompt",grb_id," simulated with a Wind profile")
             failure(" It cannot be associated to the current afterglow !")
             return -1, None
         
+        ###----------------------------
+        ### Mask times beyong t90         
+        ###----------------------------
+        
+        # Find the closest time bin at t90 in the Afterglow
+        # id90 is the index of the time following the t90 value
+        # t90 is therefore between the index id90-1 and id90
+        self.id90 = np.where(self.tval >= self.t90)[0][0]
+        if self.id90 == 0: 
+            warning("t90 is before the first afterglow time bin")
+        
+        # Define a reduction for each time slice, either 0 or 1 except at t90.
+        fraction = (self.t90 - self.tval[self.id90-1])
+        fraction = fraction/(self.tval[self.id90]-self.tval[self.id90-1])
+        self.weight = np.concatenate(  (np.ones(self.id90),  
+                                        [fraction], 
+                                        np.zeros(len(self.tval)-self.id90-1)))
+
+        ###----------------------------
+        ### Read prompt data    
+        ###----------------------------       
+        # Open file - read the lines
         file  = open(Path(folder,grb_id+"-spec.dat"),"r")
         lines = file.readlines()
         
         # get Gamma and z
-        data = lines[0].split()
+        data         = lines[0].split()
         gamma_prompt = float(data[2])
-        redshift = float(data[5])
+        redshift     = float(data[5])
+        
+        # Consistency check - Zeljka data are rounded at 2 digits
+        if np.abs(self.z - redshift)>0.01 or \
+           np.abs(self.G0H - gamma_prompt)>0.01:
+            failure(" Problem in redshift or Lorentz factor matching")
         
         # Get units - omit "ph" in flux unit
-        data = lines[1].split()
+        data     = lines[1].split()
         unit_e   = data[0][1:-1]
         unit_flx = ''.join([ x + " " for x in data[2:]])[1:-2]
         
@@ -431,49 +496,41 @@ class GammaRayBurst(object):
             warning("Converting flux units")
             self.flux_prompt = self.flux_prompt.to(self.fluxval[0][0].unit) 
             
-        # Fill unique template spectrum
-        model = TemplateSpectralModel(energy = self.E_prompt,
-                                      values = self.flux_prompt,
-                                      interp_kwargs={"values_scale": "log"}) 
-        
-        # Consistency check - Zeljka data are rounded at 2 digits
-        if np.abs(self.z - redshift)>0.01 or \
-           np.abs(self.G0H - gamma_prompt)>0.01:
-            failure(" Problem in redshift or Lorentz factor matching")
+        ###----------------------------
+        ### Create a list of weighted models for non-zero weights    
+        ###----------------------------
+        models = []
+        for i in range(self.id90+1):
+            flux_w = self.flux_prompt*self.weight[i]
+            models.append(TemplateSpectralModel(energy = self.E_prompt,
+                                        values = flux_w,
+                                        interp_kwargs={"values_scale": "log"}))
             
-        # Find the closest time bin at t90 in the Afterglow
-        self.id90 = np.where(self.tval>= self.t90)[0][0]
-        
-        
         if debug:
             print("Prompt associated to ",self.name)
             print("Gamma = ",gamma_prompt," redshift =",redshift)
             print("  {:8} : {:10}".format(unit_e, unit_flx))
             for E, flux in zip(self.E_prompt,self.flux_prompt):
-                print("  {:8.2f} : {:10.2e}".format(E.value,flux.value) )  
-            print("End of prompt: ",self.tval[self.id90-1],self.tval[self.id90])
-        
-        # Fill the time slices with a Model Spectrum
-        dt_tot = self.tval[self.id90] - self.tval[0]
-        fraction_tot = 0
-        for i in range(self.id90):
-            t1 = self.tval[i]
-            t2 = self.tval[i+1] 
-            dt = t2 - t1
-            fraction = dt.value/dt_tot.value
-            fraction_tot += fraction
- 
-            if debug:
-                print("{:2d} : {:5.2f} - {:5.2f} dt={:5.2f} {:5.2f} {:5.2f}"
-                  .format(i, t1.value , t2.value , dt.value, fraction, fraction_tot))        
+                print("  {:8.2f} : {:10.2e} "
+                      .format(E.value,flux.value))  
+            islice=0
+            print(" {:>8} - {:>5} ".format("Time","Weight"),end="")
+            for t, w in zip(self.tval, self.weight):
+                print(" {:8.2f} - {:5.2f} ".format(t,w),end="")
+                print("*") if islice== self.id90 else print("")
+                islice+=1
+                
+            print("Prompt is between: ",self.tval[self.id90-1],self.tval[self.id90])
             
-        return model
-    ###########################################################################
+        return models
+    
+    ###------------------------------------------------------------------------
     @classmethod
     def read_prompt(cls, filename, glow= None, ebl= None,
                     z=0*u.dimensionless_unscaled, magnify=1):
         """
-        Read prompt data froma file and associate it to the afterglow
+        This function is for tests using ttime-resolved spectra.
+        Read prompt data from a file and associate it to the afterglow
         information if requested (or keep the default from the constructor
         otherwise)
 
@@ -568,7 +625,7 @@ class GammaRayBurst(object):
         ----------
         location : string
             Either North or South
-        time : Quantity (time)
+        dt : Quantity (time)
             The time elapsed since the trigger time
 
         Returns
@@ -621,11 +678,14 @@ class GammaRayBurst(object):
         # .format(len(self.Eval), len(self.tval), len(self.time_interval))
         txt += '  Bins : E, t   : {:4d} {:4d} \n' \
         .format(len(self.Eval), len(self.tval))
+        txt += ' Prompt component : \n'
+        txt += '  Up to slice   : {:3d}\n'.format(self.id90)
+        txt += "  Bins : E      : {:4d}\n".format(len(self.E_prompt))
 
         return txt
-#------------------------------------------------------------------------------
+    
+###############################################################################
 if __name__ == "__main__":
-
 
     """
     A standalone function to read a GRB and make various tests
