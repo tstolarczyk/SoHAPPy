@@ -144,11 +144,34 @@ class Visibility():
         self.depth   = 0
         self.altmin  = 0*u.deg # GRB Minimal allowed altitude
 
-        # Visible any moment of the year from the site
+        # These three variables were defined by M.G.Bernardini in the first 
+        # version of the visibilty, without moon veto, and with a visibility 
+        # computed for the first night only. They are kept for consistency but 
+        # have a somewhat smaller importance with the presence of moon vetoes 
+        # and a visibility that can be computed on more than one night.
+        # However the vis_prompt varaibale still indicate the chance to have
+        # the prompt emission detected if the alert and slewing times are not
+        # too long.
+        # Here below, better definitions of these variables are given.
+        
+        # Originally: Visible any moment of the year from the site
+        # This means that the GRB appears above the defined horizon whathever
+        # the other conditions are. In particular, mitigation against the 
+        # Moonlight would make it visible from the first or next night.
         self.vis         = True
-        # Visible any moment within the 24h after the trigger from the site
+        
+        # Originally: Visible any moment within the 24h after the trigger from 
+        # the site
+        # This means that it can be detectable the first night. It was 
+        # particularly important when the visibility was computed until 24h
+        # after the trigger, and still indicate that the chance to have it 
+        # detected are higher tha a GRB for which the first night would be 
+        # missed.
         self.vis_tonight = True
-        # Visible at the moment of the GRB trigger
+        
+        # Originally: Visible at the moment of the GRB trigger
+        # Keeps the original meaning but add the moon veto, which can differ
+        # with the assumprions made with the affordable Moonlight.
         self.vis_prompt  = True
 
         # Visible above min. alt. - list of pair
@@ -307,52 +330,75 @@ class Visibility():
                         name      = cls.name,
                         timezone  ="utc")
 
+        ###---------------------
         ### Find the nights  ---
+        ###---------------------
         if force_vis: 
+            # If the visibility is forced, a single night covers all the data
             t_night = [[cls.tstart.jd, cls.tstop.jd]]
             is_night = True
         else: is_night, t_night  = cls.nights(obs, skip=skip, npt=npt)
 
+        ###---------------------
         ### MOON VETOES (high enough, close enough, bright enough) ---
+        ###---------------------
         if force_vis:
+            # If the visibility is forced, the Moon period list is empty
             t_moon_alt_veto = [[]]
             t_moon_veto = [[]]
         else:
+            # These are the perioss when the Moon is above horizon
             t_moon_alt_veto    = cls.moon_alt_veto(obs, npt=npt)
+            # When Moon is up, check if moonlight is affordable
             t_moon_veto = []
             for dt in t_moon_alt_veto:
                 (too_bright, too_close) = cls.moonlight_veto(dt)
                 cls.moon_too_bright.append(too_bright)
                 cls.moon_too_close.append(too_close)
+                # If the Moon being above the horizon itgives too much
+                # light, add the corresponding perido to the Moon veto
                 if too_bright or too_close: t_moon_veto.append(dt)
+            # In case there is no Moon veto period, then conclude with
+            # an empty array of [t1,t2] arrays
             if len(t_moon_veto) == 0: t_moon_veto = [[]]
 
+        ###---------------------
         ### HORIZON ---
+        ###---------------------
         (high, t_above) = cls.horizon(obs)
-
-        # Now prepare the ticks from all the intervals
-        ticks = [cls.tstart.jd] # ,cls.tstop.jd] is night end
+        
+        ###---------------------
+        ### Collect the ticks from all periods (authorised and forbidden)
+        ###---------------------
+        
+        # First tick is the start of data
+        ticks = [cls.tstart.jd]
 
         # Restrict the  windows to the last night end or the GRB data length
         if cls.tstop < Df(t_night[-1][1]):
-            # The GRB data stop before the ned of last night
+            # The GRB data stop before the end of last night
             # print(" >>>> Analysis shortened by lack of data")
             ticks.extend([cls.tstop.jd])
         else:
             # Set the end at last night for convenience
             cls.tstop = Df(t_night[-1][1])
 
+        # Add the ticks of all previously computed wnidows
         for elt in t_night       : ticks.extend(elt)
         for elt in t_above       : ticks.extend(elt)
         for elt in t_moon_veto   : ticks.extend(elt)
 
+        # Sort in time
         ticks.sort() # Requires numerical values -> all times are in jd
 
         if (debug):
             print("Ticks : ",len(ticks))
             for t in ticks:
                 print("{:10s} {:<23s} ".format(cls.name, Df(t).iso))
-
+                
+        ###---------------------
+        ### Check the visibility within all tick intervals
+        ###---------------------
         # Loop over slices and check visibility
         if (debug): # Header
             print(" {:<23s}   {:<23s} {:>10s} {:>6s} {:>6s} {:>6s} {:>6s}"
@@ -363,15 +409,24 @@ class Visibility():
             t1 = ticks[i]
             t2 = ticks[i+1]
             tmid = 0.5*(t1+t2)
-            bright  = valid(tmid,[[cls.tstart.jd,cls.tstop.jd]])
-            dark    = valid(tmid,t_night)
-            above   = valid(tmid,t_above)
-            moon    = not valid(tmid,t_moon_veto) # Moon acts as a veto
-            visible = bright and dark and above and moon
-            if (visible):
-                t_vis.append([t1, t2])
-                cls.vis_tonight = True
-                cls.vis = True
+            # Check if the current tick interval corresponds to an 
+            # authorised or forbidden window
+            
+            # The GRB shines (in the limit of the available data
+            bright   = valid(tmid,[[cls.tstart.jd,cls.tstop.jd]])
+            
+            # It is night
+            dark     = valid(tmid,t_night)
+            
+            # It is above the horizon 
+            above    = valid(tmid,t_above)
+            
+            # The moon authorises the observation
+            not_moon = not valid(tmid,t_moon_veto) # Moon acts as a veto
+            
+            # In the end the GRB is visible if all conditions are fulfilled
+            visible = bright and dark and above and not_moon
+            if (visible): t_vis.append([t1, t2])
 
             if (debug):
                 if math.isinf(t1): t1 = "--"
@@ -381,57 +436,67 @@ class Visibility():
                 else: t2 = Df(t2).iso
                 print(" {:>23}   {:>23} {:>10} {:>6} {:>6} {:>6} {:>6}"
                       .format(t1, t2,
-                              bright, dark, above, not moon, visible),end="")
+                              bright, dark, above, not not_moon, visible),
+                      end="")
                 if (visible): print(" *")
                 else: print()
                 
         ###---------------------------------------        
         ### Write back all intervals into Time and into Class
         ###---------------------------------------        
-        if len(t_night[0])==0 :
+        if len(t_night[0])==0 : # Night periods
             cls.t_twilight  = [[]]
         else:
             cls.t_twilight  = []
             for elt in t_night:
                 cls.t_twilight.append( [Df(elt[0]), Df(elt[1])] )
 
-        if len(t_above[0])==0 :
+        if len(t_above[0])==0 : # Above horizon period
             cls.t_event  = [[]]
         else:
             cls.t_event  = []
             for elt in t_above:
                 cls.t_event.append( [Df(elt[0]), Df(elt[1])] )
 
-        if len(t_moon_alt_veto[0])==0 :
+        if len(t_moon_alt_veto[0])==0 : # Moon veto periods
             cls.t_moon_up  = [[]]
         else:
             cls.t_moon_up  = []
             for elt in t_moon_alt_veto:
                 cls.t_moon_up.append( [Df(elt[0]), Df(elt[1])] )
-
-        # Finalise visibility windows, taking into account the depth
-        # and additionnal moon vetoes.
-        # If no visibility window is left, re-assign vis_tonight
-        if len(t_vis) == 0 :
-            cls.t_true  = [[]]
-            cls.vis_pompt   = False
-            cls.vis_tonight = False
-            cls.vis         = False
-        else:
-            ### At least one visibility period is found
-            cls.vis_tonight = True
-            cls.t_true  = []
+                
+        ###---------------------------------------        
+        ### Finalise the visibility windows and flags
+        ###---------------------------------------         
+           
+        cls.vis = False
+        cls.vis_tonight = False
+        cls.vis_prompt  = False
+        
+        # At least a period above the horizon
+        # Note that this function could stop as soon as no window above
+        # the horizon is found, which is not the case in this implementation 
+        if len(t_above) > 0: cls.vis = True        
+        
+        # At least a visibility period for observation
+        if len(t_vis) > 0: 
             
+            # Store definitively the visibility windows
             for elt in t_vis:
-                cls.t_true.append( [Df(elt[0]), Df(elt[1])] )
-
-            # If first visible interval is after the GRB trigger
-            # Prompt i not visible.
-            if t_vis[0][0] > cls.tstart.jd :
-                cls.vis_prompt = False
-            else:
-                cls.vis_prompt = True
-
+                cls.t_true.append( [Df(elt[0]), Df(elt[1])] )             
+            
+            # The first window starts < 1 day 
+            if t_vis[0][0] <= grb.t_trig.jd + 1: 
+                cls.vis_tonight = True
+                
+                # In this first window the prompt is visible    
+                if  valid(grb.t_trig.jd,[t_vis[0]]):
+                    cls.vis_prompt=True
+                 
+        # There is no visibility window at all - sad World             
+        else:
+            cls.t_true  = [[]]
+           
         return cls
 
     ###-----------------------------------------------------------------------
@@ -785,6 +850,7 @@ class Visibility():
         None.
 
         """
+        from utilities import Log
         if log == None: log = Log()
         
         log.prt("=================   {:10s}   {:10s}   ================"
@@ -957,80 +1023,99 @@ if __name__ == "__main__":
 
     """
 
-    from   utilities import Log
+    from   utilities import Log, highlight
     from   SoHAPPy import get_grb_fromfile
+    from pathlib import Path
     import grb_plot as gplt
+    
+    # Read default configuration
+    from configuration import Configuration
+    cf = Configuration("config.yaml")
+    
+    # Superse some values if needed
+    # cf.dbg       = 1
+    # cf.show      = 0
+    # cf.vis_cmp   = True
+    
+    # Put check=True to have the computed visibility compared to the defaukt 
+    # original ones later
+    check = False
+    if check:
+        cf.cmp_vis   = True # Recompute with the following parameters
+        cf.altmin    = 10*u.deg
+        cf.moondist  = 0*u.deg
+        cf.moonlight = 1.
+        cf.depth     = 1*u.day
+        cf.skip      = 0
+    
+    ngrb     = 1 # 250
+    ifirst   = [70] # ["190829A"]
+    cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
+    cf.res_dir  = "."
 
-    newvis    = True
-    altmin    = 24*u.deg
-    altmoon   = -0.25*u.deg
-    moondist  = 30*u.deg
-    moonlight = 0.6
-    depth     = 3*u.day
-    skip      = 0
-
+    log_filename    = cf.res_dir  + "/visibility.log"
+    log = Log(name  = log_filename,talk=True)
+    
     # GRB list to be analysed
-    # 751 and 815 are killed by the Moon brigthness
-    ifirst = [54, 85, 815, 751]
-    ifirst = 51
-    ngrb   = 50
-
-    dbg   = 1
-    show  = 1
-
-    res_dir = './'
-
-    log_filename    = res_dir  + "visibility.log"
-    log = Log(name  = log_filename, talk=True)
-
-    check = False # If True,run comparison between old and new visibilities
-    if (check):
-        altmin    = 10*u.deg
-        moondist  = 0*u.deg
-        moonlight = 1.
-        depth     = 1*u.day
-        skip      = 0
-
     if type(ifirst)!=list:
-        grblist = list(range(ifirst,ifirst+ngrb))
-    else: grblist = ifirst
-
-    # Loop over GRB list accordng to the config. file
+        grblist = list(range(ifirst, ifirst + ngrb))
+    else:
+        grblist = ifirst   
+    
+    # Loop over GRB list
     for i in grblist:
 
-        grb = get_grb_fromfile(i,log=log)
+        grb = get_grb_fromfile(i,
+                               config=cf,
+                               grb_folder = cf.grb_dir,
+                               log=log)
         print(grb)
-
+        gplt.spectra(grb,opt="Packed")
+ 
+        # Handle visibilities for both sites
         for loc in ["North","South"]:
+            # Read on disk
+            if  cf.vis_dir != None and not cf.vis_cmp:
+                highlight(" Reading from disk : {}".format(cf.vis_dir))
+                
+                name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
+                grb.vis[loc] = Visibility.read(name)
+            # Compute on the fly
+            elif cf.vis_cmp:
+                highlight(" Computing on the fly ")
 
-            # Current visibility - not exciting
-            log.prt("\n--------------- D E F A U L T  -----------------\n")
-            grb.vis[loc].print(log=log)
-            if (check and ngrb<30 and show>0):
-                gplt.visibility_plot(grb, loc=loc)
-            # Save old visibilities
-            import copy
-            vis_def = copy.deepcopy(grb.vis[loc])
+                grb.vis[loc] = Visibility.compute(grb,
+                                     loc,
+                                     observatory = cf.observatory,
+                                     altmin      = cf.altmin,
+                                     altmoon     = cf.altmoon,
+                                     moondist    = cf.moondist,
+                                     moonlight   = cf.moonlight,
+                                     depth       = cf.depth,
+                                     skip        = cf.skip,
+                                     force_vis   = cf.forced_visible,
+                                     debug       = bool(cf.dbg>2))
+            else:
+                import sys
+                sys.exit(" Check your visibility options")
 
-            if (newvis):
-            # Compute visibility with new altitude
-                log.prt("\n--------------- New visibility  -----------------\n")
-                grb.vis[loc].compute(altmin    = altmin,
-                                     altmoon   = altmoon,
-                                     moondist  = moondist,
-                                     moonlight = moonlight,
-                                     depth     = depth,
-                                     skip      = skip,
-                                     debug     = False)
-
+            
+            if check: # Compare to default visibility
+                log.prt("\n--------------- D E F A U L T  -----------------\n")
                 grb.vis[loc].print(log=log)
-
-                if ngrb<30 and show>0:
+                if (check and ngrb<30 and cf.show>0):
                     gplt.visibility_plot(grb, loc=loc)
+                    
+                # Save old visibilities
+                import copy
+                vis_def = copy.deepcopy(grb.vis[loc])          
 
-            if (check): # If requested, perform check
                 log.prt()("\n--------------- C H E C K  ----------------\n")
                 grb.vis[loc].check(vis_def,log=log,delta_max=1*u.s)
+                
+            else:
+                grb.vis[loc].print()
+                gplt.visibility_plot(grb, loc=loc)               
 
     log.close()
 
