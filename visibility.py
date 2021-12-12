@@ -374,7 +374,7 @@ class Visibility():
         # First tick is the start of data
         ticks = [cls.tstart.jd]
 
-        # Restrict the  windows to the last night end or the GRB data length
+        # Restrict the windows to the last night end or the GRB data length
         if cls.tstop < Df(t_night[-1][1]):
             # The GRB data stop before the end of last night
             # print(" >>>> Analysis shortened by lack of data")
@@ -482,6 +482,7 @@ class Visibility():
         if len(t_vis) > 0: 
             
             # Store definitively the visibility windows
+            cls.t_true = [] # Warning: default is the GRB window
             for elt in t_vis:
                 cls.t_true.append( [Df(elt[0]), Df(elt[1])] )             
             
@@ -1049,7 +1050,7 @@ if __name__ == "__main__":
         cf.skip      = 0
     
     ngrb     = 1 # 250
-    ifirst   = [70] # ["190829A"]
+    ifirst   = [2] # ["190829A"]
     cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
     cf.res_dir  = "."
 
