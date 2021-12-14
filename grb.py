@@ -118,7 +118,7 @@ class GammaRayBurst(object):
         self.flux_prompt = [0]*u.Unit("1 / (cm2 GeV s)")
         self.spec_prompt = None # One Interpolated, non attenuated E-spectrum
 
-        # Visibility (requires GRB points interavl)
+        # Visibility (requires GRB points interval)
         self.vis  = { "North": Visibility(self,"North"),
                       "South": Visibility(self,"South")
                                           }
@@ -165,7 +165,9 @@ class GammaRayBurst(object):
         
     ###------------------------------------------------------------------------
     @classmethod
-    def from_fits(cls, filename, prompt=False, ebl= None, magnify=1):
+    def from_fits(cls, filename, vis=None, 
+                                 prompt=False, ebl= None, 
+                                 magnify=1, forced_visible=False, dbg=0):
 
         """
         Fluxes are given for a series of (t,E) values
@@ -248,9 +250,19 @@ class GammaRayBurst(object):
         ###--------------------------
         # One should consider not reading the default and go directly to new
         # visibilities
-        cls.vis["North"] = cls.vis["North"].from_fits(cls, hdr, hdul,hdu=1,loc="North")
-        cls.vis["South"] = cls.vis["South"].from_fits(cls, hdr, hdul,hdu=1,loc="South")        
-
+        for loc in ["North","South"]:
+            if vis == None:
+                cls.vis[loc] = cls.vis[loc].from_fits(cls, hdr, hdul,hdu=1,loc=loc)
+            elif isinstance(vis,dict):
+                cls.vis[loc] = Visibility.compute(cls,
+                                                  loc,
+                                                  param     = vis,
+                                                  force_vis = forced_visible,
+                                                  debug     = bool(dbg>2))                
+            else:
+                name = Path(vis,cls.name+"_"+loc+"_vis.bin")
+                cls.vis[loc] = Visibility.read(name)       
+ 
         ###--------------------------
         ### Afterglow
         ###--------------------------
@@ -285,13 +297,16 @@ class GammaRayBurst(object):
         ### Prompt - a unique energy spectrum 
         ###--------------------------
         ### Get the prompt if potentially visible and if rerquested
-        cls.prompt = prompt
-        if cls.prompt:
+
+        if prompt:
             if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
                 # Deduce prompt folder from GRB path name
                 folder = Path(filename.absolute().parents[0], "../prompt/")
                 cls.spec_prompt = cls.get_prompt(grb_id = cls.name[5:],
                                                  folder = folder)
+                cls.prompt = True
+            else:
+                cls.prompt = False # No prompt component was found
                 
         ###--------------------------
         ### Total attenuated spectra
@@ -365,7 +380,7 @@ class GammaRayBurst(object):
             # Recomputing done in the main
             # cls.vis[loc].compute(debug=False)
             
-        ### No prompt component forseen in this case
+        ### No prompt component foreseen in this case
         cls.prompt = False
 
         for i,t in enumerate(cls.tval):
@@ -690,43 +705,47 @@ if __name__ == "__main__":
     """
     A standalone function to read a GRB and make various tests
     """
-
     from   utilities import Log
-
-    from SoHAPPy import get_grb_fromfile
     import grb_plot as gplt
 
-    dbg      = 0
-    ngrb     = 1 # 250
-    ifirst   = [980]
+    ###------------------
+    ### GRB to read
+    ###------------------
+    ifirst     = [67] #  ["190829A"]
+    ngrb       = 1 # 250
+    ebl        = "dominguez"
+    visibility = "../input/visibility/vis_24_strictmoonveto"
+    prompt     = True
+    save_grb   = False # (False) GRB saved to disk -> use grb.py main
+   
+    if type(ifirst)!=list: grblist = list(range(ifirst, ifirst + ngrb))
+    else: grblist = ifirst
+
+    dbg        = 0
     grb_folder = "../input/lightcurves/"
-    # ifirst = ["190829A"]
-    print(ifirst)
-    save_grb = False # (False) GRB saved to disk -> use grb.py main
-    res_dir  = "."
-
+    res_dir    = "."    
     log_filename    = res_dir  + "/grb.log"
-    log = Log(name  = log_filename,talk=True)
-
-    # GRB list to be analysed
-    if type(ifirst)!=list:
-        grblist = list(range(ifirst, ifirst + ngrb))
-    else:
-        grblist = ifirst
-
+    log = Log(name = log_filename,talk=True)
+    
     ## Test dummy GRB
     # grb = GammaRayBurst()
     # print(grb)
     # for loc in ["North", "South"]:
     #     print(grb.vis[loc].print(log=log))
-
+    
     # Loop over GRB list
-    for i in grblist:
+    for item in grblist:
+        filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits")
+        grb = GammaRayBurst.from_fits(filename,
+                                  ebl     = ebl,
+                                  prompt  = prompt, 
+                                  vis     = visibility,
+                                  dbg     = dbg)
 
-        grb = get_grb_fromfile(i,grb_folder = grb_folder,log=log)
         print(grb)
-        gplt.spectra(grb,opt="Packed")
-        # gplt.visibility_plot(grb, loc ="North")
-        # gplt.visibility_plot(grb, loc ="South")
+        gplt.time_spectra(grb)                
+        gplt.energy_spectra(grb)                
+        gplt.visibility_plot(grb, loc ="North")
+        gplt.visibility_plot(grb, loc ="South")
 
         if (save_grb): grb.write(res_dir) # Save GRB if requested
