@@ -13,6 +13,9 @@ for the default horizon value (10 degrees) and for the nights found within
 @author: Stolar
 """
 import math
+
+from pathlib import Path
+
 import astropy.units as u
 from   astropy.time import Time
 from   astropy.coordinates import AltAz, get_moon
@@ -256,14 +259,7 @@ class Visibility():
 
     ###-----------------------------------------------------------------------
     @classmethod
-    def compute(cls,grb, loc, 
-                    observatory = "CTA",
-                    altmin      = 10*u.degree,
-                    altmoon     = 0*u.degree,
-                    moondist    = 0*u.degree,
-                    moonlight   = 1,
-                    depth       = 3,
-                    skip        = 0,
+    def compute(cls,grb, loc, param = None,
                     npt         = 150,
                     force_vis   = False,
                     debug       = True):
@@ -305,8 +301,26 @@ class Visibility():
   
         """
 
+        # Decode the parameter dictionnay
+        if param != None:
+            observatory = param["where"]
+            altmin      = u.Quantity(param["altmin"])
+            altmoon     = u.Quantity(param["altmoon"])
+            moondist    = u.Quantity(param["moondist"])
+            moonlight   = param["moonlight"]
+            depth       = param["depth"]
+            skip        = param["skip"]        
+        else:
+            observatory = "CTA"
+            altmin      = 10*u.degree
+            altmoon     = 0*u.degree
+            moondist    = 0*u.degree
+            moonlight   = 1
+            depth       = 3
+            skip        = 0
+
         cls = Visibility(grb,loc,observatory=observatory)  # This calls the constructor
-        
+                
         ###---------------------------------------------------
         def valid(t0,tslices):
             if len(tslices[0]) == 0 : return False # No slice !
@@ -526,9 +540,7 @@ class Visibility():
         """
 
         import pickle
-        from pathlib import Path
-        import os, sys
-        
+        import os, sys        
         filename = Path(folder,name)
         if os.path.isfile(filename):
             infile  = open(filename,"rb")
@@ -1000,6 +1012,7 @@ class Visibility():
             if matching: log.prt("--- ok")
             else: log.prt("--- DOES NOT MATCH")
         return matching
+    
 
 ###---------------------------------------------------------------------
 if __name__ == "__main__":
@@ -1032,91 +1045,71 @@ if __name__ == "__main__":
     # Read default configuration
     from configuration import Configuration
     cf = Configuration("config.yaml")
-    
-    # Superse some values if needed
-    # cf.dbg       = 1
-    # cf.show      = 0
-    # cf.vis_cmp   = True
-    
+                
     # Put check=True to have the computed visibility compared to the defaukt 
     # original ones later
     check = False
     if check:
-        cf.cmp_vis   = True # Recompute with the following parameters
-        cf.altmin    = 10*u.deg
-        cf.moondist  = 0*u.deg
-        cf.moonlight = 1.
-        cf.depth     = 1*u.day
-        cf.skip      = 0
+        cf.visibility["altmin"]    = 10*u.deg
+        cf.visibility["moondist"]  = 0*u.deg
+        cf.visibility["moonlight"] = 1.
+        cf.visibility["depth"]     = 1*u.day
+        cf.visibility["skip"]      = 0
     
     ngrb     = 1 # 250
     ifirst   = [2] # ["190829A"]
-    cf.save_grb = False # (False) GRB saved to disk -> use grb.py main
-    cf.res_dir  = "."
+
+    # Superse some values if needed
+    # cf.dbg       = 1
+    # cf.show      = 0
+    # cf.vis_cmp   = True    
+    # cf.save_grb  = False # (False) GRB saved to disk -> use grb.py main
+    # cf.res_dir   = "."
 
     log_filename    = cf.res_dir  + "/visibility.log"
     log = Log(name  = log_filename,talk=True)
     
-    # GRB list to be analysed
-    if type(ifirst)!=list:
-        grblist = list(range(ifirst, ifirst + ngrb))
-    else:
-        grblist = ifirst   
+    # Print configuration with possible superseded values
+    cf.print(log)
     
-    # Loop over GRB list
-    for i in grblist:
+    # GRB list to be analysed
+    if type(ifirst)!=list: grblist = list(range(ifirst, ifirst + ngrb))
+    else:  grblist = ifirst   
+    
+    # # Loop over GRB list
+    for item in grblist:
 
-        grb = get_grb_fromfile(i,
-                               config=cf,
+        grb = get_grb_fromfile(item,
+                               config = cf,
                                grb_folder = cf.grb_dir,
-                               log=log)
+                               log = log)
         print(grb)
         gplt.spectra(grb,opt="Packed")
- 
-        # Handle visibilities for both sites
         for loc in ["North","South"]:
-            # Read on disk
-            if  cf.vis_dir != None and not cf.vis_cmp:
-                highlight(" Reading from disk : {}".format(cf.vis_dir))
-                
-                name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
-                grb.vis[loc] = Visibility.read(name)
-            # Compute on the fly
-            elif cf.vis_cmp:
-                highlight(" Computing on the fly ")
+            grb.vis[loc].print()
+            gplt.visibility_plot(grb, loc=loc)               
 
-                grb.vis[loc] = Visibility.compute(grb,
-                                     loc,
-                                     observatory = cf.observatory,
-                                     altmin      = cf.altmin,
-                                     altmoon     = cf.altmoon,
-                                     moondist    = cf.moondist,
-                                     moonlight   = cf.moonlight,
-                                     depth       = cf.depth,
-                                     skip        = cf.skip,
-                                     force_vis   = cf.forced_visible,
-                                     debug       = bool(cf.dbg>2))
-            else:
-                import sys
-                sys.exit(" Check your visibility options")
-
+        # THi shas to be rewrittend as the visibilitysnow computed from 
+        # withthe GRB class
+        # Handle visibilities for both sites
+        # for loc in ["North","South"]:
             
-            if check: # Compare to default visibility
-                log.prt("\n--------------- D E F A U L T  -----------------\n")
-                grb.vis[loc].print(log=log)
-                if (check and ngrb<30 and cf.show>0):
-                    gplt.visibility_plot(grb, loc=loc)
+        #     if check: # Compare to default visibility
+        #         log.prt("\n--------------- D E F A U L T  -----------------\n")
+        #         grb.vis[loc].print(log=log)
+        #         if (check and ngrb<30 and cf.show>0):
+        #             gplt.visibility_plot(grb, loc=loc)
                     
-                # Save old visibilities
-                import copy
-                vis_def = copy.deepcopy(grb.vis[loc])          
+        #         # Save old visibilities
+        #         import copy
+        #         vis_def = copy.deepcopy(grb.vis[loc])          
 
-                log.prt()("\n--------------- C H E C K  ----------------\n")
-                grb.vis[loc].check(vis_def,log=log,delta_max=1*u.s)
+        #         log.prt()("\n--------------- C H E C K  ----------------\n")
+        #         grb.vis[loc].check(vis_def,log=log,delta_max=1*u.s)
                 
-            else:
-                grb.vis[loc].print()
-                gplt.visibility_plot(grb, loc=loc)               
+        #     else:
+        #         grb.vis[loc].print()
+        #         gplt.visibility_plot(grb, loc=loc)               
 
     log.close()
 
