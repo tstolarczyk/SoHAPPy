@@ -1,0 +1,31 @@
+# Parameters to compute the visibility
+
+# Moonlight conditions (compromise):
+moonlight:
+  where     :  "CTA"
+  depth     :  3        # Max. number of nights
+  skip      :  0        # Number of first nights to be skipped  altmin    :  24 deg   # CTA requirement horizon
+  altmin    :  24 deg   # Ensure that the source is always above horizon
+  altmoon   : -0.25 deg # Moon above horizon
+  moondist  :  30  deg  # Acceptable Moon distance
+  moonlight :  0.6      # Acceptable Moon brightness
+ 
+# Maximise the visibility
+nomoonveto:
+  where     :  "CTA"
+  depth     :  3        # Max. number of nights
+  skip      :  0        # Number of first nights to be skipped  
+  altmin    :  24  deg  # Ensure that the source is always above horizon
+  altmoon   :  90 deg   # Ensure that the moon never vetoes the visibility
+  moondist  :  0  deg   # The Moon distance do not veto the visibility
+  moonlight :  1.0      # The Moon brightness is not a limitation
+
+# Minimize the visibility (i.e. veto as soon as the moon is above horizon)
+strictmoonveto:
+ where     :  "CTA"
+ depth     :  3        # Max. number of nights
+ skip      :  0        # Number of first nights to be skipped 
+ altmin    :  24 deg   # Ensure that the source is always above horizon
+ altmoon   : -0.25 deg # Moon above horizon
+ moondist  : 180 deg   # The Moon vetoes even if far away
+ moonlight :  0.0      # The Moon vetoes even if new Moon
