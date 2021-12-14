@@ -11,16 +11,9 @@ The 'ignore' option is motivated by to warning in astropy (deprecation or
 too distant dates).
 
 """
-from __init__ import __version__
-
 import os
 import sys
 from   mcsim  import MonteCarlo
-
-os.environ['GAMMAPY_EXTRA'] =r'../input/gammapy-extra-master'
-os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
-#print(os.getenv('GAMMAPY_EXTRA'))
-#print(os.listdir(os.getenv('GAMMAPY_EXTRA')))
 
 # Transform warnings into errors - useful to find who is guilty !
 import warnings
@@ -56,6 +49,7 @@ __all__ = ["main", "get_grb_fromfile", "get_delay"]
 ###############################################################################
 def welcome(log):
     import gammapy
+    from __init__ import __version__
 
     log.prt(datetime.now())
     log.prt("+----------------------------------------------------------------+")
@@ -70,25 +64,20 @@ def welcome(log):
     
     return
 ###############################################################################
-def get_grb_fromfile(item, 
-                     config = None,
-                     grb_folder  = None, 
-                     log = None):
+def get_grb_fromfile(item, config = None, grb_folder  = None, log = None):
     """
-    Obtain data for the ith GRB file and create a GammaRayBurst instance.
+    
 
     Parameters
     ----------
-    i : integer
-        GRB position in the list
-    prompt : boolen, optional
-        If True, reads the prompt GRB file, otherwise the afterglow (default).
-    afterglow : boolean, optional
-        If True, use the afterglow file generic information (e.g.) for the
-        prompt data, oterwise use the default.
-        The default is False.
-    log : TextIO, optional
-        Log file. The default is None.
+    item : TYPE
+        DESCRIPTION.
+    config : TYPE, optional
+        DESCRIPTION. The default is None.
+    grb_folder : TYPE, optional
+        DESCRIPTION. The default is None.
+    log : TYPE, optional
+        DESCRIPTION. The default is None.
 
     Returns
     -------
@@ -97,12 +86,20 @@ def get_grb_fromfile(item,
 
     """
     
+    # This is required tohave the EBL models read from gammapy
+    
+    # os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
+    os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).parent,
+                                          "../input/gammapy-extra-master/datasets"))
+    
     if config == None:
+        prompt      = False
         test_prompt = False 
         eblmodel    = "dominguez"
         magnify     = 1
         afterglow   = False 
     else:
+        prompt      = config.prompt
         test_prompt = config.test_prompt
         eblmodel    = config.EBLmodel
         magnify     = config.magnify
@@ -123,8 +120,10 @@ def get_grb_fromfile(item,
             filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits")
             grb = GammaRayBurst.from_fits(filename,
                                      ebl     = eblmodel,
+                                     prompt  = prompt, 
+                                     vis     = config.visibility,
                                      magnify = magnify)
-    else: # Special case for prompt
+    else: # Special case for time-resolved prompt
         # create a new object from the default (Visible in North)
         loc = Path('../input/lightcurves/prompt'
                    + "/events_"+str(item)+".fits")
@@ -211,7 +210,7 @@ def main(argv):
     None.
 
     """
-    
+
     # Change gammapy logging to avoid warning messages 
     import logging
     logging.basicConfig()
@@ -280,29 +279,6 @@ def main(argv):
                           opt   = cf.obs_point,
                           name  = grb.name,
                           debug = bool(cf.dbg>1))
-
-            # Recompute visbility windows if requested
-            from visibility import Visibility
-
-            for loc in ["North","South"]:
-
-                if  cf.vis_dir != None and not cf.vis_cmp:
-                    name = Path(cf.vis_dir,grb.name+"_"+loc+"_vis.bin")
-                    grb.vis[loc] = Visibility.read(name)
-                elif cf.vis_cmp:
-                    grb.vis[loc] = Visibility.compute(grb,
-                                         loc,
-                                         observatory = cf.observatory,
-                                         altmin      = cf.altmin,
-                                         altmoon     = cf.altmoon,
-                                         moondist    = cf.moondist,
-                                         moonlight   = cf.moonlight,
-                                         depth       = cf.depth,
-                                         skip        = cf.skip,
-                                         force_vis   = cf.forced_visible,
-                                         debug       = bool(cf.dbg>2))
-                else:
-                    sys.exit(" Check your visibility options")
 
             # Printout grb and visibility windows
             if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
