@@ -36,21 +36,19 @@ def MyLabel(var,label="",stat="std"):
     if (len(label)!=0): label = label+"\n"
     
     legend="bad option"
+    if stat == None: return "$n$ : {:d}".format(len(var))
     
-    if stat.findstr("std") !=-1:
+    if stat.find("std") !=-1:
         legend = label  \
                 + "$n$ : {:d} \n".format(len(var)) \
                 + r"$\bar{n}$ : "+"{:5.3f}\n".format(np.mean(var)) \
                 + r"$\sigma$ : "+" {:5.3f}".format(np.std(var))
-    elif stat.findstr("med") !=-1 :
+    elif stat.find("med") !=-1 :
         legend = label  \
                 + "$n$ : {:d} \n".format(len(var)) \
                 + r"$\bar{n}$ : "+"{:5.3f}\n".format(np.mean(var)) \
                 + r"$Med.$ : "+" {:5.3f}".format(np.median(var))
-    elif stat == None:
-        legend =  label  \
-                + "$n$ : {:d}".format(len(var))
-                
+
     return legend
 
  ###----------------------------------------------------------------------------
