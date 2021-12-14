@@ -10,6 +10,7 @@ from pathlib import Path
 from utilities    import Log
 
 def_conf = "config.yaml"
+def_vis  = "visibility.yaml"
 ###############################################################################
 class Configuration(object):
     """
@@ -142,9 +143,9 @@ class Configuration(object):
         return
     ###------------------------------------------------------------------------    
     def read(self):
-
+        
         #---------------------------------------------------
-        def obj_dic(d):
+        def obj_dic(self,d):
             # top = type('new', (object,), d)
             seqs = tuple, list, set, frozenset
             for i, j in d.items():
@@ -169,16 +170,22 @@ class Configuration(object):
         print(">>> Read configuration from ",self.filename)
         with open(self.filename) as f:
             data = yaml.load(f, Loader=SafeLoader)
-            obj_dic(data)
-            self.altmin = u.Quantity(self.altmin)
-            self.altmoon = u.Quantity(self.altmoon)
-            self.moondist = u.Quantity(self.moondist)
+            obj_dic(self,data)
             self.dtslew_North = u.Quantity(self.dtslew_North)
             self.dtslew_South = u.Quantity(self.dtslew_South )
             self.dtswift = u.Quantity(self.dtswift)
             self.arrays = {"North": self.array_North, "South":self.array_South}
             self.dtslew = {"North": self.dtslew_North, "South":self.dtslew_South}
-
+            
+        # Read the visibility parameters if requested
+        print(">>> Read Visibility configuration from ",def_vis)    
+        with open(def_vis) as f:
+            visdict  = yaml.load(f, Loader=SafeLoader)
+            if self.visibility in visdict.keys():
+                # The visibility will be recomputed using the parameters
+                # Replace by the sub-dictionnary
+                self.visibility = visdict[self.visibility]
+            
         return
     ###------------------------------------------------------------------------ 
     def print(self,log):
@@ -196,7 +203,6 @@ class Configuration(object):
 
         """
         log.prt(" Configuration file      : {} ".format(self.filename))
-        log.prt("Observatory              : {}".format(self.observatory))
         log.prt(" Simulation:")
         if self.save_simu:
              log.prt("     Save simulation     : {}".format(self.save_simu))
@@ -230,21 +236,31 @@ class Configuration(object):
         #     method = "On-off Energy dependent"
         log.prt(" Analysis (ndof)         : {}".format(self.method))
         if not self.forced_visible:
-            if self.vis_dir != None and not self.vis_cmp:
-                log.prt(" Vis. read from          : {}".format(self.vis_dir))
-            elif self.vis_cmp:
-                # vis_self.print(log)
-                log.prt(" Vis. computed up to     : {} night(s)".format(self.depth))
-                log.prt(" Skip up to              : {} night(s)".format(self.skip))
-                log.prt(" Minimum altitude        : {}".format(self.altmin))
-                log.prt(" Moon max. altitude      : {}".format(self.altmoon))
-                log.prt(" Moon min. distance      : {}".format(self.moondist))
-                log.prt(" Moon max. brightness    : {}".format(self.moonlight))
+            if self.visibility == None or self.visibility == "None":
+                print(" Default visibilities read from the GRB input files")
+            elif isinstance(self.visibility, dict):
+                print(" Visibilities recomputed on the fly :")
+                # print(self.visibility)
+                log.prt("   Vis. computed up to   : {} night(s)"
+                        .format(self.visibility["depth"]))
+                log.prt("   Skip up to            : {} night(s)"
+                        .format(self.visibility["skip"]))
+                log.prt("   Minimum altitude      : {}"
+                        .format(self.visibility["altmin"]))
+                log.prt("   Moon max. altitude    : {}"
+                        .format(self.visibility["altmoon"]))
+                log.prt("   Moon min. distance    : {}"
+                        .format(self.visibility["moondist"]))
+                log.prt("   Moon max. brightness  : {}"
+                        .format(self.visibility["moonlight"]))               
+        
             else:
-                sys.exit(" Check your visibility options")
+                if not Path(self.visibility).is_dir():
+                    print(self.visibility," folder does not exist")
+                    sys.exit("Check the visibility attribute")
+                else:    
+                    print(" Visibilities read from disk, folder ",self.visibility)           
                 
-        else:
-            log.prt(" Visibility              : default")
     
         log.prt("+----------------------------------------------------------------+")
         log.prt("|                 *: can be changed with command line (use -h)   |")
