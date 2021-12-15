@@ -160,17 +160,14 @@ class Visibility():
         # Originally: Visible any moment of the year from the site
         # This means that the GRB appears above the defined horizon whathever
         # the other conditions are. In particular, mitigation against the 
-        # Moonlight would make it visible from the first or next night.
+        # Moonlight would make it visible from the first or next nights.
         self.vis         = True
         
         # Originally: Visible any moment within the 24h after the trigger from 
-        # the site
-        # This means that it can be detectable the first night. It was 
-        # particularly important when the visibility was computed until 24h
-        # after the trigger, and still indicate that the chance to have it 
-        # detected are higher tha a GRB for which the first night would be 
-        # missed.
-        self.vis_tonight = True
+        # the site, names vis_tonight in the GRB file.
+        # Changed to vis_night and True if the GRB is visible during any night
+        # This the variable on which the decision of simulation is given.
+        self.vis_night = True
         
         # Originally: Visible at the moment of the GRB trigger
         # Keeps the original meaning but add the moon veto, which can differ
@@ -240,12 +237,12 @@ class Visibility():
          # Visibility has been computed with this minimum altitude
         if (loc == "North"):
             cls.vis          = hdr['V_N_ANYT']
-            cls.vis_tonight  = hdr['V_N_TNG']
+            cls.vis_night    = hdr['V_N_TNG'] # formerly vis_tonight
             cls.vis_prompt   = hdr['V_N_PR']
 
         if (loc == "South"):
             cls.vis          = hdr['V_S_ANYT']
-            cls.vis_tonight  = hdr['V_S_TNG']
+            cls.vis_night    = hdr['V_S_TNG'] # formerly vis_tonight
             cls.vis_prompt   = hdr['V_S_PR']
 
         cls.altmin     = vis.meta["MIN_ALT"]*u.deg # Minimum altitude
@@ -484,7 +481,7 @@ class Visibility():
         ###---------------------------------------         
            
         cls.vis = False
-        cls.vis_tonight = False
+        cls.vis_night = False
         cls.vis_prompt  = False
         
         # At least a period above the horizon
@@ -494,20 +491,17 @@ class Visibility():
         
         # At least a visibility period for observation
         if len(t_vis) > 0: 
+            cls.vis_night = True
+            
+            # In this first window the prompt is visible    
+            if  valid(grb.t_trig.jd,[t_vis[0]]):
+                cls.vis_prompt=True
             
             # Store definitively the visibility windows
             cls.t_true = [] # Warning: default is the GRB window
             for elt in t_vis:
                 cls.t_true.append( [Df(elt[0]), Df(elt[1])] )             
-            
-            # The first window starts < 1 day 
-            if t_vis[0][0] <= grb.t_trig.jd + 1: 
-                cls.vis_tonight = True
-                
-                # In this first window the prompt is visible    
-                if  valid(grb.t_trig.jd,[t_vis[0]]):
-                    cls.vis_prompt=True
-                 
+                            
         # There is no visibility window at all - sad World             
         else:
             cls.t_true  = [[]]
@@ -869,12 +863,13 @@ class Visibility():
         log.prt("=================   {:10s}   {:10s}   ================"
           .format(self.name,self.status))
         log.prt(' Visible : {} - tonight, prompt : {}, {})'
-              .format(self.vis, self.vis_tonight,self.vis_prompt))
+              .format(self.vis, self.vis_night,self.vis_prompt))
         log.prt(' Altitude : Horizon > {:3.1f} - Moon > {:4.2f}'
               .format(self.altmin, self.moon_maxalt))
         #log.prt(" Trigger: {}".format(self.t_trig.datetime))
-
-        if self.vis_tonight or self.status =="Updated": # Seen within 24hr after the trigger
+        
+        #   WARNING : might be wrong since vis_tonight is not vis_night
+        if self.vis_night or self.status =="Updated": 
             log.prt("+----------------------------------------------------------------+")
 
             ###------------------
