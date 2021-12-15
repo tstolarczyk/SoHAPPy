@@ -26,7 +26,7 @@ warnings.filterwarnings('ignore')
 ###---------------------------
 ### change your conditons here
 ###---------------------------
-conditions = "moonlight"
+conditions = "strictmoonveto"
 def_vis    = "visibility.yaml"
 vis_folder = conditions
 
@@ -36,7 +36,6 @@ vis_folder = conditions
 save_vis   = True # Save to disk in vis_folder
 read_vis   = False # Read from disk in vis_folder
 debug      = False
-log = Log(name  = vis_folder+"visibility_write.log",talk=True)
 
 ###---------------------------
 ### Input GRB data
@@ -56,6 +55,7 @@ start = time.time() # Starts chronometer
 # Prepare writing on disk
 if save_vis:
     os.makedirs(vis_folder, exist_ok=True) # Create output folder
+    log = Log(name  = vis_folder+"/visibility_write.log",talk=True)
     log.prt("Writing visibility to Output folder : {} ".format(vis_folder))
     
     # Read the visibility parameters 
