@@ -321,7 +321,7 @@ def main(argv):
                                 name      = name)
 
                 # If visible, run simulation
-                if grb.vis[loc].vis_tonight:
+                if grb.vis[loc].vis_night:
                     slot = origin.copy(name="loc")
 
                     # Simulate delay
@@ -370,7 +370,7 @@ def main(argv):
                             name      = name)
 
             # If visible on both sites, run simulation
-            if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
+            if grb.vis["North"].vis_night and grb.vis["South"].vis_night:
 
                 slot = origin.both_sites(delay  = delay,
                                          debug  = (cf.dbg>1))
