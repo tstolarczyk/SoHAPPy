@@ -116,7 +116,7 @@ class Visibility():
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self,grb,loc,observatory="CTA"):
+    def __init__(self,grb,loc,depth=0, observatory="CTA"):
         """
         Visibility constructor, setting a full visibility of the GRB, from the
         start to the stop of the GRB data. 
@@ -141,10 +141,9 @@ class Visibility():
         self.site    = site_xyz[observatory][loc]
         self.target  = FixedTarget(coord=grb.radec, name=grb.name)
         self.tstart  = grb.t_trig
-        self.tstop   = grb.t_trig + grb.tval[-1]
+        self.tstop   = grb.t_trig + min(grb.tval[-1],depth*u.day)
         self.name    = grb.name+"_"+loc
 
-        self.depth   = 0
         self.altmin  = 0*u.deg # GRB Minimal allowed altitude
 
         # These three variables were defined by M.G.Bernardini in the first 
@@ -256,49 +255,79 @@ class Visibility():
 
     ###-----------------------------------------------------------------------
     @classmethod
-    def compute(cls,grb, loc, param = None,
+    def compute(cls,grb, loc, 
+                    param       = None,
                     npt         = 150,
                     force_vis   = False,
                     debug       = True):
-
         """
-        Compute the visibility periods for a given GRB and site. This constructor takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), and all the parameters required for the computation.
-    
-        Note that all time variables are expressed in Julian days (to use `sort`) an are then copied as :class:`Time` objects later into the class variables.
-    
-        The algorithm is the following:
-    
-            1. Build periods for:
-                * Nights (*t_night*), and check if trigger occurs during night (*is_night*);
-                * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above the defined horizon (*altmoon*);
-                * Check (*True*, *False*) whether these Moon veto periods are kept by the moon brightness and distance to the source (*moonlight_veto*). If this is the case, keep the corresponding moon veto period in *t_moon_veto* otherwise discard the period. In order to have all Moon period kept (i.e. veto is valid as soon as Moon is above *altmoon*), *moondist* should be maximised (veto at any distance) and *moonlight* should be minimised (even if no moonligt, veto is valid);
-                * Above horizon (*t_above*) and whether the object is above the horizon (*altmin*) at trigger time.
         
-            2. Put all *start* and *stop* of all these periods in a list, sort the list, resulting in a series of ordered “ticks”.
-            3. For each consecutive tick pairs in the list:
-                * Compute the mean time (middle of the a tick pair)
-                * Check if that time belongs to one of the *night*, *above*, or *bright* (i.e. in the available data interval) intervals and not to any  *moon* interval. If so get True, otherwise False.
-       
-            4. For each of the tick pairs compute the Boolean `visible = bright and dark and above and moon` and get the visibility windows when True.
-
+    Compute the visibility periods for a given GRB and site. This constructor 
+    takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), 
+    and all the parameters required for the computation.
+    
+    Note that all time variables are expressed in Julian days (to use `sort`) 
+    and are then copied as :class:`Time` objects later into the class variables.
+    
+    The algorithm is the following:
+    
+        1. Build periods for:
+            * Nights (*t_night*), and check if trigger occurs during night 
+            (*is_night*);
+            
+            * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above 
+            the defined horizon (*altmoon*);
+            
+            * Check (*True*, *False*) whether these Moon veto periods are kept 
+            by the moon brightness and distance to the source 
+            (*moonlight_veto*). If this is the case, keep the corresponding 
+            moon veto period in *t_moon_veto* otherwise discard the period. 
+            In order to have all Moon periods kept (i.e. veto is valid as soon 
+            as Moon is above *altmoon*), *moondist* should be maximised 
+            (veto at any distance) and *moonlight* should be minimised 
+            (even if no moonligt, veto is valid);
+            
+            * Above horizon (*t_above*) and whether the object is above the 
+            horizon (*altmin*) at trigger time.
+    
+        2. Put all *start* and *stop* of all these periods in a list, 
+        sort the list, resulting in a series of ordered “ticks”.
+        3. For each consecutive tick pairs in the list:
+            * Compute the mean time (middle of the a tick pair)
+            * Check if that time belongs to one of the *night*, *above*, or 
+            *bright* (i.e. in the available data interval) intervals and not 
+            to any  *moon* interval. If so get True, otherwise False.
+    
+        4. For each of the tick pairs compute the Boolean 
+        `visible = bright and dark and above and moon` and get the visibility 
+        windows when True.
 
         Parameters
         ----------
-        altmin : float, optional
-            Minimum altitude. The default is 10*u.deg.
-        depth : Quantity Time, optional
-            Depth up to which time windows are search for (at least one day). The default is 3 days, and the reference time is the start of the visibility window (i.e. the window end can be beyond the depth)    
-        end : integer, optional
-            Defines the crietria to accept a visibility window within the depth. If 0, the window has to start before depth, if 1 it has to stop before depth.
+        cls : Visibility Object
+            The present instance.
+        grb : TYPE
+            DESCRIPTION.
+        loc : String
+            Characterize the site, typically "North" or "South.
+        param : Dictionnary, optional
+            A dictionnary of parameters to compute the visibility. 
+            The default is None.
         npt : integer, optional
             Number of grid points for horizon crossing. The default is 150.
+        force_vis : Boolean, optional
+            If True the visibility is unlimited. The default is False.
         debug : bool, optional
             Print additional comments at excecution time if True .The default is False.
 
-  
+        Returns
+        -------
+        Visibility Object
+            The updated instance.
+
         """
 
-        # Decode the parameter dictionnay
+        # Decode the parameter dictionnay or set defaults
         if param != None:
             observatory = param["where"]
             altmin      = u.Quantity(param["altmin"])
@@ -316,7 +345,7 @@ class Visibility():
             depth       = 3
             skip        = 0
 
-        cls = Visibility(grb,loc,observatory=observatory)  # This calls the constructor
+        cls = Visibility(grb,loc,depth=depth, observatory=observatory)  # This calls the constructor
                 
         ###---------------------------------------------------
         def valid(t0,tslices):
@@ -328,9 +357,7 @@ class Visibility():
             return ok
         ###---------------------------------------------------
 
-        cls.depth     = depth
-        cls.altmin    = altmin
-
+        cls.altmin        = altmin
         cls.moon_maxalt   = altmoon
         cls.moon_mindist  = moondist
         cls.moon_maxlight = moonlight
@@ -621,7 +648,7 @@ class Visibility():
             tnights.append([t_dusk.jd, t_dawn.jd])
 
         # Add subsequent nights until reaching the end of GRB data
-        while (t_dusk < self.tstop) and (inight < self.depth):
+        while (t_dusk < self.tstop): # and (inight < self.depth):
             t_dusk = obs.twilight_evening_astronomical(t_dawn,
                                                         which = "next",
                                                         n_grid_points = npt)
