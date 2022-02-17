@@ -16,7 +16,8 @@ class Configuration(object):
     """
     """
     ###------------------------------------------------------------------------    
-    def __init__(self, argv, conf_file=def_conf, copy=True, debug=False):
+    def __init__(self, argv, conf_file = def_conf, 
+                             vis_file  = def_vis, copy=True, debug=False):
         """
         The defaut configuration file is found in the code repository, but it 
         can be changed for tests changing the def_conf variable in the 
@@ -84,7 +85,12 @@ class Configuration(object):
             
         # Change filename to absolute Path
         self.filename = self.filename.resolve()
+        
+        ### --------------------------
+        ### Read configuration file
+        ### --------------------------            
         self.read()
+        self.read_visibility(visfilename = vis_file)
         if (debug): print(" Now read config file ", self.filename)
         
         ### --------------------------
@@ -141,9 +147,33 @@ class Configuration(object):
         else:
             log.warning(" Already exists :",self.res_dir)
         return
+    
+    ###------------------------------------------------------------------------    
+    def read_visibility(self, visfilename=None):
+       # Read the visibility parameters if requested
+       if visfilename !=None:
+           print(">>> Read Visibility configuration from ",visfilename)    
+           with open(visfilename) as f:
+               visdict  = yaml.load(f, Loader=SafeLoader)
+               if self.visibility in visdict.keys():
+                   # The visibility will be recomputed using the parameters
+                   # Replace by the sub-dictionnary
+                   self.visibility = visdict[self.visibility]
+       else:
+           self.visibility = None # The defualt visibility will be used 
+       return
+    
     ###------------------------------------------------------------------------    
     def read(self):
-        
+        """
+        Read configuration file
+
+        Returns
+        -------
+        None.
+
+        """
+
         #---------------------------------------------------
         def obj_dic(self,d):
             # top = type('new', (object,), d)
@@ -167,6 +197,7 @@ class Configuration(object):
                     
             return
         #---------------------------------------------------
+        
         print(">>> Read configuration from ",self.filename)
         with open(self.filename) as f:
             data = yaml.load(f, Loader=SafeLoader)
@@ -177,15 +208,7 @@ class Configuration(object):
             self.arrays = {"North": self.array_North, "South":self.array_South}
             self.dtslew = {"North": self.dtslew_North, "South":self.dtslew_South}
             
-        # Read the visibility parameters if requested
-        print(">>> Read Visibility configuration from ",def_vis)    
-        with open(def_vis) as f:
-            visdict  = yaml.load(f, Loader=SafeLoader)
-            if self.visibility in visdict.keys():
-                # The visibility will be recomputed using the parameters
-                # Replace by the sub-dictionnary
-                self.visibility = visdict[self.visibility]
-            
+ 
         return
     ###------------------------------------------------------------------------ 
     def print(self,log):
