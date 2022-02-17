@@ -13,49 +13,72 @@ import pandas as pd
 
 from utilities import MyLabel
 from setup import col_3, col_5
-    
 
 __all__ = ["get_data", "create_csv"]
-###-------------------------------------------------------------
 
 ###-------------------------------------------------------------
-def get_eff_lvl(grb):
+def get_eff_lvl(grb, debug=False):
+    """
+    Compute absolute confidence level from the CL in percentage 
+    and the number of events
+
+    Parameters
+    ----------
+    grb : Pandas frame
+        A GRB analysed population.
+
+    Returns
+    -------
+    eff_lvl : Integer
+        The absolute confidence level in counts.
+
+    """
     
     import mcsim_config as mcf
     detlvl  = mcf.det_level # get this from the config file in case of changes
     niter   = max(set(grb.err)) 
     eff_lvl = detlvl * niter
-    print(" Detection level = ",detlvl," niter = ",niter," -> Eff. det. level is ",eff_lvl)
+    if debug:
+        print(" Det. level = {}, niter = {} -> Eff. det. level is {}"
+        .format(detlvl, niter, eff_lvl))
 
     return eff_lvl
-###-------------------------------------------------------------
-def get_data(filename,maxgrb=2000, debug=False):
-    """
-    Get data from a csv SoHAPPy output file
-    Compute combinatory of site visibility
 
+###-------------------------------------------------------------
+def get_data(filename,maxgrb=100000, debug=False):
+    """
+    
+    Get data from a csv SoHAPPy output file
+    Compute combinatory of site visibility.
+    
     Parameters
     ----------
     filename : TYPE
         DESCRIPTION.
+    maxgrb : integer, optional
+        Restrict to a maximal number of entries. The default is a lot.
+    debug : Boolean, optional
+        If True, lets' talk a bit. The default is False.
 
     Returns
     -------
-    grb : TYPE
+    grb : Pandas dataframe
+        The full GRB population (Entries North, South and Both).
+    gn0 : Pandas dataframe
         DESCRIPTION.
-    g_ana : TYPE
+    gs0 : Pandas dataframe
         DESCRIPTION.
-    gn : TYPE
+    gn : Pandas dataframe
         DESCRIPTION.
-    gs : TYPE
+    gs : Pandas dataframe
         DESCRIPTION.
-    gb : TYPE
+    gb : Pandas dataframe
         DESCRIPTION.
 
     """
 
     grb    = pd.read_csv(filename)
-
+        
     # Extract "not visible" flag and iteration from the data
     unvis     = min(set(grb.err))
     niter     = max(set(grb.err))
@@ -77,18 +100,18 @@ def get_data(filename,maxgrb=2000, debug=False):
     if len(names) > maxgrb:
         print(" WARNING : limited statistics (",len(names),") >",maxgrb)
 
-    # Add cobinatory to data frame for the name list
+    # Add combinatory to data frame for the name list
     add_combinatory(names,grb,unvis=unvis,debug=False)
     suppinfo = ("N" in grb) and ("S" in grb) and ("B" in grb)
 
     # The iteration number of the simulation can be guessed
     # from the error code (except if all simulations failed!)
-    g_ana = grb[ grb.err   == niter]
-    gn0 = g_ana[ (g_ana.site=="North") & (g_ana.N==1)] # North only
-    gs0 = g_ana[ (g_ana.site=="South") & (g_ana.S==1)] # South only
-    gn  = g_ana[ g_ana.site=="North"] # North and maybe elsewhere
-    gs  = g_ana[ g_ana.site=="South"] # South and maybe elsewhere
-    gb  = g_ana[ (g_ana.site=="Both")  & (g_ana.B==1)] # Seen both
+    g_ana = grb[ grb.err   == niter] # All iterations were simulated
+    gn0   = g_ana[ (g_ana.site =="North") & (g_ana.N==1)] # North only
+    gs0   = g_ana[ (g_ana.site =="South") & (g_ana.S==1)] # South only
+    gn    = g_ana[  g_ana.site =="North"] # North and maybe elsewhere
+    gs    = g_ana[  g_ana.site =="South"] # South and maybe elsewhere
+    gb    = g_ana[ (g_ana.site =="Both")  & (g_ana.B==1)] # Seen both
 
     if (debug):
         print(" DATA READING from ",filename)
@@ -123,14 +146,13 @@ def get_data(filename,maxgrb=2000, debug=False):
         print("  - North only : ",len(gn0))
         print("  - South only : ",len(gs0))
 
-
         print("+------------------------------------------------------------+")
 
     return (grb, gn0, gs0, gn, gs, gb)
 
 ###-------------------------------------------------------------------
 def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
-                 maxgrb=2000, debug=False, old=False):
+                 maxgrb=2000, debug=False):
     print("+======================== Sanity checks =========================+")
 
 
@@ -151,10 +173,7 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
 
     for axi, gpop, loc in zip(ax,[gn,gs],["North","South"]):
         axi.hist(gpop[gpop.t3s>=0].t3s,bins=100,label=loc)
-        if old:
-              delay = cf.dtslew
-        else:
-              delay = cf.dtslew[loc]
+        delay = cf.dtslew[loc]
         axi.axvline(x = delay.value,
                     color="red",ls=":",
                     label=str(delay.value)+" "+str(delay.unit))
@@ -173,7 +192,7 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
     return
 
 ###-------------------------------------------------------------------
-def rate(grb, nyears = 0, det_lvl=0.9):
+def rate(grb, nyears = 0, det_lvl=0.9, summary=False, header=True):
     """
 
 
@@ -202,39 +221,57 @@ def rate(grb, nyears = 0, det_lvl=0.9):
         return
 
     # Header
-    print()
-    print("",102*"-")
-    if nyears:
-        print(" Normalized to {} year".format(nyears),end="")
-    if (nyears>1): print("s")
-    else: print()
-    
-    print("",102*"-")
-    print(" Rate : {:>15} {:>15}".format("N","S"),end="")
-    print("{:>16} {:>15} {:>15} {:>14}".format("Nonly","Sonly","Both","Total"))
-
-    print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
-    print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))
+    if header:
+        print()
+        print("",102*"-")
+        if nyears:
+            print(" Normalized to {} year".format(nyears),end="")
+        if (nyears>1): print("s")
+        else: print()
+        
+        print("",102*"-")
+        print(" Rate : {:>15} {:>15}".format("N","S"),end="")
+        print("{:>16} {:>15} {:>15} {:>15}".format("Nonly","Sonly","Both","Total"))
 
     #--------------------------------------------------------
-    def stat_line(gn,gs,gb,gn0,gs0,tag="",ny=1):
+    def separator():
+         print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
+         print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))       
+         return
+     
+    # def stat_line(gn,gs,gb,gn0,gs0,tag="",ny=1):
+    def stat_line(glist,tag="",ny=1):
+        [gn,gs,gb,gn0,gs0] = glist
+        glist2 = [gn,gs,gb,gn0,gs0, gn0+gs0+gb]
         
-        print(" {:5s}: {:7.1f} +- {:4.1f} {:7.1f} +- {:4.1f}"
-              .format(tag,
-                      len(gn)/ny,
-                      np.sqrt(len(gn))/ny,
-                      len(gs)/ny,
-                      np.sqrt(len(gs))/ny),end="")
+        def prt_line(ny=1,tag="dummy"):
+            print(" {:5s}:".format(tag),end="")
+            # for g in [gn,gs,gn0,gs0,gb,gn0+gs0+gb]:
+            for g in glist2:
+                print(" {:7.1f} +- {:4.1f}"
+                      .format(len(g)/ny, np.sqrt(len(g))/ny),end="" )  
+            return
+        
+        def prt_vis():
+            print(" {:5s}:".format("@trig"),end="")
+            for g in glist2:
+                r = len(g[g.vis==1])/len(g) if len(g) else 0
+                print(" {:7d}  {:5.1f}%"
+                      .format(len(g[g.vis==1]),100*r),end="" ) 
+            return
 
-        print("{:>8.1f} +- {:>4.1f} {:>7.1f} +- {:>4.1f} {:>7.1f} +- {:>4.1f} {:>7.1f} +- {:>4.1f}"
-                  .format(len(gn0)/ny,
-                          np.sqrt(len(gn0))/ny,
-                          len(gs0)/ny,
-                          np.sqrt(len(gs0))/ny,
-                          len(gb)/ny,
-                          np.sqrt(len(gb))/ny,
-                          (len(gn0)+len(gs0)+len(gb))/ny,
-                          np.sqrt((len(gn0)+len(gs0)+len(gb)))/ny))
+        if ny !=1: 
+            separator()
+            prt_line(ny=1,tag = tag)
+            print()
+            prt_line(ny=ny, tag=" ")
+            print()
+            prt_vis()
+        else:
+            separator()
+            prt_line(ny=ny, tag=tag)
+        
+        print()
         return
     #--------------------------------------------------------
     # Population base - visible
@@ -244,62 +281,24 @@ def rate(grb, nyears = 0, det_lvl=0.9):
     gb =  g_ana[g_ana.site=="Both"]
     gn0 = g_ana[g_ana.N == 1]
     gs0 = g_ana[g_ana.S == 1]
-    stat_line(gn,gs,gb,gn0,gs0,tag="Vis.",ny=1)
     
-    if nyears:
-        stat_line(gn,gs,gb,gn0,gs0,tag="",ny=nyears)
-        print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
-        print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))
+    
+    poplist = [gn,gs,gn0,gs0, gb]
+    if not summary: stat_line(poplist,tag="Vis.",ny=nyears)
         
     # Analysed
-    stat_line(gn[gn.err == niter],
-              gs[gs.err == niter],
-              gb[gb.err == niter],
-              gn0[gn0.err == niter],
-              gs0[gs0.err == niter],
-              tag="Ana.",ny=1)
-    
-    if nyears:
-        stat_line(gn[gn.err == niter],
-                  gs[gs.err == niter],
-                  gb[gb.err == niter],
-                  gn0[gn0.err == niter],
-                  gs0[gs0.err == niter],
-                  tag="",ny=nyears)
-        print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
-        print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))
+    poplist = [g[g.err == niter] for g in poplist]
+    if not summary: stat_line(poplist,tag="Ana.",ny=nyears)
+
     # 3 sigma detected
-    stat_line(gn[gn.d3s>cl_min],
-              gs[gs.d3s>cl_min],
-              gb[gb.d3s>cl_min],
-              gn0[gn0.d3s>cl_min],
-              gs0[gs0.d3s>cl_min],
-              tag="3s",ny=1)
-    
-    if nyears:
-        stat_line(gn[gn.d3s>cl_min],
-              gs[gs.d3s>cl_min],
-              gb[gb.d3s>cl_min],
-              gn0[gn0.d3s>cl_min],
-              gs0[gs0.d3s>cl_min],
-              tag="",ny=nyears)
-        print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
-        print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))
+    poplist = [g[g.d3s >= cl_min] for g in poplist]
+    if not summary: stat_line(poplist,tag="3s",ny=nyears)
+
     # 5 sigma detected
-    stat_line(gn[gn.d5s>cl_min],
-              gs[gs.d5s>cl_min],
-              gb[gb.d5s>cl_min],
-              gn0[gn0.d5s>cl_min],
-              gs0[gs0.d5s>cl_min],
-              tag="5s",ny=1)
-    
-    if nyears:
-        stat_line(gn[gn.d5s>cl_min],
-                  gs[gs.d5s>cl_min],
-                  gb[gb.d5s>cl_min],
-                  gn0[gn0.d5s>cl_min],
-                  gs0[gs0.d5s>cl_min],
-                  tag="",ny=nyears)
+    poplist = [g[g.d5s >= cl_min] for g in poplist]
+    stat_line(poplist,tag="5s",ny=nyears)
+
+
     print("",102*"-")
 
     return
@@ -372,7 +371,7 @@ def get_config(file, debug=False):
         sys.exit(" No configuration file found in",dirname)
     else:
         from configuration import Configuration
-        cf = Configuration([],def_file=conf_file)
+        cf = Configuration([],conf_file=conf_file, vis_file=None)
         
     if debug:
         from utilities import Log
@@ -430,7 +429,7 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
         else:
             sys.exit(" *** Requested data file is not available as .csv or .txt ***")
     else:
-        print(csvfilename," exists")
+        if debug: print(csvfilename," exists")
 
     return csvfilename
 
@@ -487,9 +486,10 @@ def detection_level(var,cl=0.9,nbin=25, ax=None, **kwargs):
 ###-------------------------------------------------------------
 if __name__ == "__main__":
 
-    file = create_csv(file="analysis/population/parameter.yaml",debug=True)
+    # file = create_csv(file="analysis/population/parameter.yaml",debug=True)
+    file = create_csv(file="parameter.yaml",debug=True)
     (grb, gn0, gs0, gn, gs, gb) = get_data(file, debug=True)
     # sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
     # rate(grb)
-    # rate(grb,nyears=44)
+    rate(grb,nyears=44)
     # computing_time(grb)
