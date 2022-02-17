@@ -61,7 +61,7 @@ history = {"190114C":
                  "col":"tab:green"}           
           }
             
-    ###-----------------------------------------------------------------------------
+###-----------------------------------------------------------------------------
 def plot_historical(ax, ddict, obs=[]):
     """
     Add z, Eiso from already detected GRBs 
@@ -177,9 +177,45 @@ def eiso(g, gref, g0=None, tag="unknown", color="grey", color2="tab:green",ax=No
 #         if tag != "Combined":
 
     return ax, axx
-
 ###-----------------------------------------------------------------------------
-def sig_plot_cumulative(var, mask=None, tag=None,
+def epeak(g, gref, g0=None, tag="unknown", color="grey", color2="tab:green",ax=None, 
+         Epeakmin=10, Epeakmax=100000,  det_level=90, nbin=20, w=1, **kwargs):
+
+    ax = plt.gca() if ax is None else ax
+
+    # First plot the reference "1000" GRB population
+    mask = (gref.Epeak<=Epeakmax) & (gref.Epeak>=Epeakmin)
+    ntot, bins, _  = ax.hist(np.log10(gref[mask].Epeak), bins=nbin,weights= np.ones(len(np.log10(gref[mask].Epeak)))*10/dtpop,
+                             facecolor="none",edgecolor="black")
+
+    # Plot the first sub-population - apply weight for summed sample
+    mask = (g.d5s>det_level) 
+    n, bins, _     = ax.hist(np.log10(g[mask].Epeak),bins=bins, weights= np.ones(len(g[mask].Epeak))*w*10/dtpop,
+                             color=color,label=MyLabel(np.log10(g[mask].Epeak),label=tag),**kwargs)
+
+
+    # Plot the second sub-population  - apply weight for summed sample
+    if g0 != None:
+        mask = (g0.d5s>det_level) 
+        n0, bins, _    = ax.hist(np.log10(g0[mask].Epeak),bins=bins,weights= np.ones(len(g0[mask].Epeak))*w*10/dtpop,
+                                 color=color,**kwargs)
+
+    # Decoration
+    ax.legend(loc="upper left")
+    ax.set_xlabel("$log_{10} \  E_{peak} (keV)$")
+    ax.set_yscale("log")
+    
+    # Plot raio
+    ratio = [ (x/xtot if xtot!=0 else 0) for x, xtot in zip(n, ntot) ]
+    axx=ax.twinx()
+    axx.plot(bins[:-1] + 0.5*(bins[1:]-bins[:-1]),ratio,alpha=1,color=color2,label="Ratio")
+    axx.grid(ls=":")
+    axx.legend(loc="lower right")
+#         if tag != "Combined":
+
+    return ax, axx
+###-----------------------------------------------------------------------------
+def sig_plot_cumulative(var, mask=None, title=None,
                         ax=None, xlabel="",nbins=50, density=True,
                         **kwargs):
     
@@ -192,14 +228,19 @@ def sig_plot_cumulative(var, mask=None, tag=None,
                          histtype="step",lw=2,
                          cumulative=True,density=density, **kwargs)
 
-    ax.axvline(np.log10(107),label="Ref. delays",color="grey",ls="--",alpha=0.5)
-    ax.axvline(np.log10(600),label="10 min",            color="tab:green",ls="--",alpha=0.5)
-    ax.axvline(np.log10(3600),label="1 h",              color="tab:orange",ls="--",alpha=0.5)
-    ax.axvline(np.log10(3600*24),label="1 day",         color="tab:blue",ls="--",alpha=0.5)
-    ax.set_title(tag)
+    ax.axvline(np.log10(107),    label  ="Ref. delays",
+               color="grey",ls="--",alpha=0.5)
+    ax.axvline(np.log10(600),    label  ="10 min",     
+               color="tab:green",ls="--",alpha=0.5)
+    ax.axvline(np.log10(3600),   label ="1 h",        
+               color="tab:orange",ls="--",alpha=0.5)
+    ax.axvline(np.log10(3600*24),label="1 day",    
+               color="tab:blue",ls="--",alpha=0.5)
+    ax.set_title(title)
     ax.grid(which='both')
     ax.grid(which="major",ls=":")
     ax.set_xlabel(xlabel)
+    
     return 
 
 ###-----------------------------------------------------------------------------
@@ -209,7 +250,9 @@ def col_size(var,var_min=1.1):
     var = np.clip(var, var_min, None)
     color = cm.cool(np.log10(var)/np.max(np.log10(var)))
     size   = 100*np.log10(var)**2
+
     return color, size
+
 ###-----------------------------------------------------------------------------
 def sig_legend(ax,alpha=0.5,**kwargs):
     siglist =  [5 , 10, 20, 50, 100, 500]
