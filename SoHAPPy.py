@@ -64,7 +64,11 @@ def welcome(log):
     
     return
 ###############################################################################
-def get_grb_fromfile(item, config = None, grb_folder  = None, log = None):
+def get_grb_fromfile(item, config     = None, 
+                           grb_folder = None, 
+                           prompt     = None,
+                           eblmodel   = "dominguez",
+                           log        = None):
     """
     
 
@@ -86,25 +90,25 @@ def get_grb_fromfile(item, config = None, grb_folder  = None, log = None):
 
     """
     
-    # This is required tohave the EBL models read from gammapy
+    # This is required to have the EBL models read from gammapy
     
     # os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).parent,
                                           "../input/gammapy-extra-master/datasets"))
     
     if config == None:
-        prompt      = False
         test_prompt = False 
-        eblmodel    = "dominguez"
         magnify     = 1
         afterglow   = False 
+        visibility  = None
     else:
         prompt      = config.prompt
         test_prompt = config.test_prompt
         eblmodel    = config.EBLmodel
         magnify     = config.magnify
         afterglow   = config.use_afterglow
-    
+        visibility  = config.visibility
+        
     if not test_prompt: # Normal case : afterglow
         if isinstance(item, str):
             # this is a GRB name string
@@ -117,12 +121,13 @@ def get_grb_fromfile(item, config = None, grb_folder  = None, log = None):
                 data = yaml.load(f, Loader=SafeLoader)
                 grb  = GammaRayBurst.from_yaml(data,ebl=eblmodel)
         elif isinstance(item, int):
-            filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits")
-            grb = GammaRayBurst.from_fits(filename,
-                                     ebl     = eblmodel,
-                                     prompt  = prompt, 
-                                     vis     = config.visibility,
-                                     magnify = magnify)
+            fname = Path(grb_folder,"Event"+str(item)+".fits.gz")  
+            grb = GammaRayBurst.from_fits(fname,
+                                    ebl     = eblmodel,
+                                    prompt  = prompt, 
+                                    vis     = visibility,
+                                    magnify = magnify)
+
     else: # Special case for time-resolved prompt
         # create a new object from the default (Visible in North)
         loc = Path('../input/lightcurves/prompt'
@@ -281,7 +286,8 @@ def main(argv):
                           debug = bool(cf.dbg>1))
 
             # Printout grb and visibility windows
-            if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
+            if (cf.niter<=1 and cf.do_fluctuate==True) \
+                or cf.dbg>0 or cf.ngrb==1 :
                 log.prt(grb)
                 grb.vis["North"].print(log=log)
                 grb.vis["South"].print(log=log)
@@ -289,7 +295,9 @@ def main(argv):
             # Plot grb spectra and lightcurve and visibility windows
             if (cf.show >0):
                 import grb_plot     as gplt
-                gplt.spectra(grb,opt="Packed")
+                gplt.time_spectra(grb)
+                gplt.energy_spectra(grb)
+                # gplt.spectra(grb,opt="Packed")  # Check this - obsolete?
                 gplt.visibility_plot(grb, loc ="North")
                 gplt.visibility_plot(grb, loc ="South")
 
