@@ -18,3 +18,6 @@ docs/api/*
 *.stats
 timeslot.log
 config.yaml
+*.ipynb
+analysis/prompt/.ipynb_checkpoints/{BE53AA19-9EB6-43A2-84A4-8028E3688282}.tmp
+analysis/prompt/.ipynb_checkpoints/look_at_prompt-checkpoint.ipynb~RF14d8fe8.TMP

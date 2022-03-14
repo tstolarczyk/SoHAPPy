@@ -16,7 +16,7 @@ def welcome(subarray,log=None):
     log.banner("+================================================================+")
     log.prt("   Detection level    : {}".format(mcf.det_level))
     log.prt("   on/off regions     : {}".format(mcf.alpha))
-    log.prt("   FOV                : {}".format(mcf.fov))
+    # log.prt("   FOV                : {}".format(mcf.fov))
     log.prt("   On-region size     : N: {:5} -  S: {:5}".format(mcf.on_size[subarray["North"]],
                                                        mcf.on_size[subarray["South"]]))
     log.prt("   Offset from center : N: {:5} -  S: {:5}".format(mcf.offset[subarray["North"]],

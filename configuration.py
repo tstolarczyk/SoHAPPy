@@ -20,7 +20,7 @@ class Configuration(object):
                              vis_file  = def_vis, copy=True, debug=False):
         """
         The defaut configuration file is found in the code repository, but it 
-        can be changed for tests changing the def_conf variable in the 
+        can be changed for tests by changing the def_conf variable in the 
         configuration module.
 
         Parameters
@@ -107,14 +107,16 @@ class Configuration(object):
                 self.res_dir = Path(arg)
             elif opt in ("-d", "--debg"):
                 dbg = int(arg)
-                self.dbg = abs(dbg)
+                self.dbg = dbg
     
         ### --------------------------
         ### deduce additionnal parameters
         ### --------------------------          
         
         # Create the show debugging flag from the general debug flag
-        if (self.dbg < 0): self.show = 0
+        if (self.dbg < 0): 
+            self.show = 0
+            self.dbg = -self.dbg
         else: self.show = abs(self.dbg)
 
         # If debugging is requested, cannot be silent        
@@ -207,7 +209,7 @@ class Configuration(object):
             self.dtswift = u.Quantity(self.dtswift)
             self.arrays = {"North": self.array_North, "South":self.array_South}
             self.dtslew = {"North": self.dtslew_North, "South":self.dtslew_South}
-            
+            if self.Emax != None: self.Emax = u.Quantity(self.Emax)
  
         return
     ###------------------------------------------------------------------------ 
@@ -304,6 +306,13 @@ class Configuration(object):
         if (self.do_accelerate  == False):
             log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
     
+    
+        if (self.n_night != None):
+             log.warning(  "GRB data limited to the first {} nights"
+                    .format(self.n_night))
+        if (self.Emax != None):
+             log.warning(  "GRB energy bins limited to {}"
+                    .format(self.Emax))
         if (self.fixed_zenith != None):
              log.warning(  "Zenith angle requested to be fixed at value '{:5s}'     "
                     .format(self.fixed_zenith))

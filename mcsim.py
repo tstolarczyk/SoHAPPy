@@ -312,7 +312,7 @@ class MonteCarlo():
                 if (self.dbg>2):
                     if header: print()
                     header = check_dataset(ds,
-                                           deeper      = True,
+                                           deeper      = (True if self.dbg>3 else False),
                                            masked      = True,
                                            show_header = header)
 
