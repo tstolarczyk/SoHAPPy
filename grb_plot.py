@@ -12,6 +12,7 @@ import matplotlib.dates as mdates
 import numpy as np
 import warnings
 
+import astropy
 import astropy.units as u
 from   astropy.coordinates   import AltAz
 from   astropy.coordinates import get_moon
@@ -20,7 +21,7 @@ from   astropy.visualization import quantity_support
 
 from   astroplan import moon_illumination, moon_phase_angle
 
-from utilities import single_legend, t_str
+from utilities import single_legend
 
 # Bigger texts and labels
 #plt.style.use('seaborn-talk')
@@ -120,7 +121,7 @@ def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,  e_min = 1*u.GeV, ax=None):
             # Plot the GRB interpolated spectra
             grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)], 
                                 ax, energy_unit=e_unit,
-                                label="t= {:>s}".format(t_str(t)))
+                                label="t={:>8.1f}".format(t))
             
             # Plot the initial data points (should fit)
             c = ax.lines[-1].get_color() # Last color
@@ -220,7 +221,7 @@ def time_spectra(grb, n_E_2disp = 6,
                      s= "$t_{90}$="+str(round(grb.t90.value,1)*grb.t90.unit),
                      rotation=0, fontsize=14)
         else:
-            ax.axvline(30*u.s,color="black", ls="--", alpha=0.8)
+            ax.axvline(30*u.s,color="grey",alpha=0.2)
             ax.text(x=30*u.s, y=1.2*ymin, s="30 s",rotation=0, fontsize=14)
             
     ax.set_xlabel("Time (s)")
@@ -723,7 +724,7 @@ if __name__ == "__main__":
     dbg        = 0
     ngrb       = 1 # 250
     ifirst     = [980] # ["190829A"]
-    grb_folder = "D:/CTAA/SoHAPPy/input/lightcurves/LONG_FITS"
+    grb_folder = "../input/lightcurves/"
     save_grb   = False # (False) GRB saved to disk -> use grb.py main
     res_dir    = "."
     prompt     = True
@@ -740,7 +741,7 @@ if __name__ == "__main__":
         print(grb)
         #gplt.spectra(grb,opt="Packed")
         gplt.energy_spectra(grb)        
-        gplt.time_spectra(grb,e_max=1*u.TeV)
+        # gplt.time_spectra(grb,e_max=1*u.TeV)
         
         # # Read/compute a visibility and plot
         # import sys

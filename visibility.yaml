@@ -3,8 +3,8 @@
 # Moonlight conditions (compromise):
 moonlight:
   where     :  "CTA"
-  depth     :  3       # Max. number of days after GRB start 
-  skip      :  0        # Number of first nights to be skipped  
+  depth     :  3        # Max. number of nights
+  skip      :  0        # Number of first nights to be skipped  altmin    :  24 deg   # CTA requirement horizon
   altmin    :  24 deg   # Ensure that the source is always above horizon
   altmoon   : -0.25 deg # Moon above horizon
   moondist  :  30  deg  # Acceptable Moon distance
@@ -13,7 +13,7 @@ moonlight:
 # Maximise the visibility
 nomoonveto:
   where     :  "CTA"
-  depth     :  3       # Max. number of days after GRB start
+  depth     :  3        # Max. number of nights
   skip      :  0        # Number of first nights to be skipped  
   altmin    :  24  deg  # Ensure that the source is always above horizon
   altmoon   :  90 deg   # Ensure that the moon never vetoes the visibility
@@ -23,7 +23,7 @@ nomoonveto:
 # Minimize the visibility (i.e. veto as soon as the moon is above horizon)
 strictmoonveto:
  where     :  "CTA"
- depth     :  3       # Max. number of days after GRB start
+ depth     :  3        # Max. number of nights
  skip      :  0        # Number of first nights to be skipped 
  altmin    :  24 deg   # Ensure that the source is always above horizon
  altmoon   : -0.25 deg # Moon above horizon

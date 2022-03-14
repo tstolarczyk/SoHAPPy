@@ -47,7 +47,7 @@ dtl         =  {"prod3":
 # Its use is foreseen to be limited by the altmin variable
 zenith_valid = {"20deg": [0*u.deg, 33*u.deg],
                 "40deg": [33*u.deg, 54*u.deg],
-                "60deg": [54*u.deg, 90*u.deg] # Will be limited by altmin
+                "60deg": [54*u.deg, 90*u.deg] # Should be limited by altmin
                 }
 
 # Validity range of IRF in time, taking into account that the validity
@@ -62,8 +62,8 @@ dt_log_valid = \
     "30m" : [10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )),
              10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )) ],
     "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )),
-             10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )) ],
-    "50h" : [10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )),
+             10**(0.5*( dtl["prod3"]["5h"]  + dtl["prod3"]["50h"] )) ],
+    "50h" : [10**(0.5*( dtl["prod3"]["5h"]  + dtl["prod3"]["50h"] )),
              np.Inf]
     },
  "prod5":
@@ -84,10 +84,17 @@ dt_log_valid = \
 # The minimal and maximal energies need therefore to be slighlty
 # before, resp. after the first, resp last edge of interest.
 
-egen_min  = {"20deg": 12.6*u.GeV,  "40deg": 26.4*u.GeV, "60deg": 105.3*u.GeV}
-etrue_max = {"20deg": 17*u.TeV,    "40deg": 17*u.TeV,   "60deg": 17*u.TeV}
+egen_min = {"20deg": 12.6*u.GeV,
+            "40deg": 26.4*u.GeV,
+            "60deg": 105.3*u.GeV
+            }
 
-nbin_per_decade = 4 # Bins per decade for the true energy axis
+etrue_max = {"20deg": 17*u.TeV,
+             "40deg": 17*u.TeV,
+             "60deg": 17*u.TeV}
+
+nbin_per_decade = 4
+
 
 __all__=['IRF']
 

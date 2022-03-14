@@ -111,8 +111,7 @@ def sigma_vs_time(mc, ax=None):
         ax.set_xlabel('Observation duration (s)')
         ax.set_ylabel("Significance $\sigma$")
         ax.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
-        # ax.set_xscale("log", nonposx='clip')
-        ax.set_xscale("log", nonpositive='clip') # 3.5.0
+        ax.set_xscale("log", nonposx='clip')
         ax.grid(which='both',alpha=0.2)    
         
         
@@ -156,8 +155,8 @@ def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
         non_std   = np.std(non)
         noff_mean = np.mean(noff)
         noff_std  = np.std(noff) 
-        xlabel    = "$N_{off}$"
-        ylabel    = "$N_{on}$"
+        xlabel    = "$<N_{off}>$"
+        ylabel    = "$<N_{on}>$"
         if logscale:
             non       = np.log10(non)
             non_mean  = np.log10(non_mean)
@@ -168,9 +167,7 @@ def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
             xlabel    = "$log_{10}$" + xlabel
             ylabel    = "$log_{10}$" + ylabel
         
-        ax.plot(noff, non, 
-                alpha=0.3, marker= ".", ls ="", color=col,
-                label=tag )
+        ax.plot(noff, non, alpha=0.2,label=tag, marker= ".", ls ="")
         ax.errorbar(x    = noff_mean,    y    = non_mean,
                 xerr = np.std(noff), yerr = np.std(non),
                 color = col)

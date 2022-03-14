@@ -110,7 +110,6 @@ def get_grb_fromfile(item, config     = None,
         visibility  = config.visibility
         
     if not test_prompt: # Normal case : afterglow
-        # This is a GRB name -> historical
         if isinstance(item, str):
             # this is a GRB name string
             filename = Path(grb_folder
@@ -121,16 +120,13 @@ def get_grb_fromfile(item, config     = None,
             with open(filename) as f:
                 data = yaml.load(f, Loader=SafeLoader)
                 grb  = GammaRayBurst.from_yaml(data,ebl=eblmodel)
-        # This is a GRB number -> similated GRB in a population        
         elif isinstance(item, int):
             fname = Path(grb_folder,"Event"+str(item)+".fits.gz")  
             grb = GammaRayBurst.from_fits(fname,
                                     ebl     = eblmodel,
                                     prompt  = prompt, 
                                     vis     = visibility,
-                                    magnify = magnify,
-                                    n_night = config.n_night,
-                                    Emax    = config.Emax)
+                                    magnify = magnify)
 
     else: # Special case for time-resolved prompt
         # create a new object from the default (Visible in North)
@@ -143,9 +139,7 @@ def get_grb_fromfile(item, config     = None,
             grb = GammaRayBurst.read_prompt(loc,
                                             glow=glow,
                                             ebl = eblmodel,
-                                            magnify = magnify,
-                                            n_night = config.n_night,
-                                            Emax    = config.Emax)
+                                            magnify = magnify)
         else:
             # use default visibility
             sys.exit(" Redshift should be provided")
@@ -153,9 +147,7 @@ def get_grb_fromfile(item, config     = None,
                                             glow=None,
                                             ebl = eblmodel,
                                             z   = None,
-                                            magnify = magnify,
-                                            n_night = config.n_night,
-                                            Emax    = config.Emax)
+                                            magnify = magnify)
 
     return grb
 
@@ -322,10 +314,6 @@ def main(argv):
             ###--------------------------------------------###
             #  Check individual sites - Loop over locations
             ###--------------------------------------------###
-            
-            delay = get_delay(cf.dtslew, cf.fixslew,
-                              cf.dtswift, cf.fixswift)         
-            
             for loc in grb.site_keys:
 
                 name = grb.name + "-" + loc
@@ -345,6 +333,8 @@ def main(argv):
                     slot = origin.copy(name="loc")
 
                     # Simulate delay
+                    delay = get_delay(cf.dtslew, cf.fixslew,
+                                      cf.dtswift, cf.fixswift)
                     still_vis = slot.apply_visibility(delay = delay[loc],
                                                       site  = loc)
 
