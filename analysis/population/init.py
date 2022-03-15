@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from   astropy.table import Table
 import pandas as pd
 
+import setup
 from utilities import MyLabel
 from setup import col_3, col_5
 
@@ -186,7 +187,12 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
         axi.set_xlim(xmin=0,xmax=10+1.3*delay.value)
         #axi.set_yscale("log")
         axi.legend()
-        print(" Estimated total delay in ",loc," :",min(gpop[gpop.t3s>=0].t3s))
+        print(" Estimated total delay in {:5s}".format(loc))
+        print("    From visibility start : {:5.1f}"
+              .format(min(gpop[gpop.t1>=0].t1)))
+        print("    From 3s detection     : {:5.1f}"
+              .format(min(gpop[gpop.t3s>=0].t3s)))
+
     print("+================================================================+")
 
     return
@@ -383,10 +389,12 @@ def get_config(file, debug=False):
 ###-------------------------------------------------------------
 def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
     """
-    From the current paramter file containg the folder to be analysed,
-    create the csv file from default txt file
+    From the current parameter file containg the folder to be analysed,
+    create the csv file from default txt file.
     If the paramter file is not given, then the datafile is supposed to 
     contain the full path data file name.
+    Get the simulation duration. 
+    
     Parameters
     ----------
     file : String, optional
@@ -398,6 +406,7 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
 
     Returns
     -------
+    nyears : FLOAT
     csvfilename : STRING
 
     None.
@@ -408,7 +417,9 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
         import yaml
         from yaml.loader import SafeLoader
         folder = (yaml.load(open(file), Loader=SafeLoader))["outfolder"]
-        txtfilename = Path(folder, datafile) 
+        base   = (yaml.load(open(file), Loader=SafeLoader))["base_folder"]
+        nyears = (yaml.load(open(file), Loader=SafeLoader))["duration"]
+        txtfilename = Path(base+folder, datafile) 
     else:
         txtfilename = Path(datafile)
         
@@ -431,7 +442,7 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
     else:
         if debug: print(csvfilename," exists")
 
-    return csvfilename
+    return nyears, csvfilename
 
 ###-------------------------------------------------------------------------
 def computing_time(gpop,eff_lvl, nbin=25, ax=None, **kwargs):
