@@ -231,7 +231,7 @@ class Slice():
             # Zenith is obtained from altaz except if fixed beforehand
             if zenith == None: zenith   = 90*u.degree-altaz.alt
             else: zenith = u.Quantity(zenith) # Was string so far
-
+            
             irf = IRF.from_observation(zenith   = zenith,
                                        azimuth  = altaz.az,
                                        obstime  = obstime,
