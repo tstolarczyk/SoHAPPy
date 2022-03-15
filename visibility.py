@@ -13,7 +13,6 @@ for the default horizon value (10 degrees) and for the nights found within
 @author: Stolar
 """
 import math
-
 from pathlib import Path
 
 import astropy.units as u
@@ -181,9 +180,6 @@ class Visibility():
 
         # Rise and set of the target - list of pair
         self.t_event    = [[self.tstart,self.tstop]]  
-
-        # Nights
-        self.t_night  = [[]]
 
         # Moon period veto - Default is no veto
         self.moon_maxalt     = 90*u.deg # Maximal allowed altitude
