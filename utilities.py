@@ -36,7 +36,7 @@ def MyLabel(var,label="",stat="std"):
     if (len(label)!=0): label = label+"\n"
     
     legend="bad option"
-    if stat == None: return "$n$ : {:d}".format(len(var))
+    if stat == None: return label + "$n$ : {:d}".format(len(var))
     
     if stat.find("std") !=-1:
         legend = label  \
@@ -199,7 +199,7 @@ def t_str(t, digit=2):
     t = t_fmt(t)
     return str( round(t.value,digit)) +" "+ str(t.unit)
 #------------------------------------------------------------------------------
-def t_fmt(t):
+def t_fmt(t, digit=None):
     """
     A utility to have reasonable duration format displayed.
 
@@ -223,7 +223,10 @@ def t_fmt(t):
     elif t.value > 2*60:
         t = t.to(u.min)
 
-    return t
+    if digit != None:
+        return round(t.value,digit)*t.unit
+    else:
+        return t
 
 ###----------------------------------------------------------------------------
 def ColorMap(threshold,maxval):
@@ -385,7 +388,6 @@ def banner(text,**kwarg):
     return
     
 ###----------------------------------------------------------------------------
-
 class Log():
     """
     A class to manage a logbook information
