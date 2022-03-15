@@ -51,24 +51,23 @@ offset      = { "FullArray"        : 0.75*u.deg,
 
 # This is a sparse but regular E binning not well suited for spectra analysis
 # Former spacing was:
-# np.asarray([30, 40, 56, 110., 200, 316, 562,
-#                          1000, 1778, 3162, 5623, 10000, 15000])*u.GeV,
-erec_sparse = np.asarray([30, 40, 60, 110, 200, 350, 700,
+erec_sparse  = np.asarray([30, 40, 60, 110, 200, 350, 700,
                          1300, 2400, 4400, 8000, 15000])*u.GeV
 
-# THis is a denser E-binning suitable for spectral analysis
+# This is a denser E-binning suitable for spectral analysis
 erec_spectral = np.asarray([  30.,   40.,   50.,   60.,   80.,  110.,  160., \
                              200.,  250.,  350.,  400.,  530.,  670.,  850., \
                             1082., 1374., 1745., 2216., 2815., 3575., 4540., \
                             5766.,  7323., 9300., 11811.,  15000.])*u.GeV
 
+    # Define the reconstrcuted energy bins for each subarray
 erec_edges = {
-"FullArray"        : erec_spectral,
-"4LSTs09MSTs"      : erec_spectral,
+"FullArray"        : erec_spectral, # Omega
+"4LSTs09MSTs"      : erec_spectral, # Alpha
 "LST"              : erec_spectral,
 "MST"              : erec_spectral,
-"14MSTs37SSTs"     : erec_spectral,
-"4LSTs14MSTs40SSTs": erec_spectral
+"14MSTs37SSTs"     : erec_spectral, # Alpha
+"4LSTs14MSTs40SSTs": erec_spectral  # Beta
 }
 
 safe_margin = 1*u.GeV
@@ -103,8 +102,8 @@ erec_max = {"20deg": 10*u.TeV + safe_margin,
             "40deg": 10*u.TeV + safe_margin,
             "60deg": 10*u.TeV + safe_margin}
 
-fov        = 5.*u.deg    # Full Field-of-view - quick tests: 2.5*u.deg
-binsize    = 0.125*u.deg #  bin size if building a map  - quick test: 0.5*u.deg
+# fov        = 5.*u.deg    # Full Field-of-view - quick tests: 2.5*u.deg
+# binsize    = 0.125*u.deg #  bin size if building a map  - quick test: 0.5*u.deg
 
 #------------------------------------------------------------------------------
 def generate_E_edges(E1=10*u.GeV, E2=100*u.TeV, 
