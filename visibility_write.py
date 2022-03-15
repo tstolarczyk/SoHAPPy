@@ -26,9 +26,11 @@ warnings.filterwarnings('ignore')
 ###---------------------------
 ### change your conditons here
 ###---------------------------
-conditions = "strictmoonveto"
-def_vis    = "visibility.yaml"
-vis_folder = conditions
+conditions  = "strictmoonveto"
+def_vis     = "visibility.yaml"
+vis_folder  = conditions
+vis_archive = "../input/visibility/short_vis_24_strictmoonveto"
+# vis_archive = conditions
 
 ###---------------------------
 ### Your actions
@@ -40,9 +42,9 @@ debug      = False
 ###---------------------------
 ### Input GRB data
 ###---------------------------
-ifirst  = 1
-ngrb    = 2 # 250
-grb_folder = "../input/lightcurves/"
+ifirst  = 0
+ngrb    = 1000 # 250
+grb_folder = "../input/lightcurves/SHORT_FITS/"
 
 if type(ifirst)!=list: grblist = list(range(ifirst,ifirst+ngrb))
 else: grblist = ifirst
@@ -69,29 +71,32 @@ else:
     
 # Loop on files
 for item in grblist:
-    filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits")
+    filename = Path(grb_folder,"Event"+str(item)+".fits")
 
-    grb = GammaRayBurst.from_fits(filename,
+    if save_vis:
+        grb = GammaRayBurst.from_fits(filename,
                                   ebl     = None,
                                   prompt  = False, 
                                   vis     = visibility)
 
-    for loc in ["North","South"]:
-
-        if save_vis:
-            log.prt(" Saving visibility for GRB {} in {}".format(item,loc))
-            grb.vis[loc].write(folder=vis_folder,debug=False)
+        for loc in ["North","South"]:
+    
+            if save_vis:
+                log.prt(" Saving visibility for GRB {} in {}".format(item,loc))
+                grb.vis[loc].write(folder=vis_folder,debug=False)
+                if debug:
+                     grb.vis[loc].print()
+                     gplt.visibility_plot(grb, loc=loc)               
+    elif read_vis: 
+        log=Log()
+        for loc in ["North","South"]:
+            visname = Path(vis_archive,filename.stem+"_"+loc+"_vis.bin")
+            print(" Reading visibility from {}".format(visname))
+            myvis = vis.Visibility.read(visname,debug=True)
             if debug:
-                 grb.vis[loc].print()
-                 gplt.visibility_plot(grb, loc=loc)               
-        
-        if read_vis: 
-            filename = Path(vis_folder,grb.name+"_"+loc+"_vis.bin")
-            log.prt(" Reading visibility from {}".format(filename))
-            grb.vis[loc]= vis.Visibility.read(filename,debug=True)
-            if debug:
-                 grb.vis[loc].print()
-                 gplt.visibility_plot(grb, loc=loc)    
+                 myvis.print()
+                 # Requires GRB
+                 # gplt.visibility_plot(grb, loc=loc)    
 
 # Goodbye !
 stop = time.time() # Starts chronometer
