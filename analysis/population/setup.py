@@ -10,5 +10,6 @@ dtpop = 44 # Populatin equivalent tie in years
 import sys
 codefolder = "../../" 
 sys.path.append(codefolder) 
+# print(sys.path)
 
 
