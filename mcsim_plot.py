@@ -111,7 +111,12 @@ def sigma_vs_time(mc, ax=None):
         ax.set_xlabel('Observation duration (s)')
         ax.set_ylabel("Significance $\sigma$")
         ax.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
-        ax.set_xscale("log", nonpositive='clip') # 3.5.0
+        
+        import matplotlib
+        if matplotlib.__version__ >= "3.5.0":
+            ax.set_xscale("log", nonpositive='clip') # 3.5.0
+        else:
+            ax.set_xscale("log", nonposx='clip') # 3.1.1
         ax.grid(which='both',alpha=0.2)    
         
         # Sigma max distribution inset (if niter > 1)
