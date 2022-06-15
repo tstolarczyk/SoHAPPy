@@ -29,3 +29,13 @@ strictmoonveto:
  altmoon   : -0.25 deg # Moon above horizon
  moondist  : 180 deg   # The Moon vetoes even if far away
  moonlight :  0.0      # The Moon vetoes even if new Moon
+ 
+ # Maximise the visibility
+alwaysvisible:
+  where     :  "CTA"
+  depth     :  3       # Max. number of days after GRB start
+  skip      :  0        # Number of first nights to be skipped  
+  altmin    :  0  deg  # Ensure that the source is always above horizon
+  altmoon   :  90 deg   # Ensure that the moon never vetoes the visibility
+  moondist  :  0  deg   # The Moon distance do not veto the visibility
+  moonlight :  1.0      # The Moon brightness is not a limitation
