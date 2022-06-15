@@ -258,45 +258,36 @@ class Visibility():
                     debug       = True):
         """
         
-    Compute the visibility periods for a given GRB and site. This constructor 
-    takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), 
-    and all the parameters required for the computation.
-    
-    Note that all time variables are expressed in Julian days (to use `sort`) 
-    and are then copied as :class:`Time` objects later into the class variables.
-    
-    The algorithm is the following:
+        Compute the visibility periods for a given GRB and site. This constructor 
+        takes as arguments a grb (:class:'GammaRayBurst`) and a location (string), 
+        and all the parameters required for the computation.
+
+        Note that all time variables are expressed in Julian days (to use `sort`) 
+        and are then copied as :class:`Time` objects later into the class variables.
+        
+        The algorithm is the following:
     
         1. Build periods for:
-            * Nights (*t_night*), and check if trigger occurs during night 
-            (*is_night*);
+
+            * Nights (*t_night*), and check if trigger occurs during night (*is_night*);
             
-            * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above 
-            the defined horizon (*altmoon*);
+            * Potential moon vetoes (*t_moon_alt_veto*) due to the Moon above the defined horizon (*altmoon*);
             
-            * Check (*True*, *False*) whether these Moon veto periods are kept 
-            by the moon brightness and distance to the source 
-            (*moonlight_veto*). If this is the case, keep the corresponding 
-            moon veto period in *t_moon_veto* otherwise discard the period. 
-            In order to have all Moon periods kept (i.e. veto is valid as soon 
-            as Moon is above *altmoon*), *moondist* should be maximised 
-            (veto at any distance) and *moonlight* should be minimised 
-            (even if no moonligt, veto is valid);
+            * Check (*True*, *False*) whether these Moon veto periods are kept by the moon brightness and distance to the source             (*moonlight_veto*). If this is the case, keep the corresponding moon veto period in *t_moon_veto* otherwise discard the period. In order to have all Moon periods kept (i.e. veto is valid as soon as Moon is above *altmoon*), *moondist* should be maximised (veto at any distance) and *moonlight* should be minimised (even if no moonligt, veto is valid);
             
-            * Above horizon (*t_above*) and whether the object is above the 
-            horizon (*altmin*) at trigger time.
+            * Above horizon (*t_above*) and whether the object is above the horizon (*altmin*) at trigger time.
     
-        2. Put all *start* and *stop* of all these periods in a list, 
-        sort the list, resulting in a series of ordered “ticks”.
+        2. Put all *start* and *stop* of all these periods in a list, sort the list, resulting in a series of ordered “ticks”.
+
         3. For each consecutive tick pairs in the list:
+
             * Compute the mean time (middle of the a tick pair)
+
             * Check if that time belongs to one of the *night*, *above*, or 
-            *bright* (i.e. in the available data interval) intervals and not 
-            to any  *moon* interval. If so get True, otherwise False.
-    
-        4. For each of the tick pairs compute the Boolean 
-        `visible = bright and dark and above and moon` and get the visibility 
-        windows when True.
+
+            *bright* (i.e. in the available data interval) intervals and not to any  *moon* interval. If so get True, otherwise False.
+
+        4. For each of the tick pairs compute the Boolean `visible = bright and dark and above and moon` and get the visibility windows when True.
 
         Parameters
         ----------
