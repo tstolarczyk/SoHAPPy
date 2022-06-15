@@ -1,35 +1,38 @@
 """
-* Create a GRB list to be analysed from the config file or the command line (:func:`init`)
+Create a GRB list to be analysed from the config file or the command line.
 
+Notes for experts:
+* Change `warnings.filterwarnings('ignore')` into
+`warnings.filterwarnings('error')` to have the code stopped in case of warning, and be able to identify its origin.
+* The 'ignore' option is motivated by warnings issued by astropy for deprecation or too distant dates with respect to the running date.
+* IERS data are not refreshed as it can take long in case of bad Internet 
+or no connections at all. To refresh these data use:
 
-seed= 'random-seed'
-Advanced usage:
-In SoHappy.py, change warnings.filterwarnings('ignore') into
-warnings.filterwarnings('error') to have the code stopped in case of warning,
-and be able to identify its origin.
-The 'ignore' option is motivated by to warning in astropy (deprecation or
-too distant dates).
+..  code-block::
+
+    # For refreshing
+    print(" Refreshing IERS")
+    from astroplan import download_IERS_A
+    download_IERS_A
+    print(" ->Done")
 
 """
+import warnings
+warnings.filterwarnings('ignore')
+
 import os
 import sys
 from   mcsim  import MonteCarlo
 
-# Transform warnings into errors - useful to find who is guilty !
-import warnings
-#warnings.filterwarnings('error')
-warnings.filterwarnings('ignore')
-
 import numpy as np
 import time
-
 from   datetime import datetime
 from   pathlib  import Path
 import astropy.units as u
 
 from grb            import GammaRayBurst
 from timeslot       import Slot
-from configuration import Configuration
+from configuration  import Configuration
 
 import mcsim_res  as mcres
 from utilities    import Log
@@ -38,16 +41,23 @@ from utilities    import Log
 from astropy.utils import iers
 iers.conf.auto_download = False
 
-# For refreshing
-# print(" Refreshing IERS")
-# from astroplan import download_IERS_A
-# download_IERS_A
-# print(" ->Done")
-
-__all__ = ["main", "get_grb_fromfile", "get_delay"]
+__all__ = ["main", "get_grb_fromfile", "get_delay", "welcome"]
 
 ###############################################################################
 def welcome(log):
+    """
+    Good luck!
+
+    Parameters
+    ----------
+    log : Log object
+        See :class:`Log` for details.
+
+    Returns
+    -------
+    None.
+
+    """
     import gammapy
     from __init__ import __version__
 
@@ -70,7 +80,7 @@ def get_grb_fromfile(item, config     = None,
                            eblmodel   = "dominguez",
                            log        = None):
     """
-    
+    Obtain data from files on disk invarious conditions.
 
     Parameters
     ----------
@@ -101,6 +111,9 @@ def get_grb_fromfile(item, config     = None,
         magnify     = 1
         afterglow   = False 
         visibility  = None
+        infolder    = "../input/"
+        n_night     = 1
+        Emax        = 10*u.TeV
     else:
         prompt      = config.prompt
         test_prompt = config.test_prompt
@@ -108,6 +121,8 @@ def get_grb_fromfile(item, config     = None,
         magnify     = config.magnify
         afterglow   = config.use_afterglow
         visibility  = config.visibility
+        n_night     = config.n_night
+        Emax        = config.Emax
         
     if not test_prompt: # Normal case : afterglow
         # This is a GRB name -> historical
@@ -129,8 +144,8 @@ def get_grb_fromfile(item, config     = None,
                                     prompt  = prompt, 
                                     vis     = visibility,
                                     magnify = magnify,
-                                    n_night = config.n_night,
-                                    Emax    = config.Emax)
+                                    n_night = n_night,
+                                    Emax    = Emax)
 
     else: # Special case for time-resolved prompt
         # create a new object from the default (Visible in North)
@@ -188,6 +203,8 @@ def get_delay(dtslew,fixslew,dtswift,fixswift):
 ###############################################################################
 def main(argv):
     """
+    The SoHAPPy main function.
+    
     1. Manage input/output
         - GRB data identifier list
         - open output simulation and log files
@@ -257,7 +274,7 @@ def main(argv):
     # Start chronometer
     start_all = time.time() # Starts chronometer #1
 
-    # GRB list to be analysed
+    # Source list to be analysed
     if type(cf.ifirst)!=list:
         if isinstance(cf.ifirst,str):
             grblist = [cf.ifirst]
@@ -272,9 +289,9 @@ def main(argv):
 
     with open(sim_filename, 'w') as pop:
 
-        ##############################
-        # Loop over GRB population   #
-        ##############################
+        #################################
+        # Loop over source population   #
+        #################################
 
         mcres.welcome(cf.arrays,log=log) # Remind simulation parameters
 
@@ -284,7 +301,7 @@ def main(argv):
             ### Get GRB
             grb = get_grb_fromfile(item,
                                    config = cf,
-                                   grb_folder = cf.grb_dir,
+                                   grb_folder = cf.data_dir,
                                    log = log) 
             
             # Create original slot (slices) and fix observation points
@@ -446,7 +463,7 @@ def main(argv):
     tar.add(sim_filename,arcname=os.path.basename(sim_filename))
     tar.add(log_filename,arcname=os.path.basename(log_filename))
     tar.add(cf.filename,arcname=os.path.basename(cf.filename))
-    if (cf.remove_tarred):
+    if (cf.remove_tar):
         os.remove(sim_filename)
         os.remove(cf.filename)
         os.remove(log_filename)
