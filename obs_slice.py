@@ -11,17 +11,17 @@ from irf import IRF
 ###----------------------------------------------------------------------------
 class Slice():
     """
-    A (time) slice has an observation point fixed in time, associated to a
-    physical flux. The observation can be simply set at the beginning or at the end of the
-    slice or at a date defined in a more elabrated way.
-    Variations due to these various hypothesis highly depends on
-    the slice length and how the flux variates in the slice.
-    Note that a slice can have several performance information (IRF) since the
-    same time slice can belong to 2 different sites (overlapping
-    observation windows).
+    A (time) slice is a time window associated to a physical flux, an 
+    observation time within the window, a list of sites and the corresponding 
+    IRF as for combined analysis a slice can be associated to more than one 
+    site. 
+    The observation time can be simply set at the beginning or at the end of 
+    the slice or at a date defined in a more elabrated way. Variations due to 
+    these various hypothesis highly depends on the slice length and how the 
+    flux variates in the slice.
     """
     #--------------------------------------------------------------------------
-    def __init__(self,idt, t1, t2,site="?"):
+    def __init__(self,idt, t1, t2, site="?"):
         """
         This defines a so called naked slice. It has no physical information *
         defined.
@@ -41,7 +41,7 @@ class Slice():
         site : String, optional
             The site(s) associated to that slice. The default is "?".
         perf : CTAIrf, optional
-            A list of CTAIrf instances. The default is [].
+            A list of CTA Irf instances. The default is [].
 
         Returns
         -------
