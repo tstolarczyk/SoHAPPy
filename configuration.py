@@ -40,13 +40,14 @@ class Configuration(object):
         ### --------------------------
         try:
             opts, args = getopt.getopt(argv,
-                                       "hc:n:f:N:d:o:",
+                                       "hc:n:f:N:d:o:i:",
                                        ["config=",
                                         "ngrb=",
                                         "first=",
                                         "niter=",
                                         "dbg=",
-                                        "output=",])
+                                        "output=",
+                                        "input=",])
         except getopt.GetoptError:
             print("No line arguments passed: Using default values")              
 
@@ -62,6 +63,7 @@ class Configuration(object):
                       + "-f <1st grb or list> "
                       + "-n <MC iterations> "
                       + "-o <Output folder> "
+                      + "-i <Input folder> "
                       + "-d <debug> ")
                 sys.exit()
                 
@@ -89,9 +91,8 @@ class Configuration(object):
         ### --------------------------
         ### Read configuration file
         ### --------------------------            
-        self.read()
-        self.read_visibility(visfilename = vis_file)
         if (debug): print(" Now read config file ", self.filename)
+        self.read()
         
         ### --------------------------
         ### Supersed config. parameters by command line
@@ -113,6 +114,26 @@ class Configuration(object):
         ### deduce additionnal parameters
         ### --------------------------          
         
+        # Define the input folder and files from the base and the subfolders
+        self.data_dir    = Path(self.infolder,self.data_dir)
+        self.swiftfile  = Path(self.infolder,self.swiftfile)
+        self.irf_dir    = Path(self.infolder,self.irf_dir)  
+        
+        # The visibility variable can be either:
+        # - A subfolder where pre-computed visibility files can be found
+        # - A keyword for computing the visibility from predefined parameters
+        # - "None" in order to use the visibility in the data files
+        if self.visibility != None:
+                      
+            if Path(self.infolder,self.visibility).is_dir():
+                self.visibility = Path(self.infolder,self.visibility)
+                print(" Visibilities read from disk, folder ",self.visibility)            
+            elif self.visibility != "built-in":
+                self.read_vis_param(visfilename = vis_file)
+        else:
+            sys.exit(" Visibility information not defined")
+           
+               
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): 
             self.show = 0
@@ -151,19 +172,42 @@ class Configuration(object):
         return
     
     ###------------------------------------------------------------------------    
-    def read_visibility(self, visfilename=None):
-       # Read the visibility parameters if requested
-       if visfilename !=None:
-           print(">>> Read Visibility configuration from ",visfilename)    
-           with open(visfilename) as f:
-               visdict  = yaml.load(f, Loader=SafeLoader)
-               if self.visibility in visdict.keys():
-                   # The visibility will be recomputed using the parameters
-                   # Replace by the sub-dictionnary
-                   self.visibility = visdict[self.visibility]
-       else:
-           self.visibility = None # The defualt visibility will be used 
-       return
+    def read_vis_param(self, visfilename=None):
+                
+        """
+        Read the visibility parameters from a yaml file or try to 
+        use the default visibility in the input data file.
+        
+        Parameters
+        ----------
+        visfilename : String, optional
+            The visibility yaml file where the visibility parameters are 
+            stored along keywords. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        # Try to get the parameters from a visibility yaml file
+        print(" Visibilities defined by the keyword ",self.visibility)
+        print(" Get visibility dictionnaries from ",visfilename)
+
+        try:
+            with open(visfilename) as f:
+                visdict  = yaml.load(f, Loader=SafeLoader)
+                # Check if the visibility variabale correspond to an entry
+                # Get the corresponding dictionnary values
+                if self.visibility in visdict.keys():
+                    self.visibility = visdict[self.visibility]           
+                else:
+                    sys.exit("{} found but keyword {} not referencec"
+                             .format(visfilename,self.visibility))
+        except IOError:
+            sys.exit("{} not found".format(visfilename))
+                
+        return
     
     ###------------------------------------------------------------------------    
     def read(self):
@@ -177,7 +221,7 @@ class Configuration(object):
         """
 
         #---------------------------------------------------
-        def obj_dic(self,d):
+        def obj_dic(d):
             # top = type('new', (object,), d)
             seqs = tuple, list, set, frozenset
             for i, j in d.items():
@@ -203,7 +247,7 @@ class Configuration(object):
         print(">>> Read configuration from ",self.filename)
         with open(self.filename) as f:
             data = yaml.load(f, Loader=SafeLoader)
-            obj_dic(self,data)
+            obj_dic(data)
             self.dtslew_North = u.Quantity(self.dtslew_North)
             self.dtslew_South = u.Quantity(self.dtslew_South )
             self.dtswift = u.Quantity(self.dtswift)
@@ -240,11 +284,13 @@ class Configuration(object):
         log.prt("     Number of trials*   : {:>5d}".format(self.niter))
         log.prt(" EBL model               : {}".format(self.EBLmodel))
         log.prt(" Input/output :")
+        log.prt("      Input folder*      : {}".format(self.infolder))
+        # log.prt("      Output folder*     : {}".format(self.outfolder))
         log.prt("      Debug mode*        : {:>5d}".format(self.dbg))
-        log.prt("      Show plots*        : {:>5d}".format(self.show))
-        log.prt("      Analysing files in : {}".format(self.grb_dir))
+        log.prt("      Show plots         : {:>5d}".format(self.show))
+        log.prt("      Analysing files in : {}".format(self.data_dir))
         log.prt("      IRF files in       : {}".format(self.irf_dir))
-        log.prt("      Result folder*     : {}".format(self.res_dir))
+        log.prt("      Results in*        : {}".format(self.res_dir))
         log.prt(" Site sub-arrays         : N:{} S:{}"
                 .format(self.arrays["North"],self.arrays["South"]))
         log.prt(" Slewing time            : N:{} S:{}"
@@ -261,7 +307,7 @@ class Configuration(object):
         #     method = "On-off Energy dependent"
         log.prt(" Analysis (ndof)         : {}".format(self.method))
         if not self.forced_visible:
-            if self.visibility == None or self.visibility == "None":
+            if self.visibility == "built-in":
                 print(" Default visibilities read from the GRB input files")
             elif isinstance(self.visibility, dict):
                 print(" Visibilities recomputed on the fly :")
