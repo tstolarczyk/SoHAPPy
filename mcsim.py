@@ -253,7 +253,9 @@ class MonteCarlo():
 
     ###------------------------------------------------------------------------
     def aperture_photometry(self):
+        
         """
+        
         Perform an aperture photometry simulation and analysis.
         The counts are summed-up over enegy from the SpectrumDataset object
         list (The SpectrumDatasetOnOff objects are not created).
@@ -267,9 +269,6 @@ class MonteCarlo():
 
         More on the various statistics here :
             https://docs.gammapy.org/0.17/stats/fit_statistics.html
-
-        Parameters
-        ----------
 
         Returns
         -------
@@ -514,10 +513,11 @@ class MonteCarlo():
         for aslice in self.slot.slices:
 
             # Note: the spectrum is related to the slice, not the site
-            spec  = self.slot.grb.spectra[aslice.fid()]
-            name  = "Spec"+"-"+str(aslice.fid())
-            model = SkyModel(spectral_model = spec, name = name)
-
+            model  = self.slot.grb.models[aslice.fid()]
+            ## Obsolete as the grb spectra are now already skymodel
+            # name  = "Spec"+"-"+str(aslice.fid())
+            # model = SkyModel(spectral_model = spec, name = name)
+            
             # The reference time and duration of the observation
             # Note that this is the start of the slice
             # Not necessarilty the point at which the flux and altitude
