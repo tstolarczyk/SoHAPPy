@@ -24,9 +24,9 @@ from visibility import Visibility
 
 from utilities import warning, failure
 
+from gammapy.modeling.models import PointSpatialModel, SkyModel
 from gammapy.modeling.models import EBLAbsorptionNormSpectralModel     
 from gammapy.modeling.models import TemplateSpectralModel
-from gammapy.modeling.models import PointSpatialModel
 
 # Transform warnings into errors - useful to find who is guilty !
 import warnings
@@ -124,17 +124,19 @@ class GammaRayBurst(object):
                       "South": Visibility(self,"South")
                                           }
         # GRB cumulated attenuated spectra and spatial model
-        self.spectra = [] # Gammapy models (one per t slice)
-        self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
+        self.models = [] # Gammapy Skymodel models (one per t slice)
+        # self.spatial = PointSpatialModel(lon_0=0*u.deg,lat_0=0*u.deg)
         
         return
    
     ###------------------------------------------------------------------------   
     def EBLabsorbed(self, tab, model, debug=False):
+        
         """
-        Return the EBL-absorbed model.
-        Absorption data are either obtained from the Gammapy datasets or form
+        Returns the EBL-absorbed model.
+        Absorption data are either obtained from the Gammapy datasets or from
         external proprietary files.
+        
         Parameters
         ----------
         tab :  TemplateSpectralModel
@@ -216,11 +218,9 @@ class GammaRayBurst(object):
         "data": self.energy.data.tolist(),
         NotImplementedError: memoryview: unsupported format >f
         This error comes from the fact that the energy list as to be
-        explicitely passed as a float as done below:
-            cls.Eval.astype(float)
+        explicitely passed as a float as done below: cls.Eval.astype(float)
         (A Quantity is passed as requested but the underlying numpy
         dtype is not supported by energy.data.tolist())
-
 
         Parameters
         ----------
@@ -251,7 +251,7 @@ class GammaRayBurst(object):
             is always during night. Default is False.
         dbg: Integer
             A debugging level. Default is zero, no debugging messages.
-            
+    
         Returns
         -------
         A GammaRayBurst instance.
@@ -318,7 +318,7 @@ class GammaRayBurst(object):
         # or recompute it(a keyword has been given and a dictionnary retrieved)
         # or read it from the specified folder
         for loc in ["North","South"]:
-            if vis == None:
+            if vis == "built-in":
                 cls.vis[loc] = cls.vis[loc].from_fits(cls, hdr, hdul,
                                                            hdu=1,loc=loc)
             elif isinstance(vis,dict):
@@ -427,8 +427,12 @@ class GammaRayBurst(object):
             spec_tot = cls.spec_afterglow[i] 
             if cls.prompt:
                 if i<=cls.id90: spec_tot += cls.spec_prompt[i]
-            model = cls.EBLabsorbed(spec_tot,ebl)
-            cls.spectra.append(model)
+            m = SkyModel(spectral_model= cls.EBLabsorbed(spec_tot,ebl),
+                         spatial_model = PointSpatialModel(lon_0=cls.radec.ra,
+                                                           lat_0=cls.radec.dec,
+                                                           frame="icrs"),
+                             name="model_"+str(i))
+            cls.models.append(m)
  
         hdul.close()
 
@@ -737,7 +741,7 @@ class GammaRayBurst(object):
                                          values = grb.fluxval[i],
                                          norm   = 1.,
                                          interp_kwargs={"values_scale": "log"})
-            model = cls.EBLabosrbed(tab, ebl)
+            model = cls.EBLabsorbed(tab, ebl)
             grb.spectra.append(model)
 
         hdul.close()
@@ -824,6 +828,62 @@ class GammaRayBurst(object):
             txt += ' Prompt component not considered'
         return txt
     
+    ###------------------------------------------------------------------------
+    def model_to_yaml(self, output="yaml"):
+        """
+        Dump the time values for each energy specturm into a text file.
+        Dump all spectra associated to the source into yaml files, tar and 
+        compresss the files, delete the originals.
+
+        Parameters
+        ----------
+        output : string, optional
+            Output folder name. The default is "yaml".
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        # Create dedicated folder  
+        folder    =Path(output,grb.name+"/")
+        if not folder.is_dir():
+            import os
+            os.makedirs(folder)
+            
+        print(" Now dumping ",grb.name,"to ",folder)
+        
+        # Dump measurement times
+        name= Path(folder,grb.name+"_times.txt")
+        out = open(name,"w")
+        for i,t in enumerate(grb.tval):
+            print("{:3d} {:>8.2f}".format(i,t),file=out)
+        out.close()
+        
+        # Dump spectra and add to tar file
+        from gamapy.modeling.models import Models
+        import tarfile
+        tar = tarfile.open(Path(folder,grb.name+".tar.gz"), "w:gz")  
+        
+        for i, spec in enumerate(grb.models):
+            specname     = "spec_{:3s}.yaml".format(str(i+1).zfill(3))
+            specfilename = Path(folder,specname)
+        
+            # Dump data in yaml format
+            out          = open(specfilename,"w")
+            print(Models([spec]).to_yaml(),file=out)
+            out.close()
+            
+            # Put spectrum in tar file
+            tar.add(specfilename,arcname=specname)
+            
+            # Delete file
+            Path.unlink(specfilename)
+               
+        tar.close()
+
+        return
 ###############################################################################
 if __name__ == "__main__":
 
@@ -831,19 +891,15 @@ if __name__ == "__main__":
     A standalone function to read a GRB and make various tests
     """
     os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
-    # Transform warnings into errors - useful to find who is guilty !
     
+    # Transform warnings into errors - useful to find who is guilty !
     #warnings.filterwarnings('error')
     warnings.filterwarnings('ignore')
     
     from   utilities import Log
-    import yaml
-    from yaml.loader import SafeLoader
-    import grb_plot as gplt
-
 
     ###------------------
-    ### GRB to read
+    ### GRBs to read
     ###------------------
     ifirst     = 1 #  ["190829A"]
     ngrb       = 1 # 250
@@ -861,8 +917,9 @@ if __name__ == "__main__":
     
     # visibility = "strictmoonveto"
     # with open("visibility.yaml") as f:
+    #     import yaml
+    #     from yaml.loader import SafeLoader
     #     visibility  = yaml.load(f, Loader=SafeLoader)[visibility]
-        
     
     prompt     = False
     save_grb   = False # (False) GRB saved to disk -> use grb.py main
@@ -891,9 +948,16 @@ if __name__ == "__main__":
                                   dbg     = dbg)
 
         print(grb)
-        gplt.time_spectra(grb)                
-        gplt.energy_spectra(grb)                
-        gplt.visibility_plot(grb, loc ="North")
-        gplt.visibility_plot(grb, loc ="South")
+        
+        # import grb_plot as gplt
+        # gplt.time_spectra(grb)                
+        # gplt.energy_spectra(grb)                
+        # gplt.visibility_plot(grb, loc ="North")
+        # gplt.visibility_plot(grb, loc ="South")
 
         if (save_grb): grb.write(res_dir) # Save GRB if requested
+        
+        dump2yaml = True
+        if dump2yaml: grb.model_to_yaml() # Dump GRB model to yam files 
+        
+ 
