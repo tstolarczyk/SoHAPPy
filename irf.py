@@ -259,8 +259,12 @@ class IRF():
             sys.exit("from_observation : location should be defined")
 
         # Find best keys (IRF interpolation)
-        idx = irf_dir.find("prod")
-        prod = irf_dir[idx:idx+5]
+        # Assumes irf_dir is a Path ending with the correct keyword
+        prod = irf_dir.name[:5] 
+        # In case irf_dir is a string:
+        # idx = irf_dir.find("prod")
+        # prod = irf_dir[idx:idx+5]
+        
         kzen, kaz, kdt = cls.find_best_keys(zenith, azimuth, obstime,
                                                 closest = closest,
                                                 prod=prod)
