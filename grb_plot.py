@@ -69,19 +69,27 @@ def pause():
 ###############################################################################
 
 ###---------------------------------------------------------------------------
-def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,  e_min = 1*u.GeV, ax=None):
+def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,  
+                   e_min = 1*u.GeV, eindex=2,
+                   ax=None):
     """
     Energy spectra for various measurement points in time
-    Note: the plot methods handle the labels, should not be overwritten   
+    Note: the plot methods handle the labels, should not be overwritten       
 
     Parameters
     ----------
     grb : GammaRayBurst instance
-        A GRB.
-    n_E_2disp : TYPE, optional
+          A GRB.
+    n_E_2disp : integer, optional
         Number of curves to show in energy spectra. The default is 5.
-    ax : matplotlib.axes, optional
-        Current matplotlib axis. The default is None.
+    ymin : float, optional
+        Minimal flux value in current unit. The default is 1e-16.
+    e_min : Quantity Energy, optional
+        Minimal energy in the plot. The default is 1*u.GeV.
+    eindex : interger, optionnal
+        Flux is multiplied by Energy to eindex. The default is 2.    
+    ax : matplotlib axis, optional
+        Figure axis. The default is None.
 
     Returns
     -------
@@ -106,33 +114,39 @@ def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,  e_min = 1*u.GeV, ax=None):
  
     # Plot in color some of the energy spectra and the initial data points
     with quantity_support():
-        e_unit = grb.Eval[0].unit
+        e_unit    = grb.Eval[0].unit
+        flux_unit = grb.fluxval[0,0].unit
+        plot_unit = e_unit**eindex*flux_unit
         # In the present version, there is only one prompt spectrum up to t90
-        if grb.prompt: # if no prompt id90 =-1
-            ax.plot(grb.E_prompt.to(e_unit), grb.flux_prompt, 
-                    alpha=0.5, ls="--", color = "black", 
-                    label="$Prompt \ 0-t_{90}$")
+        # if grb.prompt: # if no prompt id90 =-1
+        #     ax.plot(grb.E_prompt.to(e_unit), 
+        #             (grb.E_prompt**eindex)*grb.flux_prompt, 
+        #             alpha=0.5, ls="--", color = "black", 
+        #             label="$Prompt \ 0-t_{90}$")
             
         for i in tidx:
             t    = grb.tval[i]
             flux = grb.fluxval[i,:] # Afterglow
             
             # Plot the GRB interpolated spectra
-            grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)], 
-                                ax, energy_unit=e_unit,
+            grb.models[i].spectral_model.plot([min(grb.Eval),max(grb.Eval)], 
+                                ax, 
+                                energy_unit=e_unit,  energy_power=eindex, 
+                                flux_unit = flux_unit,
                                 label="t= {:>s}".format(t_str(t)))
             
             # Plot the initial data points (should fit)
             c = ax.lines[-1].get_color() # Last color
             ax.plot(grb.Eval,
-                    flux.to(1/u.cm**2/u.s/u.TeV) ,
-                      ls='--', lw=1., marker=".", alpha=0.5, color=c)   
+                    grb.Eval**eindex*flux,
+                    ls='--', lw=1., marker=".", alpha=0.5, color=c)   
         
-        # # Plot the rest faded out
+        #Plot the rest faded out
         for i in range(0,nspectra):
             t = grb.tval[i]
-            grb.spectra[i].plot([min(grb.Eval),max(grb.Eval)],ax,
-                                energy_unit = e_unit,
+            grb.models[i].spectral_model.plot([min(grb.Eval),max(grb.Eval)],ax,
+                                energy_unit = e_unit, energy_power=eindex,
+                                flux_unit = flux_unit,                                
                                 alpha=0.2, color="grey",lw=1)
             
         ax.axvline(10*u.GeV, color="grey",alpha=0.2)
@@ -185,8 +199,8 @@ def time_spectra(grb, n_E_2disp = 6,
     max_flx_tot = np.max(flx_tot)
 
     # Attenuated flux
-    unit = grb.spectra[0](100*u.GeV).unit
-    flx_tot_att = np.array([f(E).value for f in grb.spectra])
+    unit = grb.models[0].spectral_model(100*u.GeV).unit
+    flx_tot_att = np.array([f.spectral_model(E).value for f in grb.models])
     flx_tot_att = flx_tot_att*unit
     
     ### -----------------------------------
@@ -487,7 +501,7 @@ def source_alt_and_flux(grb, vis, times, site="None", tshift=0*u.s,
 
     axx.plot((grb.t_trig + grb.tval -tshift).datetime,
               #grb.fluxval[:,iref],
-              [ g(Eref).value for g in grb.spectra]*grb.spectra[0](Eref).unit,
+              [ g.spectral_model(Eref).value for g in grb.models]*grb.models[0].spectral_model(Eref).unit,
               marker=".",
               ls = "--",
               lw = 1,
