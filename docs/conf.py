@@ -52,7 +52,8 @@ release = '0.0'
    #  'sphinx.ext.ifconfig',
    #  'sphinx.ext.viewcode',
    #  'sphinx.ext.githubpages',
-# Copied from ctapipe
+# Copied from ctapipe - Note that sphinx_automodapi (underscore)
+# is the extension that comes form the sphinx-automodapi (hyphen) module.
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",

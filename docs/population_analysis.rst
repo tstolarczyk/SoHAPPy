@@ -6,7 +6,7 @@ Introduction
 The population is analysed from the devoted SoHAPPy output file (named `data.txt` by default).
 
 The available tools consist in a few jupyter notebooks and python script files.
-The user is intended to indicate the SoHAPPy folder containing the population file in a file named parameter.yaml, with the variable "outfoler", like shown here:
+The user is intended to indicate the SoHAPPy folder containing the population file in a file named `parameter.yam`, with the variable "outfoler", like shown here:
 ..  code-block::
 
 	# outfolder : "../../../output/pop_vis24_moonlight/" 
@@ -23,6 +23,7 @@ The execution of Jupyter notebook will then present various results as follows:
 - Another one
 	* To be described
 
+   
 .. automodapi:: analysis.population.init
    :no-inheritance-diagram:
 

@@ -9,22 +9,22 @@ angles.
 
 IRF data file organisation
 ==========================
-prod5 v1
+
+prod5 v0.1
 --------
-This correspnd to teh alpha configuration, with 4 LST and 9 MST in NOrth, and 14 MST and 37 SST in South (no LST). The instrument response function (IRF) files are expected to be found in a
+This corresponds to the alpha configuration, with 4 LST and 9 MST in North, and 14 MST and 37 SST in South (no LST). The instrument response function (IRF) files are expected to be found in a
 dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF).  
+
 ..  code-block::
 
-+ FullArray 
-	+-- North
-		+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.1800s-v0.1.fits.gz
-		+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.18000s-v0.1.fits.gz
-    	+-- ...
-
-    +-- South
-    	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.1800s-v0.1.fits.gz
-    	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.18000s-v0.1.fits.gz
-    	+-- ...
++ 4LSTs09MSTs 
+	+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.1800s-v0.1.fits.gz
+	+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.18000s-v0.1.fits.gz
+	+-- ...
++ 14MSTs37SSTs
+	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.1800s-v0.1.fits.gz
+	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.18000s-v0.1.fits.gz
+	+-- ...
 
 + MST
 

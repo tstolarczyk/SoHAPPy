@@ -56,7 +56,7 @@ More on SoHAPPy
 	developer.rst
 
 .. rubric:: References
-	[tot] toto
+	[ref Put here a reference
 
 
 
