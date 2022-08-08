@@ -26,10 +26,10 @@ warnings.filterwarnings('ignore')
 ###---------------------------
 ### change your conditons here
 ###---------------------------
-conditions  = "strictmoonveto"
-def_vis     = "visibility.yaml"
-vis_folder  = conditions
-vis_archive = "../input/visibility/short_vis_24_strictmoonveto"
+def_vis     = "visibility.yaml" # Visibility parameter fils
+conditions  = "strictmoonveto" # One condition in the default visibility file
+vis_folder  = conditions+"_DC-2028_01_01_000000-2034_12_31_235959"
+# vis_archive = "../input/visibility/short_vis_24_strictmoonveto"
 # vis_archive = conditions
 
 ###---------------------------
@@ -42,12 +42,20 @@ debug      = False
 ###---------------------------
 ### Input GRB data
 ###---------------------------
-ifirst  = 0
-ngrb    = 1000 # 250
-grb_folder = "../input/lightcurves/SHORT_FITS/"
+ifirst  = 1
+ngrb    = 2 # 250
+# grb_folder = "../input/lightcurves/SHORT_FITS/"
+grb_folder = "D:/CTAA/SoHAPPy/input/lightcurves/LONG_FITS/"
+triggers = "D:/CTAA/SoHAPPy/input/visibility/long/Trigger_1000-2028_01_01_000000-2034_12_31_235959.yaml"
 
 if type(ifirst)!=list: grblist = list(range(ifirst,ifirst+ngrb))
 else: grblist = ifirst
+
+###---------------------------
+### Get new trigger dates if requested
+###---------------------------
+from trigger_dates import get_from_yaml
+data = get_from_yaml(triggers)
 
 ###---------------------------
 ### Let's go
@@ -70,13 +78,14 @@ else:
     visibility = None
     
 # Loop on files
-for item in grblist:
-    filename = Path(grb_folder,"Event"+str(item)+".fits")
-
+for i, item in enumerate(grblist):
+    fname = "Event"+str(item)+".fits.gz"
     if save_vis:
-        grb = GammaRayBurst.from_fits(filename,
+        grb = GammaRayBurst.from_fits(Path(grb_folder,fname),
                                   ebl     = None,
                                   prompt  = False, 
+                                  dt      = data[fname],
+                                  dt_abs  = True,
                                   vis     = visibility)
 
         for loc in ["North","South"]:
