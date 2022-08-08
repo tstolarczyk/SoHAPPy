@@ -17,7 +17,6 @@ import mcsim_config as mcf
 
 from dataset_tools import check_dataset
 
-from gammapy.modeling.models import SkyModel
 from gammapy.utils.random import get_random_state
 from gammapy.stats import WStatCountsStatistic
 from gammapy.maps import RegionNDMap, MapAxis
@@ -807,4 +806,14 @@ class MonteCarlo():
         outfile.close()
 
         print(" Saving simulation to file : {}".format(filename))
+        return
+    
+    ###------------------------------------------------------------------------
+    def plot(self, pdf=None):
+        
+        # fig_sl = self.slot.plot()
+        import mcsim_plot as mplt
+        mplt.show(self,loc=self.slot.site,pdf=pdf)
+        
+        # if pdf!=None: pdf.savefig(fig_sl)
         return
