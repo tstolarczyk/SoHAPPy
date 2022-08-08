@@ -30,112 +30,109 @@ plt.style.use('seaborn-poster') # Bug with normal x marker !!!
 block = False
 
 ###############################################################################
-def pause():
-    """
-    Used to pause plot display in interactive mode on a shell script. In the
-    abscence of a call to that function figures will stack on the screen during
-    the run and all disappear at the end of the run.
-    Using this, figures will be stacked on screen and displayed for each event
-    until they are closed by the user.
-
-    Returns
-    -------
-    None.
-
-    """
-    plt.show(block=True)
-    return
-
-###############################################################################
-def show(mc,ax=None, loc="nowhere"):
+def show(mc,ax=None, loc="nowhere",pdf=None):
     
-    sigma_vs_time(mc, ax)
-    if (mc.niter > 1): # Otherwise plot one single point
-        non_vs_noff(mc,ax)
-
-    story(mc,loc=loc,ref="VIS")
-    story(mc,loc=loc,ref="GRB")
-    pause()
+    fig_sig = sigma_vs_time(mc)
+    # if (mc.niter > 1): fig_n = non_vs_noff(mc,ax)
+    # else: fig_n = None # Otherwise plot one single point
+        
+    # fig_vis = story(mc,loc=loc,ref="VIS")
+    # fig_grb = story(mc,loc=loc,ref="GRB")
+    
+    if pdf != None:
+        pdf.savefig(fig_sig)
+        # if fig_n != None: pdf.savefig(fig_n)
+        # pdf.savefig(fig_vis)
+        # pdf.savefig(fig_grb)
+        
+    # used to pause plot display in interactive mode on a shell script. In the
+    # abscence of a call to that function figures will stack on the screen during
+    # the run and all disappear at the end of the run.
+    # Using this, figures will be stacked on screen and displayed for each event
+    # until they are closed by the user.
+    plt.show(block=True)
 
     return
 
 ###----------------------------------------------------------------------------
-def sigma_vs_time(mc, ax=None):
-    
-    
+def sigma_vs_time(mc):
+        
+    if mc.niter> 1:
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
+                                       gridspec_kw={'width_ratios': [2, 1]})
+    else:
+        fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
+        
     # Measurement points
     t_s = np.asarray([s.tobs().value for s in mc.slot.slices])
     
     # Max siginificance and error and time
-    tmax     = [mc.slot.slices[i].tobs().value
-                for i in mc.id_smax_list]
+    tmax     = [mc.slot.slices[i].tobs().value for i in mc.id_smax_list]
     smax     = np.mean(mc.smax_list)
     err_smax = np.std(mc.smax_list)
     
     # 3 sigma and 5 sigma times
-    t3s = [mc.slot.slices[i].tobs().value
-             for i in mc.id_3s_list]
-    t5s = [mc.slot.slices[i].tobs().value
-             for i in mc.id_5s_list]    
+    t3s = [mc.slot.slices[i].tobs().value for i in mc.id_3s_list]
+    t5s = [mc.slot.slices[i].tobs().value for i in mc.id_5s_list]    
     
-    if ax == None:
-        fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
-
     with quantity_support():
 
         ### Mean significance at each slice
-        ax.errorbar(t_s, mc.sigma_mean, yerr = mc.sigma_std, fmt  ='o')
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
+        ax1.errorbar(t_s, mc.sigma_mean, yerr = mc.sigma_std, fmt  ='o')
+        xmin, xmax = ax1.get_xlim()
+        ymin, ymax = ax1.get_ylim()
 
         tlist    = [tmax, t3s, t5s]
         siglist  = [smax, 3, 5]
         errlist  = [err_smax, 0, 0]
         collist  = [colmx, col3, col5]
         taglist  = ["$\sigma_{max}$","$3\sigma$","$5\sigma$"]
+        
         for t, sig, errs, c, tag  in zip(tlist,
                                          siglist,
                                          errlist,
                                          collist,
                                          taglist):
-            ax.errorbar(x    = np.mean(t), y    = sig,
+            ax1.errorbar(x    = np.mean(t), y    = sig,
                          xerr = np.std(t),  yerr = errs,
                          fmt="o",color=c,
                          label = tag)
-            ax.vlines(np.mean(t), ymin = ymin, ymax = smax,
+            ax1.vlines(np.mean(t), ymin = ymin, ymax = smax,
                        alpha=0.5,ls=":",color=c)
-            ax.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
+            ax1.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
                        alpha=0.5,color=c)
 
     
-        ax.set_xlabel('Observation duration (s)')
-        ax.set_ylabel("Significance $\sigma$")
-        ax.set_title(mc.name +' ('+str(mc.niter)+' iter.)')
-        
+        ax1.set_xlabel('Observation duration (s)')
+        ax1.set_ylabel("Significance $\sigma$")
+        # ax1.legend(bbox_to_anchor=[1,1])
+        ax1.legend()
+
         import matplotlib
         if matplotlib.__version__ >= "3.5.0":
-            ax.set_xscale("log", nonpositive='clip') # 3.5.0
+            ax1.set_xscale("log", nonpositive='clip') # 3.5.0
         else:
-            ax.set_xscale("log", nonposx='clip') # 3.1.1
-        ax.grid(which='both',alpha=0.2)    
+            ax1.set_xscale("log", nonposx='clip') # 3.1.1
+        ax1.grid(which='both',alpha=0.2)    
         
-        # Sigma max distribution inset (if niter > 1)
-        if (mc.niter >1):
-            axx = ax.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
-            n, bins,_ = axx.hist(mc.smax_list,
-                        bins  = max(int(mc.niter/2),1), # Cannot be < 1
-                        range = [smax-3*err_smax,smax+3*err_smax],
-                        alpha=0.5,
-                        color = "grey",
-                        label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
-            axx.tick_params(axis='x', labelsize=10,pad=0.)
-            axx.tick_params(axis='y', labelsize=10,pad=0.)
-            axx.set_xlabel(sig,fontsize=12,labelpad=0)
-            axx.set_ylabel('Trials',fontsize=12,labelpad=0)
+        # Sigma max distribution (if niter > 1)
+        # if (mc.niter >1):
+        # axx = ax.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
+        n, bins,_ = ax2.hist(mc.smax_list,
+                    bins  = max(int(mc.niter/2),1), # Cannot be < 1
+                    range = [smax-3*err_smax,smax+3*err_smax],
+                    alpha=0.5,
+                    color = "grey",
+                    label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
+        ax2.set_xlabel("$\sigma_{max}$")
+        ax2.set_ylabel('Trials')
 
-        ax.legend(bbox_to_anchor=[1,1])
+        
+        ax1.set_title(mc.name +' ('+str(mc.niter)+' iter.)',loc="right")
+        
+    plt.tight_layout()
     
-    return ax
+    return fig
 
 ###----------------------------------------------------------------------------
 def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
@@ -145,6 +142,8 @@ def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
     """
     if ax == None:
         fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
+    else:
+        fig = ax.get_figure()
 
     nexlist = [mc.nex_3s_list, mc.nex_5s_list, mc.nex_smax_list ]
     nblist  = [mc.nb_3s_list,  mc.nb_5s_list,  mc.nb_smax_list]
@@ -181,7 +180,10 @@ def non_vs_noff(mc,ax,alpha=1/5,logscale=True):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.legend()       
-    return ax
+        
+    plt.tight_layout()
+
+    return fig
 
 ###############################################################################
 def story(mc, loc="nowhere", ref="VIS"):
@@ -189,7 +191,7 @@ def story(mc, loc="nowhere", ref="VIS"):
     Show altitude versus time and points used for computation
 
     """
-    if (loc != "North" and loc!= "South"): return
+    if (loc != "North" and loc!= "South"): return None
 
     # Plot sigma versus time on the full
     # GRB lifetime together with visibility
@@ -381,8 +383,8 @@ def story(mc, loc="nowhere", ref="VIS"):
         else:            ax.set_xlabel("Date since Trigger (hh:mm)")
 
     plt.tight_layout()
-    plt.show(block=block)
-    return
+    
+    return fig
 
 ###############################################################################
 #
