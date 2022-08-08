@@ -73,20 +73,55 @@ def welcome(log):
     log.prt("+----------------------------------------------------------------+")
     
     return
+
 ###############################################################################
-def get_grb_fromfile(item, config     = None, 
-                           grb_folder = None, 
+def get_time_resolved_prompt_fromfile():
+    
+    sys.exit("Please reimplement")
+    # ### -------------------------------------------   
+    # ### # Special case for time-resolved prompts
+    # ### -------------------------------------------   
+#      # create a new object from the default (Visible in North)
+#      loc = Path('../input/lightcurves/prompt'
+#                 + "/events_"+str(item)+".fits")
+     
+#      if cfg.use_afterglow:
+#          # use afterglow characteristics
+#          loc_glow = Path(grb_folder + "/Event"+str(item)+".fits")
+#          glow = GammaRayBurst.from_fits(loc_glow, ebl = cfg.EBLmodel)
+#          grb = GammaRayBurst.read_prompt(loc,
+#                                          glow    = glow,
+#                                          ebl     = cfg.EBLmodel,
+#                                          magnify = cfg.magnify,
+#                                          n_night = cfg.n_night,
+#                                          Emax    = cfg.Emax)
+#      else:
+#          # use default visibility
+#          sys.exit(" Redshift should be provided")
+#          grb = GammaRayBurst.read_prompt(loc,
+#                                          glow    = None,
+#                                          ebl     = cfg.EBLmodel,
+#                                          z       = None,
+#                                          magnify = cfg.magnify,
+#                                          n_night = cfg.n_night,
+#                                          Emax    = cfg.Emax)
+    # return grb
+    return
+
+###############################################################################
+def get_grb_fromfile(item, cfg        = None, 
                            prompt     = None,
-                           eblmodel   = "dominguez",
+                           dt         = 0,
+                           dt_abs     = False,
                            log        = None):
     """
-    Obtain data from files on disk invarious conditions.
+    Obtain data from files on disk in various conditions.
 
     Parameters
     ----------
     item : TYPE
         DESCRIPTION.
-    config : TYPE, optional
+    cfg : TYPE, optional
         DESCRIPTION. The default is None.
     grb_folder : TYPE, optional
         DESCRIPTION. The default is None.
@@ -101,77 +136,55 @@ def get_grb_fromfile(item, config     = None,
     """
     
     # This is required to have the EBL models read from gammapy
-    
     # os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).parent,
                                           "../input/gammapy-extra-master/datasets"))
     
-    if config == None:
-        test_prompt = False 
-        magnify     = 1
-        afterglow   = False 
-        visibility  = None
-        infolder    = "../input/"
-        n_night     = 1
-        Emax        = 10*u.TeV
-    else:
-        prompt      = config.prompt
-        test_prompt = config.test_prompt
-        eblmodel    = config.EBLmodel
-        magnify     = config.magnify
-        afterglow   = config.use_afterglow
-        visibility  = config.visibility
-        n_night     = config.n_night
-        Emax        = config.Emax
+    # Give the possibility to call the function without configuration file    
+    if cfg == None:
+        cfg.EBLmodel    = "dominguez"
+        cfg.test_prompt = False 
+        cfg.magnify     = 1
+        cfg.afterglow   = False 
+        cfg.visibility  = None
+        cfg.infolder    = "../input/"
+        cfg.n_night     = 1
+        cfg.Emax        = 10*u.TeV
+    
+    ### -------------------------------------------   
+    ### Prompt test - resolved spectra
+    ### -------------------------------------------   
+    if cfg.test_prompt: return get_time_resolved_prompt_fromfile()
+    
+    ### -------------------------------------------   
+    ### Afterglow data + possible prompt component (normal case)
+    ### -------------------------------------------   
+
+    # This is a GRB number -> simulated GRB in a population        
+    if isinstance(item, int):
         
-    if not test_prompt: # Normal case : afterglow
-        # This is a GRB name -> historical
-        if isinstance(item, str):
-            # this is a GRB name string
-            filename = Path(grb_folder
-                            + "historical/GRB_"
-                            + item +".yml")
-            import yaml
-            from yaml.loader import SafeLoader
-            with open(filename) as f:
-                data = yaml.load(f, Loader=SafeLoader)
-                grb  = GammaRayBurst.from_yaml(data,ebl=eblmodel)
-        # This is a GRB number -> similated GRB in a population        
-        elif isinstance(item, int):
-            fname = Path(grb_folder,"Event"+str(item)+".fits.gz")  
-            grb = GammaRayBurst.from_fits(fname,
-                                    ebl     = eblmodel,
-                                    prompt  = prompt, 
-                                    vis     = visibility,
-                                    magnify = magnify,
-                                    n_night = n_night,
-                                    Emax    = Emax)
-
-    else: # Special case for time-resolved prompt
-        # create a new object from the default (Visible in North)
-        loc = Path('../input/lightcurves/prompt'
-                   + "/events_"+str(item)+".fits")
-        if (afterglow):
-            # use afterglow characteristics
-            loc_glow = Path(grb_folder + "/Event"+str(item)+".fits")
-            glow = GammaRayBurst.from_fits(loc_glow, ebl = eblmodel)
-            grb = GammaRayBurst.read_prompt(loc,
-                                            glow=glow,
-                                            ebl = eblmodel,
-                                            magnify = magnify,
-                                            n_night = config.n_night,
-                                            Emax    = config.Emax)
-        else:
-            # use default visibility
-            sys.exit(" Redshift should be provided")
-            grb = GammaRayBurst.read_prompt(loc,
-                                            glow=None,
-                                            ebl = eblmodel,
-                                            z   = None,
-                                            magnify = magnify,
-                                            n_night = config.n_night,
-                                            Emax    = config.Emax)
-
+        fname = "Event"+str(item)+".fits.gz" 
+        grb = GammaRayBurst.from_fits(Path(cfg.data_dir,fname),
+                                      vis     = cfg.visibility,
+                                      prompt  = cfg.prompt, 
+                                      ebl     = cfg.EBLmodel,
+                                      n_night = cfg.n_night,
+                                      Emax    = cfg.Emax,
+                                      dt      = dt[fname] if dt_abs else dt,
+                                      dt_abs  = dt_abs,
+                                      magnify = cfg.magnify)
+    # This is a GRB name -> specific event
+    elif isinstance(item, str):
+        # this is a GRB name string
+        filename = Path(cfg.data_dir,
+                         + "historical/GRB_"
+                         + item +".yml")
+        import yaml
+        from yaml.loader import SafeLoader
+        with open(filename) as f:
+            data = yaml.load(f, Loader=SafeLoader)
+            grb  = GammaRayBurst.from_yaml(data, ebl = cfg.EBLmodel)
+            
     return grb
 
 ###############################################################################
@@ -232,8 +245,8 @@ def main(argv):
 
     Parameters
     ----------
-    argv : TYPE
-        DESCRIPTION.
+    argv : List
+        Command line argument list.
 
     Returns
     -------
@@ -247,7 +260,10 @@ def main(argv):
     log = logging.getLogger("gammapy.irf")
     log.setLevel(logging.ERROR)   
     
-    # Read Configuration - (create output folder)
+    ### ------------------------------------------------
+    ### Configuration and output files
+    ### ------------------------------------------------
+   # Read Configuration - (create output folder)
     cf = Configuration(sys.argv[1:])
     cf.create_output_folder(log) # Create output folder
     
@@ -273,8 +289,10 @@ def main(argv):
     
     # Start chronometer
     start_all = time.time() # Starts chronometer #1
-
-    # Source list to be analysed
+    
+    ### ------------------------------------------------
+    ### Source list to be simulated / analysed
+    ### ------------------------------------------------
     if type(cf.ifirst)!=list:
         if isinstance(cf.ifirst,str):
             grblist = [cf.ifirst]
@@ -285,7 +303,20 @@ def main(argv):
         grblist = cf.ifirst
         first = str(grblist[0])
 
-    start_pop = time.time() # Start chronometer #2
+    ### ------------------------------------------------
+    ### Check trigger time modification (either fixed or variable)
+    ### ------------------------------------------------    
+    from trigger_dates import get_trigger_dates
+    trig_data, trig_abs = get_trigger_dates(cf.trigger)
+    if len(trig_data) < len(grblist):
+        sys.exit(" {:s} length lower than the number of sources"
+                 .format(cf.trigger))
+    ### ------------------------------------------------
+    ### Start processing
+    ### ------------------------------------------------ 
+    
+    # Start chronometer #2
+    start_pop = time.time() 
 
     with open(sim_filename, 'w') as pop:
 
@@ -294,16 +325,17 @@ def main(argv):
         #################################
 
         mcres.welcome(cf.arrays,log=log) # Remind simulation parameters
-
+        
         first = True # Actions for first GRB only
-        for item in grblist:
+        for i, item in enumerate(grblist):
 
             ### Get GRB
-            grb = get_grb_fromfile(item,
-                                   config = cf,
-                                   grb_folder = cf.data_dir,
-                                   log = log) 
-            
+            grb = get_grb_fromfile(item, 
+                                   cfg    = cf,
+                                   dt     = trig_data, 
+                                   dt_abs = trig_abs, 
+                                   log    = log) 
+                
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
                           opt   = cf.obs_point,
@@ -318,23 +350,14 @@ def main(argv):
                 grb.vis["South"].print(log=log)
 
             # Plot grb spectra and lightcurve and visibility windows
-            if (cf.show >0):
-                import grb_plot     as gplt
-                gplt.time_spectra(grb)
-                gplt.energy_spectra(grb)
-                # gplt.spectra(grb,opt="Packed")  # Check this - obsolete?
-                gplt.visibility_plot(grb, loc ="North")
-                gplt.visibility_plot(grb, loc ="South")
-
-                gplt.pause()
-
-                if (cf.dbg>2) :
-                    gplt.animated_spectra(grb,savefig=True,outdir=cf.res_dir)
-
-                #plt.show(block=True)
-
+            if cf.save_fig and cf.show >0 : 
+                from matplotlib.backends.backend_pdf import PdfPages
+                pdf_out = PdfPages(Path(grb.name+"_booklet.pdf"))
+                grb.plot(pdf_out)
+            else: pdf_out=None
+                
             # Save GRB to file if requested
-            if (cf.save_grb): grb.write(cf.res_dir)
+            if cf.save_grb : grb.write(cf.res_dir)
 
             ###--------------------------------------------###
             #  Check individual sites - Loop over locations
@@ -380,10 +403,7 @@ def main(argv):
                 first = mcres.result(mc, grb, log=log, header=first, pop=pop)
 
                 # If Simulation was not aborted, plot some results
-                if (mc.err == mc.niter) and (cf.show > 0):
-                    slot.plot()
-                    import mcsim_plot as mplt
-                    mplt.show(mc,loc=loc)
+                if (mc.err == mc.niter) and (cf.show > 0): mc.plot(pdf_out)
 
                 # If requested save simulation to disk
                 if (cf.save_simu):
@@ -423,15 +443,14 @@ def main(argv):
             first= mcres.result(mc, grb, log=log, header=first, pop = pop)
 
             # If simulation was not aborted, plot some results
-            if (mc.err == mc.niter) and (cf.show > 0):
-                if (cf.show>0):
-                    slot.plot()
-                import mcsim_plot as mplt
-                mplt.show(mc,loc="Both")
+            if (mc.err == mc.niter) and (cf.show > 0): mc.plot(pdf=pdf_out)
 
             # If requested save simulation to disk
             if (cf.save_simu): mc.write(Path(cf.res_dir,name + "_sim.bin"))
 
+            # Close output pdf file
+            if cf.save_fig and cf.show>0: pdf_out.close()
+            
         # END of Loop over GRB
 
     # Stop chronometer
@@ -449,10 +468,9 @@ def main(argv):
     log.prt("")
     log.prt(datetime.now())
 
-
     # Close log file
     log.close()
-
+    
     # tar gzip outputs, delete originals if requested
     nw = datetime.now()
     outprefix = Path(cf.res_dir).parts[-1]
