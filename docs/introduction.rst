@@ -3,10 +3,16 @@ Introduction
 
 Dependencies
 ============
+It is suggested to install the code inside a dedicated environment based on gammapy.
+This version is compatible with the following dependencies:
 
-The code uses the following external components and data:
-    * `gammapy <https://gammapy.org/>`_: current supported version is 0.18.2
-    * `astroplan <https://pypi.org/project/astroplan/>`_ : version 0.8
+    * `gammapy <https://gammapy.org/>`_: 0.18.2
+		Use conda env create -f '..\gammapy-0.18.2-environment.yml' to create a dedicated environement (the yaml file is found from the gammapy site). 
+		Activate the environment, conda activate gpy0.18.2, pursue with further installations. 
+    * `astroplan <https://pypi.org/project/astroplan/>`_ : version 0.8 (use pip install)
+At this stage, check that python SoHAPPy.py -h gives the list of possible options.
+Note that this version is compatible with spyder 5.2.2 with spyder-kernels 2.2.1
+
     * `Official CTA Intrument response function <https://www.cta-observatory.org/cta-performance-prod3b-v2/>`_ (IRF) files, organised in a particular subfolder structure (see `IRF <irf.rst>`_)
     * input object files with a `dedicated format <file_format.rst>`_.
     

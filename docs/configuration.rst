@@ -12,25 +12,37 @@ Input and output
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
-+-----------------------+------------------------+---------------------------------------------+
-| variable              | Default/Suggested      | What is it ?                                |
-+=======================+========================+=============================================+
-| ifirst                | 1                      | the first GRB file to be processed          |
-+-----------------------+------------------------+---------------------------------------------+
-| ngrb                  | None                   | | Number of GRB to be processed             |
-|                       |                        | | If 1, special actions are taken           |
-+-----------------------+------------------------+---------------------------------------------+
-| in_folder             | ../input               | | Input main folder                         |
-|                       |                        | | Contains the `visibility`, `irf`, Swift   |
-|                       |                        | | latency data                              |
-+-----------------------+------------------------+---------------------------------------------+
-| res_dir               | ../output              | Output folder                               |
-+-----------------------+------------------------+---------------------------------------------+
-| data_dir              | None                   | Data (GRB files) subfolder                  |
-+-----------------------+------------------------+---------------------------------------------+
-| irf_dir               | None                   | IRF subfolder (specific organisation)       |
-+-----------------------+------------------------+---------------------------------------------+
++------------------+-------------------+--------------------------------------------------+
+| variable         | Default/Suggested | What is it ?                                     |
++==================+===================+==================================================+
+| ifirst           | 1                 | the first GRB file to be processed               |
++------------------+-------------------+--------------------------------------------------+
+| ngrb             | None              | | Number of GRB to be processed                  |
+|                  |                   | | If 1, special actions are taken                |
++------------------+-------------------+--------------------------------------------------+
+| trigger          | 0                 | | Time shift in days applied to the original     |
+|                  |                   | | trigger dates.                                 |
+|                  |                   | | If a float, is added to the existing dates.    |
+|                  |                   | | Can be any duration and/or a number of Julian  |
+|                  |                   | | days to have absolute dates from relative ones.|
+|                  |                   | | If a file, read and overwrite the dates from   |
+|                  |                   | | the file, starting from line 3 (First and      |
+|                  |                   | | second lines are reserved). The number of dates|
+|                  |                   | | should match the number of sources (ngrb).     |
++------------------+-------------------+--------------------------------------------------+
+| in_folder        | ../input          | | Input main folder                              |
+|                  |                   | | Contains the `visibility`, `irf`, Swift        |
+|                  |                   | | latency data                                   |
++------------------+-------------------+--------------------------------------------------+
+| res_dir          | ../output         | Output folder                                    |
++------------------+-------------------+--------------------------------------------------+
+| data_dir         | None              | Data (GRB files) subfolder                       |
++------------------+-------------------+--------------------------------------------------+
+| irf_dir          | None              | IRF subfolder (specific organisation)            |
++------------------+-------------------+--------------------------------------------------+
 
+(1): e.g. `Time('1800-01-01T00:00:00', format='isot', scale='utc').jd = 2378496.5` 
+    
 Simulation parameters
 ---------------------
 

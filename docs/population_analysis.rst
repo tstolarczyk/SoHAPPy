@@ -14,9 +14,11 @@ The user is intended to indicate the SoHAPPy folder containing the population fi
 
 The execution of Jupyter notebook will then present various results as follows:
 
-- *OpenAndStat.iynb* :
+- *statistics.iynb* :
 
-	* open a file and derive the 3 and 5 sigma detections rates. 
+	* Open a file (`get_data`), build the GRB population for North, South, North only, South only or both sites, performs internal checks.
+	
+	open a file and derive the 3 and 5 sigma detections rates. 
 	* Extract from the data a few characteristics and check that they are compatible with the parameters in the confguration file (delay after the GRB trigger, minimal allowed alitude for detection)
 	* Give the list of GRB detected more than 24 h after the Trigger.
 

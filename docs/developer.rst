@@ -1,3 +1,16 @@
+Building the documentation 
+Install Sphinx and the extensions. 
+Extensions should be installed separately. As an example the automodapi, that create an output superior to the autodoc standard package, has to be installed (see here): 
+conda install -c conda-forge sphinx
+conda install -c conda-forge sphinx-automodapi
+conda install –c conda-forge nbsphinx
+conda install -c conda-forge recommonmark
+conda install -c conda-forge numpydoc
+conda install -c conda-forge sphinx_rtd_theme
+
+make html
+
+
 Todo list
 #########
 

@@ -49,6 +49,12 @@ More on SoHAPPy
 
 	tools.rst
 
+..toctree::
+    :maxdepth: 1
+    :caption: Running large simulations and analysis
+    
+    production.rst
+    
 .. toctree::
 	:maxdepth: 1
 	:caption: The developer corner
