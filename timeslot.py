@@ -406,6 +406,8 @@ class Slot():
 
         if (ax==None):         
             fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+        else:
+            fig = ax.get_figure()
 
         ### GRB lightcurve near Eref ---
         iref = np.argmin(np.abs(Eref-self.grb.Eval))
@@ -476,7 +478,7 @@ class Slot():
         ax.legend(by_label.values(), by_label.keys())
         ax.set_title(self.grb.name + " - " + self.site + " - " + self.name)
 
-        return
+        return fig
 
     #------------------------------------------------------------
     def __str__(self):
