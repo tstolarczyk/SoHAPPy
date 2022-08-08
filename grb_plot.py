@@ -99,6 +99,8 @@ def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,
 
     if ax == None:
         fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+    else:
+        fig = ax.get_figure()
 
     # Compute number of spectra to be shown
     nspectra = len(grb.tval)-1
@@ -161,19 +163,23 @@ def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,
     ax.set_ylim(ymin=ymin)
     ax.set_xlim(xmin=e_min.to(e_unit).value)
     
-    return
+    plt.tight_layout()
+    
+    return fig
 ###---------------------------------------------------------------------------
 def time_spectra(grb, n_E_2disp = 6, 
                       e_min=10*u.GeV, e_max=10*u.TeV, 
                       ymin=1.e-20, ax=None, debug=False):
 
-    if ax == None: fig,ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
-
+    if ax == None: 
+        fig,ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+    else:
+        fig = ax.get_figure()
+        
     E = np.logspace(np.log10(e_min.value),
                     np.log10(e_max.to(e_min.unit).value),
                     n_E_2disp)*e_min.unit   
     # print(E)
-
 
     ### -----------------------------------
     ### Compute the partial and total fluxes
@@ -220,10 +226,10 @@ def time_spectra(grb, n_E_2disp = 6,
                 ax.plot(grb.tval,flx_glow[:,i],color= color,alpha=0.7,ls=":",
                         label="afterglow")
 
-                ax.plot(grb.tval[:(grb.id90+1)],flx_prompt[:,i],color=color,ls="--",alpha=0.5,
-                            label="prompt")
-
-
+                ax.plot(grb.tval[:(grb.id90+1)],
+                        flx_prompt[:,i],
+                        color=color,ls="--",alpha=0.5,
+                        label="prompt")
 
             ax.plot(grb.tval,flx_tot_att[:,i],color=color,ls="-",marker=".",
                     label=str(round(E[i].value)*E[i].unit))           
@@ -246,7 +252,8 @@ def time_spectra(grb, n_E_2disp = 6,
     ax.grid(which="both",ls="-",color="lightgrey",alpha=0.5)
     single_legend(ax,loc='upper left',fontsize=11,bbox_to_anchor=[1.02,0.5])
     
-    return
+    plt.tight_layout()
+    return fig
 
 ###---------------------------------------------------------------------------
 def spectra(grb,opt="None"):
@@ -720,7 +727,8 @@ def visibility_plot(grb,
         axis.set_xlim([F(min(tobs)),F(max(tobs))])
 
     fig.tight_layout(h_pad=0, w_pad=0)
-    return
+    
+    return fig
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
 
