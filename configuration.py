@@ -11,24 +11,36 @@ from utilities    import Log
 
 def_conf = "config.yaml"
 def_vis  = "visibility.yaml"
+
 ###############################################################################
 class Configuration(object):
     """
+    This class handles all the external parameters required to run a simulation
+    and the corresponding analysis.
     """
+    
     ###------------------------------------------------------------------------    
     def __init__(self, argv, conf_file = def_conf, 
                              vis_file  = def_vis, copy=True, debug=False):
         """
         The defaut configuration file is found in the code repository, but it 
         can be changed for tests by changing the def_conf variable in the 
-        configuration module.
+        configuration module. Same for the visibility parameter file.        
 
         Parameters
         ----------
-        argv : list
-            Command line arguments
-        conf_file: string
-            Default configuration file name without.
+        argv :  list
+            DESCRIPTION.
+        conf_file : String, optional
+            Default configuration file name. The default is def_conf.
+        vis_file : String, optional
+            Default visibility parameter file name. The default is def_vis.
+        copy : Boolean, optional
+            If True, copy the configuration file to the output folder. 
+            The default is True.
+        debug : Boolean, optional
+            If True, verbosy. The default is False.
+
         Returns
         -------
         None.
@@ -40,21 +52,21 @@ class Configuration(object):
         ### --------------------------
         try:
             opts, args = getopt.getopt(argv,
-                                       "hc:n:f:N:d:o:i:",
+                                       "hc:n:f:N:d:o:i:D",
                                        ["config=",
                                         "ngrb=",
                                         "first=",
                                         "niter=",
                                         "dbg=",
                                         "output=",
-                                        "input=",])
+                                        "input=",
+                                        "days="])
         except getopt.GetoptError:
             print("No line arguments passed: Using default values")              
 
         ### --------------------------
         ### Check if help is needed
         ### --------------------------
-    
         for opt, arg in opts:
             if opt == '-h':
                 print(" SoHAPPy.py "
@@ -64,7 +76,8 @@ class Configuration(object):
                       + "-n <MC iterations> "
                       + "-o <Output folder> "
                       + "-i <Input folder> "
-                      + "-d <debug> ")
+                      + "-d <debug> "
+                      + "-D <date shift or file>")
                 sys.exit()
                 
         ### --------------------------
@@ -109,15 +122,24 @@ class Configuration(object):
             elif opt in ("-d", "--debg"):
                 dbg = int(arg)
                 self.dbg = dbg
-    
+            elif opt in ("-D", "--days"):
+                self.trigger = arg 
+                
         ### --------------------------
         ### deduce additionnal parameters
         ### --------------------------          
         
         # Define the input folder and files from the base and the subfolders
-        self.data_dir    = Path(self.infolder,self.data_dir)
+        self.data_dir   = Path(self.infolder,self.data_dir)
         self.swiftfile  = Path(self.infolder,self.swiftfile)
-        self.irf_dir    = Path(self.infolder,self.irf_dir)  
+        self.irf_dir    = Path(self.infolder,self.irf_dir)
+        if type(self.trigger) is str:
+            self.trigger = Path(self.infolder,self.trigger)
+            if not self.trigger.is_file():
+                sys.exit("{} does not point to a valid file "
+                         .format(self.trigger))
+        else:
+            self.trigger = float(self.trigger)
         
         # The visibility variable can be either:
         # - A subfolder where pre-computed visibility files can be found
@@ -133,7 +155,6 @@ class Configuration(object):
         else:
             sys.exit(" Visibility information not defined")
            
-               
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): 
             self.show = 0
@@ -176,7 +197,7 @@ class Configuration(object):
                 
         """
         Read the visibility parameters from a yaml file or try to 
-        use the default visibility in the input data file.
+        use the default visibility in the input data files.
         
         Parameters
         ----------
@@ -197,7 +218,7 @@ class Configuration(object):
         try:
             with open(visfilename) as f:
                 visdict  = yaml.load(f, Loader=SafeLoader)
-                # Check if the visibility variabale correspond to an entry
+                # Check if the visibility variable correspond to an entry
                 # Get the corresponding dictionnary values
                 if self.visibility in visdict.keys():
                     self.visibility = visdict[self.visibility]           
@@ -281,6 +302,12 @@ class Configuration(object):
             log.prt("     First source*       : {:>5d}".format(self.ifirst))
         else:
             log.prt("     Source list         : {}".format(self.ifirst))
+        if type(self.trigger) == float:
+            log.prt("     Date shift (days)*  : {:<10.2f}".format(self.trigger))
+        elif self.trigger.is_file():
+            log.prt("     Date shift file  *  : {}".format(self.trigger))
+        else:
+            sys.exit("Trigger keyword is not file nor float")
         log.prt("     Number of trials*   : {:>5d}".format(self.niter))
         log.prt(" EBL model               : {}".format(self.EBLmodel))
         log.prt(" Input/output :")
@@ -301,10 +328,9 @@ class Configuration(object):
             log.prt("                   value : {}".format(self.dtswift))
         else:
             log.prt("            Read from : {}".format(self.swiftfile))
-        # if (self.method ==0):
-        #     method = "On-Off Aperture photometry"
-        # elif (self.method == 1):
-        #     method = "On-off Energy dependent"
+            
+        # if (self.method ==0): method = "On-Off Aperture photometry"
+        # elif (self.method == 1): method = "On-off Energy dependent"
         log.prt(" Analysis (ndof)         : {}".format(self.method))
         if not self.forced_visible:
             if self.visibility == "built-in":
@@ -338,42 +364,50 @@ class Configuration(object):
         log.prt("+----------------------------------------------------------------+")
         log.prt(" Developments:")
         if (self.save_grb == True):
-            log.highlight("Simulation saved to disk save_grb (save_grb = True)       ")
+            log.highlight("{:60s}"
+            .format("Simulation saved to disk save_grb (save_grb = True)"))
+
+        if (self.save_fig == True):
+            log.highlight("{:60s}"
+            .format("Plots saved as pdf booklet (fig_save = True)"))
     
         if (self.write_slices == True):
-            log.highlight("Slice information saved to disk (write_slices=True)       ")
+            log.highlight("{:60s}"
+            .format("Slice information saved to disk (write_slices=True)"))
     
         if (self.signal_to_zero == True):
-            log.warning(  "Signal set to zero (signal_to_zero==True)                 ")
+            log.warning("{:60s}"
+            .format("Signal set to zero (signal_to_zero==True)"))
     
         if (self.do_fluctuate == False):
-            log.warning(  "No fluctuation in simulation (do_fluctuate==False)        ")
+            log.warning("{:60s}"
+            .format("No fluctuation in simulation (do_fluctuate==False)"))
     
         if (self.do_accelerate  == False):
-            log.warning(  "No abortion if first 10% undetected (do_accelarate==False)")
-    
-    
+            log.warning("{:60s}"
+            .format("No abortion if first 10% undetected (do_accelarate==False)"))
+        
         if (self.n_night != None):
-             log.warning(  "GRB data limited to the first {} nights"
+             log.warning("GRB data limited to the first {} nights"
                     .format(self.n_night))
         if (self.Emax != None):
-             log.warning(  "GRB energy bins limited to {}"
+             log.warning("GRB energy bins limited to {}"
                     .format(self.Emax))
         if (self.fixed_zenith != None):
-             log.warning(  "Zenith angle requested to be fixed at value '{:5s}'     "
+             log.warning("Zenith angle requested to be fixed at value '{:5s}'     "
                     .format(self.fixed_zenith))
         if (self.magnify !=1):
-            log.warning(  "GRB flux values are multiplied by {}"
+            log.warning("GRB flux values are multiplied by {}"
                     .format(self.magnify))        
         if (self.forced_visible):
-            log.warning(  "GRB always visible (infinite nights, always above horizon, no Moon) ")
+            log.warning("{:60s]}".format("GRB always visible (infinite nights, always above horizon, no Moon) "))
     
         if (self.niter == 0):
-            log.failure(  " Cannot run simulation with ZERO trials")
-            log.warning(  " Use other main specific scripts for tests")
+            log.failure(" Cannot run simulation with ZERO trials")
+            log.warning("{:60s]}".format(" Use other main specific scripts for tests"))
             sys.exit( " At least one trial is requested")
         if (self.test_prompt):
-            log.warning(  "Test prompt simulation")
+            log.warning("{:60s]}".format("Test prompt simulation"))
     
         log.prt("")
         
@@ -399,9 +433,6 @@ class Configuration(object):
         dirlist = ["filename", "res_dir",  "grb_dir",   "irf_dir"]
         
         ## Special actions to be taken for vis_dir that can be None
-# arrays          : {'North': 'FullArray', 'South': 'FullArray'}
-# dtslew          : {'North': <Quantity 30. s>, 'South': <Quantity 30. s>}
-
         for k in vars(self):
             val = vars(self)[k]
             if k in (strlist): val = '"'+str(val)+'"'
@@ -414,8 +445,8 @@ class Configuration(object):
         file.close()
         return
 
+###############################################################################
 if __name__ == "__main__":
-
 
     """
     A standalone function to read a configuration
