@@ -120,11 +120,11 @@ def energy_spectra(grb, n_t_2disp = 5, ymin = 1e-16,
         flux_unit = grb.fluxval[0,0].unit
         plot_unit = e_unit**eindex*flux_unit
         # In the present version, there is only one prompt spectrum up to t90
-        # if grb.prompt: # if no prompt id90 =-1
-        #     ax.plot(grb.E_prompt.to(e_unit), 
-        #             (grb.E_prompt**eindex)*grb.flux_prompt, 
-        #             alpha=0.5, ls="--", color = "black", 
-        #             label="$Prompt \ 0-t_{90}$")
+        if grb.prompt: # if no prompt id90 =-1
+            ax.plot(grb.E_prompt.to(e_unit), 
+                    (grb.E_prompt**eindex)*grb.flux_prompt, 
+                    alpha=0.5, ls="--", color = "black", 
+                    label="$Prompt \ 0-t_{90}$")
             
         for i in tidx:
             t    = grb.tval[i]
