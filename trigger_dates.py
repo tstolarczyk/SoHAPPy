@@ -137,16 +137,16 @@ def get_trigger_dates(trigger):
         DESCRIPTION.
 
     """
-    if type(trigger) == float: # The triger shift is a fixed number in days
+    if type(trigger) in [int, float]: # The triger shift is a fixed number in days
         trig_data =  trigger #np.array(len(grblist)*[cf.trigger])
         trig_abs   = False    
-    elif trigger.is_file():
-            
-        from trigger_dates import get_from_yaml
-        trig_data  = get_from_yaml(trigger)
-        trig_abs = True
-    else:    
-        sys.exit("Trigger keyword is not a float nor a file name")
+    else: # elif would crash because float cannot be file
+        if trigger.is_file():            
+            from trigger_dates import get_from_yaml
+            trig_data  = get_from_yaml(trigger)
+            trig_abs = True
+        else:    
+            sys.exit("Trigger keyword is not a float nor a file name")
 
     return trig_data, trig_abs
 
