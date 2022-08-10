@@ -11,10 +11,12 @@ import astropy.units as u
 from utilities import MyLabel, single_legend, stamp
 from setup import dtpop
 
+
 history = {"190114C":
                 {"Observatory": "MAGIC",    
                  "z": 0.4245, 
                  "Eiso": 3.00E+53*u.erg, 
+                 "t90": 25*u.s,
                  "marker":"^",
                  "col":"black"},
                
@@ -22,6 +24,7 @@ history = {"190114C":
                 {"Observatory": "MAGIC",    
                  "z": 1.1, 
                  "Eiso": 5.00E+53*u.erg, 
+                 "t90": 30*u.s,
                  "marker":">",
                  "col":"black"},               
                
@@ -29,6 +32,7 @@ history = {"190114C":
                 {"Observatory": "H.E.S.S.", 
                  "z":  0.654, 
                  "Eiso": 6.00E+53*u.erg, 
+                 "t90": 49*u.s,
                  "marker":"v",
                  "col":"red"},
                
@@ -36,6 +40,7 @@ history = {"190114C":
                 {"Observatory": "H.E.S.S.", 
                  "z": 0.0785, 
                  "Eiso": 2.00E+50*u.erg, 
+                 "t90": 63*u.s,
                  "marker":"<",
                  "col":"red"},
                
@@ -43,6 +48,7 @@ history = {"190114C":
                 {"Observatory":"Fermi/LAT", 
                  "z" :4.3,    
                  "Eiso": 8.80E+54*u.erg, 
+                 "t90": -1*u.s,
                  "marker":"*",
                  "col":"tab:green"},
            
@@ -50,6 +56,7 @@ history = {"190114C":
                 {"Observatory":"Fermi/LAT", 
                  "z": 1.822,  
                  "Eiso": 2.20E+52*u.erg, 
+                 "t90": -1*u.s,
                  "marker":"*"  ,
                  "col":"tab:green"},
             
@@ -57,10 +64,14 @@ history = {"190114C":
                 {"Observatory":"Fermi/LAT", 
                  "z": 0.34,   
                  "Eiso": 9.60E+53*u.erg, 
-                 "marker":"*" ,
+                 "t90": -1*u.s,
+                "marker":"*" ,
                  "col":"tab:green"}           
           }
-            
+###-----------------------------------------------------------------------------
+def historical():
+    return history
+
 ###-----------------------------------------------------------------------------
 def plot_historical(ax, ddict, obs=[]):
     """
@@ -71,7 +82,7 @@ def plot_historical(ax, ddict, obs=[]):
     ax : matplotlib axis
         Current axis
     ddict : Dictionnay
-        A dcitionnary with predefined values 
+        A dictionnary with predefined values 
     obs : String, optional
         Observatories to be shown from the dictionnary. The default is [].
 
@@ -87,7 +98,7 @@ def plot_historical(ax, ddict, obs=[]):
     for target, value in ddict.items():
         data = ddict[target]
         if data["Observatory"] in obs:
-            #print(target)
+            print(target)
             ax.scatter(data["z"],
                        np.log10(data["Eiso"].value),
                        marker = data["marker"],
@@ -244,21 +255,25 @@ def sig_plot_cumulative(var, mask=None, title=None,
     return 
 
 ###-----------------------------------------------------------------------------
-def col_size(var,var_min=1.1):
+def col_size(var,var_min=1.1,var_max = 1000):
+    
     import matplotlib.cm as cm
     # Limit values in case they are not yet limited
-    var = np.clip(var, var_min, None)
-    color = cm.cool(np.log10(var)/np.max(np.log10(var)))
-    size   = 100*np.log10(var)**2
+    var   = np.clip(var, var_min, None)
+    
+    color = cm.cool(np.log10(var)/np.log10(var_max))
+    size  = 100*np.log10(var)**2
 
     return color, size
 
 ###-----------------------------------------------------------------------------
-def sig_legend(ax,alpha=0.5,**kwargs):
+def sig_legend(ax,alpha=0.5, var_max=1000, **kwargs):
+    
     siglist =  [5 , 10, 20, 50, 100, 500]
     labels = [str(x) for x in siglist]
     # symbol = Line2D(range(1), range(1), color="white", marker='o', markerfacecolor="red")
-    colors, sizes = col_size(siglist)
+    
+    colors, sizes = col_size(siglist,var_max=var_max)
     patches = [ plt.plot([],[], marker="o", alpha=alpha,
                          ms = 7+sizes[i]/50, 
                          ls="", mec=None, 
