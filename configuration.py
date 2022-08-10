@@ -154,6 +154,12 @@ class Configuration(object):
                 self.read_vis_param(visfilename = vis_file)
         else:
             sys.exit(" Visibility information not defined")
+            
+        # If prompt has to be simulated, build the folder name
+        if self.prompt_folder != None:
+            self.prompt_folder = Path(self.infolder,self.prompt_folder)
+            if not self.prompt_folder.is_dir():
+                sys.exit(" {} not a valid folder".format(self.prompt_folder))
            
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): 
@@ -356,8 +362,12 @@ class Configuration(object):
                     print(self.visibility," folder does not exist")
                     sys.exit("Check the visibility attribute")
                 else:    
-                    print(" Visibilities read from disk, folder ",self.visibility)           
-                
+                    print(" Visibilities read from folder ",self.visibility)           
+        if self.prompt_folder != None:
+            if self.prompt_folder.is_dir():
+                print(" Prompt data read from folder ",self.prompt_folder)
+            else:
+                sys.exit("Prompt data : {} not a valid folder".format(self.prompt_folder))
     
         log.prt("+----------------------------------------------------------------+")
         log.prt("|                 *: can be changed with command line (use -h)   |")
