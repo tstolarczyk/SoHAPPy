@@ -60,9 +60,9 @@ def control_units(grb):
 ###----------------------------------------------------------------------------
 def integrate_dump_counts(grblist, 
                 filename="dump_counts.txt", 
-                grb_folder = "../../../input/lightcurves/",
+                grb_folder = "D:/CTAA/SoHAPPy/input/lightcurves/",
                 visibility = None,
-                prompt = True,
+                prompt = None,
                 e_unit = u.GeV,
                 E_range = [30*u.GeV, 500*u.GeV],
                 nmax=0, debug=False):
@@ -73,7 +73,7 @@ def integrate_dump_counts(grblist,
     Emin = E_range[0].to(e_unit)
     Emax = E_range[1].to(e_unit)
     
-    irf_dir   = "D:/CTA/00-Data/IRF-SoHAPPy/prod3-v2" 
+    irf_dir   = "D:/CTAA/SoHAPPy/input/irf/Full/prod3-v2"
 #     irf_dir   = "../../../input/irf/Full/prod3-v2"
 
     irf_fname = "FullArray/North/20deg/North_z20_average_30m/irf_file.fits.gz"
@@ -90,21 +90,21 @@ def integrate_dump_counts(grblist,
     N_afterglow90 = []
     tobs          = []
     tobs90        = []
+    
     first = True
     for j, item in enumerate(grblist[:nmax]):
         ### Read GRB
         filename = Path(grb_folder,"LONG_FITS","Event"+str(item)+".fits.gz")
-        if debug: 
-            print(filename)
-        else:
-            print(j,end=" ")
+        if debug: print(filename)
+        else: print(j,end=" ")
         grb = GammaRayBurst.from_fits(filename, ebl = "dominguez",
-                                  prompt = prompt, vis = visibility,
+                                  prompt = prompt, 
+                                  vis = visibility,
                                   dbg = int(debug))
         # Show GRB characteristics
-        # cmp.display(grb)
+        if debug: display(grb)
 
-        # Skip followig if no prompt
+        # Skip following if no prompt
         if grb.spec_prompt == None:
             print(filename, " Skipped (no prompt)")
             continue
