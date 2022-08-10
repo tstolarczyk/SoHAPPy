@@ -172,7 +172,7 @@ class GammaRayBurst(object):
     @classmethod
     def from_fits(cls, filename, 
                   vis      = None, 
-                  prompt   = False, 
+                  prompt   = None, 
                   ebl      = None, 
                   n_night  = None,
                   Emax     = None,
@@ -277,7 +277,7 @@ class GammaRayBurst(object):
             else: # If this not a gz file, try the gz file
                 filename = filename.with_suffix(filename.suffix+".gz")
         if not os.path.exists(filename): # Check that the new file exist   
-            sys.exit("grp.py: {} not found".format(filename))    
+            sys.exit("grb.py: {} not found".format(filename))    
 
         ### -----------------------------------------------------
         ### Open file, get header, keys, and data fill the class members
@@ -426,15 +426,17 @@ class GammaRayBurst(object):
         
         # Get the prompt if potentially visible and if requested
         cls.prompt = False # No prompt component was found
-        if prompt:
-            if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
-                # Deduce prompt folder from GRB path name
-                folder = Path(filename.absolute().parents[0], "../prompt/")
-                cls.spec_prompt = cls.get_prompt(grb_id = cls.name[5:],
-                                                 folder = folder,
-                                                 debug  = bool(dbg))
-                if cls.spec_prompt != None: 
-                    cls.prompt = True
+        if prompt != None: 
+            if prompt.is_dir():
+                if cls.vis["North"].vis_prompt or cls.vis["South"].vis_prompt:
+                    # Deduce prompt folder from GRB path name
+                    cls.spec_prompt = cls.get_prompt(grb_id = cls.name[5:],
+                                                     folder = prompt,
+                                                     debug  = bool(dbg))
+                    if cls.spec_prompt != None: 
+                        cls.prompt = True
+            else:
+                sys.exit(" {} is not a valid data folder :".format(prompt))
                 
         ###--------------------------
         ### Total attenuated spectra
@@ -543,8 +545,7 @@ class GammaRayBurst(object):
         return cls
 
     ###------------------------------------------------------------------------
-    def get_prompt(self, grb_id = None, folder = None,
-                   subfolder= "ctagrbs_spop", debug = False):
+    def get_prompt(self, grb_id = None, folder = None, debug = False):
         """
         Get the prompt component associated to the afterglow.
         The prompt spectra are produced so that they correspond to the values 
@@ -575,9 +576,11 @@ class GammaRayBurst(object):
         ###----------------------------
         
        # Define the prompt data folder from the afterglow parent folder
-        folder = Path(folder,subfolder)
-        if not folder.exists(): sys.exit(" Wrong prompt data folder")
-
+        if not folder.exists(): 
+            sys.exit(" Wrong prompt data folder")
+        else:
+            print("Time integrated prompt data from ",folder)
+            
         if grb_id == None: sys.exit(" Provide a GRB identifier")
         
         # if grb_id in [6, 30 ,191]:
@@ -1057,8 +1060,10 @@ if __name__ == "__main__":
     #warnings.filterwarnings('error')
     warnings.filterwarnings('ignore')
     
+    from astropy.utils.iers import conf
+    conf.auto_max_age = None # Shall not complain if iers data are too old
+    
     from   utilities import Log
-    from pathlib import Path
 
     ###------------------
     ### GRBs to read
@@ -1069,28 +1074,28 @@ if __name__ == "__main__":
     if type(ifirst)!=list: grblist = list(range(ifirst, ifirst + ngrb))
     else: grblist = ifirst
     
-    prompt     = False
     dbg        = 1
     
     ### -------------------
     ### input folder
     ### -------------------
     infolder = "D:/CTAA/SoHAPPy/input/"
+    # infolder = "../input/"
     ### -------------------
     ### Source data files
     ### -------------------
-    # grb_folder = "../input/lightcurves/LONG_FITS"
-    # grb_folder = "../input/lightcurves/SHORT_FITS"
-    # grb_folder = "D:/CTAA/SoHAPPy/input/lightcurves/SHORT_FITS/"    
-    grb_folder = Path(infolder,"lightcurves/LONG_FITS/")
-    
+    # grb_folder = Path(infolder,"lightcurves/SHORT_FITS/")
+    grb_folder    = Path(infolder,"lightcurves/LONG_FITS/")
+    prompt_folder = Path(infolder,"lightcurves/prompt/ctagrbs_spop_tev_22")  
+    prompt_folder = Path(infolder,"lightcurves/prompt/ctagrbs_spop")  
+    prompt_folder = None
     ###------------------
     ### Visibility
     ###------------------
-    # visibility = "D:/CTAA/SoHAPPy/input/visibility/short/vis_24_strictmoonveto"      
-    # visibility = "D:/CTAA/SoHAPPy/input/visibility/long/vis_24_strictmoonveto" 
-    visibility = "../input/visibility/vis_24_strictmoonveto"
-    # visibility = None # Default in file if it exists
+    visibility = None # Default in file if it exists
+    # visibility = Path(infolder,
+    # "visibility/long/strictmoonveto_DC-2028_01_01_000000-2034_12_31_235959")   
+    # visibility = Path(infolder,"visibility/long/vis_24_strictmoonveto/")    
     
     # visibility = "strictmoonveto"
     # with open("visibility.yaml") as f:
@@ -1098,37 +1103,36 @@ if __name__ == "__main__":
     #     from yaml.loader import SafeLoader
     #     visibility  = yaml.load(f, Loader=SafeLoader)[visibility]
 
-    visibility = Path(infolder,
-    "visibility/long/strictmoonveto_DC-2028_01_01_000000-2034_12_31_235959")   
-    
     ###------------------
     ### Trigger dates
     ###------------------
-    trigger = Path(infolder,
-    "visibility/long/Trigger_1000-2028_01_01_000000-2034_12_31_235959.yaml")
+    # trigger = Path(infolder,
+    # "visibility/long/Trigger_1000-2028_01_01_000000-2034_12_31_235959.yaml")
+    trigger = 0    
     
     from trigger_dates import get_trigger_dates
     dt, dt_abs = get_trigger_dates(trigger)
-    if len(dt) < len(grblist):
-        sys.exit(" {:s} length lower than the number of sources"
-                 .format(trigger))   
+    if dt_abs:
+        if len(dt) < len(grblist):
+            sys.exit(" {:s} length lower than the number of sources"
+                     .format(trigger))   
     ### -------------------
     ### Output
     ### -------------------    
     res_dir    = "."    
-    log_filename    = Path(res_dir,"/grb.log")
+    log_filename   = Path(res_dir,"/grb.log")
     log = Log(name = log_filename,talk=True)
     
     ### -------------------
     ### Actions
     ### -------------------  
-    debug     = True
-    grb_print = False
-    grb_plot  = False
+    grb_print = True
+    grb_plot  = True
     save_grb  = False # (False) GRB saved to disk -> use grb.py main
     dump2yaml = False # Obsolete
-    dump2fits = True
- 
+    dump2fits = False
+    debug     = True # dump2fits
+    
     ## Test dummy GRB
     # grb = GammaRayBurst()
     # print(grb)
@@ -1140,7 +1144,7 @@ if __name__ == "__main__":
         fname = "Event"+str(item)+".fits.gz" 
         grb = GammaRayBurst.from_fits(Path(grb_folder,fname),
                                       vis     = visibility,
-                                      prompt  = prompt, 
+                                      prompt  = prompt_folder, 
                                       ebl     = ebl,
                                       #n_night = cfg.n_night,
                                       #Emax    = cfg.Emax,
