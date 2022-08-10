@@ -166,7 +166,7 @@ def get_grb_fromfile(item, cfg        = None,
         fname = "Event"+str(item)+".fits.gz" 
         grb = GammaRayBurst.from_fits(Path(cfg.data_dir,fname),
                                       vis     = cfg.visibility,
-                                      prompt  = cfg.prompt, 
+                                      prompt  = cfg.prompt_folder, 
                                       ebl     = cfg.EBLmodel,
                                       n_night = cfg.n_night,
                                       Emax    = cfg.Emax,
@@ -308,9 +308,10 @@ def main(argv):
     ### ------------------------------------------------    
     from trigger_dates import get_trigger_dates
     trig_data, trig_abs = get_trigger_dates(cf.trigger)
-    if len(trig_data) < len(grblist):
-        sys.exit(" {:s} length lower than the number of sources"
-                 .format(cf.trigger))
+    if trig_abs: # In case more than one value, check lengths
+        if len(trig_data) < len(grblist):
+            sys.exit(" {:s} length lower than the number of sources"
+                     .format(cf.trigger))
     ### ------------------------------------------------
     ### Start processing
     ### ------------------------------------------------ 
@@ -335,7 +336,7 @@ def main(argv):
                                    dt     = trig_data, 
                                    dt_abs = trig_abs, 
                                    log    = log) 
-                
+            
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
                           opt   = cf.obs_point,
@@ -350,11 +351,12 @@ def main(argv):
                 grb.vis["South"].print(log=log)
 
             # Plot grb spectra and lightcurve and visibility windows
-            if cf.save_fig and cf.show >0 : 
+            if cf.save_fig and cf.show > 0: 
                 from matplotlib.backends.backend_pdf import PdfPages
                 pdf_out = PdfPages(Path(grb.name+"_booklet.pdf"))
-                grb.plot(pdf_out)
             else: pdf_out=None
+            
+            if cf.show >0: grb.plot(pdf_out)
                 
             # Save GRB to file if requested
             if cf.save_grb : grb.write(cf.res_dir)
