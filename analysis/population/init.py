@@ -4,15 +4,12 @@ Created on Mon Nov 16 16:47:25 2020
 
 @author: Stolar
 """
-import sys
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from   astropy.table import Table
 import pandas as pd
 
-import setup
-from utilities import MyLabel
 from setup import col_3, col_5
 
 __all__ = ["get_data", "create_csv"]
@@ -168,17 +165,18 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
     plt.show()
 
     # Slewing delay - check with values in the configuration file
-    cf = get_config(file)
-
+    dtN, dtS, dtswift = get_delays(file) # Get N, S and Satellite latency
+    dtslew={"North":dtN,"South":dtS}
+    
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize = (10,2))
 
     for axi, gpop, loc in zip(ax,[gn,gs],["North","South"]):
         axi.hist(gpop[gpop.t3s>=0].t3s,bins=100,label=loc)
-        delay = cf.dtslew[loc]
+        delay = dtslew[loc]
         axi.axvline(x = delay.value,
                     color="red",ls=":",
                     label=str(delay.value)+" "+str(delay.unit))
-        delay = delay+cf.dtswift
+        delay = delay+ dtswift
         axi.axvline(x= delay.value,
                    color="green",ls=":",
                    label=str(delay.value)+" "+str(delay.unit))
@@ -197,117 +195,7 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
 
     return
 
-###-------------------------------------------------------------------
-def rate(grb, nyears = 0, det_lvl=0.9, summary=False, header=True):
-    """
 
-
-    Parameters
-    ----------
-    grb : TYPE
-        DESCRIPTION.
-    nyears : TYPE, optional
-        DESCRIPTION. The default is 1.
-    det_lvl : TYPE, optional
-        DESCRIPTION. The default is 0.9.
-
-    Returns
-    -------
-    None.
-
-    """
-    niter  = max(set(grb.err))
-    cl_min = det_lvl*niter
-    unvis  = min(set(grb.err))
-
-    # Check that N only an S only tags exist
-    suppinfo = ("N" in grb) and ("S" in grb) and ("B" in grb)
-    if (not suppinfo):
-        print(" North/south combinatory does not exist")
-        return
-
-    # Header
-    if header:
-        print()
-        print("",102*"-")
-        if nyears:
-            print(" Normalized to {} year".format(nyears),end="")
-        if (nyears>1): print("s")
-        else: print()
-        
-        print("",102*"-")
-        print(" Rate : {:>15} {:>15}".format("N","S"),end="")
-        print("{:>16} {:>15} {:>15} {:>15}".format("Nonly","Sonly","Both","Total"))
-
-    #--------------------------------------------------------
-    def separator():
-         print(" ------ {:>15} {:>15}".format(14*"-",14*"-"),end="")
-         print("{:>16} {:>15} {:>15} {:>15}".format(14*"-",14*"-",14*"-",14*"-"))       
-         return
-     
-    # def stat_line(gn,gs,gb,gn0,gs0,tag="",ny=1):
-    def stat_line(glist,tag="",ny=1):
-        [gn,gs,gb,gn0,gs0] = glist
-        glist2 = [gn,gs,gb,gn0,gs0, gn0+gs0+gb]
-        
-        def prt_line(ny=1,tag="dummy"):
-            print(" {:5s}:".format(tag),end="")
-            # for g in [gn,gs,gn0,gs0,gb,gn0+gs0+gb]:
-            for g in glist2:
-                print(" {:7.1f} +- {:4.1f}"
-                      .format(len(g)/ny, np.sqrt(len(g))/ny),end="" )  
-            return
-        
-        def prt_vis():
-            print(" {:5s}:".format("@trig"),end="")
-            for g in glist2:
-                r = len(g[g.vis==1])/len(g) if len(g) else 0
-                print(" {:7d}  {:5.1f}%"
-                      .format(len(g[g.vis==1]),100*r),end="" ) 
-            return
-
-        if ny !=1: 
-            separator()
-            prt_line(ny=1,tag = tag)
-            print()
-            prt_line(ny=ny, tag=" ")
-            print()
-            prt_vis()
-        else:
-            separator()
-            prt_line(ny=ny, tag=tag)
-        
-        print()
-        return
-    #--------------------------------------------------------
-    # Population base - visible
-    g_ana = grb[grb.err != unvis]
-    gn =  g_ana[g_ana.site=="North"]
-    gs =  g_ana[g_ana.site=="South"]
-    gb =  g_ana[g_ana.site=="Both"]
-    gn0 = g_ana[g_ana.N == 1]
-    gs0 = g_ana[g_ana.S == 1]
-    
-    
-    poplist = [gn,gs,gn0,gs0, gb]
-    if not summary: stat_line(poplist,tag="Vis.",ny=nyears)
-        
-    # Analysed
-    poplist = [g[g.err == niter] for g in poplist]
-    if not summary: stat_line(poplist,tag="Ana.",ny=nyears)
-
-    # 3 sigma detected
-    poplist = [g[g.d3s >= cl_min] for g in poplist]
-    if not summary: stat_line(poplist,tag="3s",ny=nyears)
-
-    # 5 sigma detected
-    poplist = [g[g.d5s >= cl_min] for g in poplist]
-    stat_line(poplist,tag="5s",ny=nyears)
-
-
-    print("",102*"-")
-
-    return
 ###-------------------------------------------------------------------
 def add_combinatory(names,grb,unvis=-999,debug=False):
     """
@@ -350,18 +238,45 @@ def add_combinatory(names,grb,unvis=-999,debug=False):
     return
 
 ###-------------------------------------------------------------
+def get_delays(file, debug=False):
+    
+    dirname = Path(file).parents[0].absolute() 
+    conf_file = None
+    
+    for f  in dirname.iterdir():
+        if f.suffix == ".yaml": 
+            conf_file = f
+            if debug: print(" Found configuration file :",conf_file)
+            
+    if conf_file == None:
+        sys.exit(" No configuration file found in",dirname)
+    else:
+        import yaml
+        from yaml.loader import SafeLoader
+        import astropy.units as u
+        data = yaml.load(open(conf_file), Loader=SafeLoader)
+        
+        return u.Quantity(data["dtslew_North"]), \
+               u.Quantity(data["dtslew_South"]), \
+               u.Quantity(data["dtswift"])
+    return
+
+###-------------------------------------------------------------
 def get_config(file, debug=False):
     """
-    Get configuration file from the csv file name
-
+    Get configuration file from the csv file directory name. The configuration 
+    file contains a few parameters that are worth checking but not all. 
+    The Configuration class checks the existence of folders (for 
+     visibility.yaml) that are probably not available where this script is run.
+    
     Parameters
     ----------
-    file : TYPE
-        DESCRIPTION.
+    file : pathlib object
+        Where to find the configuration file
 
     Returns
     -------
-    None.
+    A Configuration class instance.
 
     """
     
@@ -377,7 +292,8 @@ def get_config(file, debug=False):
         sys.exit(" No configuration file found in",dirname)
     else:
         from configuration import Configuration
-        cf = Configuration([],conf_file=conf_file, vis_file=None)
+        cf = Configuration([],conf_file = conf_file, 
+                              vis_file  = "../../visibility.yaml")
         
     if debug:
         from utilities import Log
@@ -387,7 +303,10 @@ def get_config(file, debug=False):
     return cf
 
 ###-------------------------------------------------------------
-def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
+def create_csv(file     = "parameter.yaml", 
+               dataname = "data.txt", 
+               tarname  = None, 
+               debug=False):
     """
     From the current parameter file containg the folder to be analysed,
     create the csv file from default txt file.
@@ -412,41 +331,71 @@ def create_csv(file="parameter.yaml", datafile="data.txt", debug=False):
     None.
 
     """
-    # Get input folder from the paramter file if defined - create filename
+    nyears = 1
+    
+    ### Get input folder and build full data file name
     if file != None:
         import yaml
         from yaml.loader import SafeLoader
         folder = (yaml.load(open(file), Loader=SafeLoader))["outfolder"]
         base   = (yaml.load(open(file), Loader=SafeLoader))["base_folder"]
         nyears = (yaml.load(open(file), Loader=SafeLoader))["duration"]
-        txtfilename = Path(base+folder, datafile) 
+        txtfilename = Path(base+folder, dataname) 
     else:
-        txtfilename = Path(datafile)
+        txtfilename = Path(dataname)
         
     if (debug): print("Full name :",txtfilename)
     
-    # Build csv filename
+    ### Build csv filename
     csvfilename = txtfilename.with_suffix('.csv')
     if (debug): print(" >>> ",csvfilename)
 
-    # Check existence of csv file, try to create it from the txt file
-    if not csvfilename.is_file():
-        if txtfilename.is_file():
-            print("Text file found, converting...")
-            data = Table.read(txtfilename.as_posix(),format="ascii",guess=False)
-            data.write(csvfilename.as_posix(), format="ascii.csv",overwrite=True)
-            #data.write(filename+'.fits',format="fits",     overwrite=True)
-            print(csvfilename," Created")
-        else:
-            sys.exit(" *** Requested data file is not available as .csv or .txt ***")
-    else:
+    ### Check existence of csv file
+    if csvfilename.is_file(): 
         if debug: print(csvfilename," exists")
+        return nyears, csvfilename
+    
+    ### Try to create from existing text file otherwise check the archive    
+    print("csvfile not found - should be created")
+    
+    if txtfilename.is_file():
+        print("Text file found")
+        datafile = txtfilename.as_posix()
+        
+    else: ### Extract data from the archive
+        print(" Text file not found, try to extract from tar.gz")
+        # Check the file to be opened
+        if tarname == None:
+            p = Path(base+folder).glob('*.tar.gz')
+            files = [x for x in p if x.is_file()]
+            if len(files)>1:
+                import sys
+                sys.exit("More than one .tar.gz file, please specify a name")
+            else:
+                tarname = files[0]
+        print(" Opening ",tarname)
+        
+        # Opentar file, get members, check data.txt exists
+        import tarfile
+        tar = tarfile.open(tarname, "r:gz")
+        if not dataname in [member.name for member in tar.getmembers()]:
+            sys.exit(" Archive does not contain '{}'".format(dataname))
+        else:
+            datafile = tar.extractfile(dataname)
+        
+    # At this stage, data are in hands and can be converted
+    print("Converting data...")
+    data = Table.read(datafile,format="ascii",guess=False)
+    data.write(csvfilename.as_posix(), format="ascii.csv",overwrite=True)
+    print(csvfilename," Created")
 
     return nyears, csvfilename
 
 ###-------------------------------------------------------------------------
 def computing_time(gpop,eff_lvl, nbin=25, ax=None, **kwargs):
     
+    from utilities import MyLabel
+
     niter = max(gpop.err)
 
     ax = plt.gca() if ax is None else ax
@@ -497,10 +446,15 @@ def detection_level(var,cl=0.9,nbin=25, ax=None, **kwargs):
 ###-------------------------------------------------------------
 if __name__ == "__main__":
 
-    # file = create_csv(file="analysis/population/parameter.yaml",debug=True)
-    file = create_csv(file="parameter.yaml",debug=True)
+    import sys
+    codefolder = "../../" 
+    sys.path.append(codefolder) 
+    
+    nyears, file = create_csv(file="parameter.yaml",debug=True)
     (grb, gn0, gs0, gn, gs, gb) = get_data(file, debug=True)
     # sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
+
+    from statistics import rate
     # rate(grb)
-    rate(grb,nyears=44)
-    # computing_time(grb)
+    rate(grb,nyears=nyears)
+    # # # computing_time(grb)
