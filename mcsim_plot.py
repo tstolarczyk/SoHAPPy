@@ -57,12 +57,9 @@ def show(mc,ax=None, loc="nowhere",pdf=None):
 ###----------------------------------------------------------------------------
 def sigma_vs_time(mc):
         
-    if mc.niter> 1:
-        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
                                        gridspec_kw={'width_ratios': [2, 1]})
-    else:
-        fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
-        
+   
     # Measurement points
     t_s = np.asarray([s.tobs().value for s in mc.slot.slices])
     
