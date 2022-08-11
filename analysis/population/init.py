@@ -4,13 +4,14 @@ Created on Mon Nov 16 16:47:25 2020
 
 @author: Stolar
 """
-import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+import astropy.units as u
 from   astropy.table import Table
 import pandas as pd
 
 from setup import col_3, col_5
+from utilities import file_from_tar
 
 __all__ = ["get_data", "create_csv"]
 
@@ -165,8 +166,13 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
     plt.show()
 
     # Slewing delay - check with values in the configuration file
-    dtN, dtS, dtswift = get_delays(file) # Get N, S and Satellite latency
-    dtslew={"North":dtN,"South":dtS}
+    ###-------------------------------------------------------------
+    data = get_config_data(file)            
+        
+    dtN     = u.Quantity(data["dtslew_North"])
+    dtS     = u.Quantity(data["dtslew_South"])
+    dtswift = u.Quantity(data["dtswift"])
+    dtslew  = {"North":dtN,"South":dtS}
     
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize = (10,2))
 
@@ -194,7 +200,6 @@ def sanity_check(file, grb, gn0, gs0, gn, gs, gb,
     print("+================================================================+")
 
     return
-
 
 ###-------------------------------------------------------------------
 def add_combinatory(names,grb,unvis=-999,debug=False):
@@ -238,69 +243,99 @@ def add_combinatory(names,grb,unvis=-999,debug=False):
     return
 
 ###-------------------------------------------------------------
-def get_delays(file, debug=False):
-    
-    dirname = Path(file).parents[0].absolute() 
-    conf_file = None
-    
-    for f  in dirname.iterdir():
-        if f.suffix == ".yaml": 
-            conf_file = f
-            if debug: print(" Found configuration file :",conf_file)
-            
-    if conf_file == None:
-        sys.exit(" No configuration file found in",dirname)
-    else:
-        import yaml
-        from yaml.loader import SafeLoader
-        import astropy.units as u
-        data = yaml.load(open(conf_file), Loader=SafeLoader)
-        
-        return u.Quantity(data["dtslew_North"]), \
-               u.Quantity(data["dtslew_South"]), \
-               u.Quantity(data["dtswift"])
-    return
-
-###-------------------------------------------------------------
-def get_config(file, debug=False):
+def get_config_data(file, debug=False):
     """
-    Get configuration file from the csv file directory name. The configuration 
-    file contains a few parameters that are worth checking but not all. 
-    The Configuration class checks the existence of folders (for 
-     visibility.yaml) that are probably not available where this script is run.
-    
+    Get data from the configuation file, either from opening the file from 
+    disk or by getting the file from the archive on disk
+
     Parameters
     ----------
-    file : pathlib object
-        Where to find the configuration file
+    file : TYPE
+        DESCRIPTION.
 
     Returns
     -------
-    A Configuration class instance.
+    config_file : TYPE
+        DESCRIPTION.
 
     """
+
+    import yaml
+    from yaml.loader import SafeLoader    
     
     dirname = Path(file).parents[0].absolute() 
-    conf_file = None
     
+    # Get configuration file from the current folder
     for f  in dirname.iterdir():
         if f.suffix == ".yaml": 
-            conf_file = f
-            if debug: print(" Found configuration file :",conf_file)
-            
-    if conf_file == None:
-        sys.exit(" No configuration file found in",dirname)
-    else:
-        from configuration import Configuration
-        cf = Configuration([],conf_file = conf_file, 
-                              vis_file  = "../../visibility.yaml")
-        
-    if debug:
-        from utilities import Log
-        cf.print(log=Log(name  = "tobedeleted.log", 
-                         talk=not cf.silent) )
+            if debug: print(" Found configuration file :",f)
+            return yaml.load(open(f,"r"), Loader=SafeLoader)
+               
+    # If it failed, try to get it from the archive    
+    print(" No configuration file found in",dirname,". Try archive")
+    cfile = file_from_tar(folder=dirname, 
+                              tarname=None, 
+                              target="config.yaml")
+    return yaml.load(cfile.read(), Loader=SafeLoader)
     
-    return cf
+###-------------------------------------------------------------
+
+# def get_configuration(file, debug=False):
+#     """
+#     Get configuration file from the csv file directory name and load the 
+#     configuration. 
+#     The configuration  contains a few parameters that are worth checking but 
+#     not all. 
+#     The Configuration class checks the existence of folders (for 
+#      visibility.yaml) that are probably not available where this script is run.
+#     Note that this is not backward compatible as some parameters could have
+#     been added in the recent versions and will not be found in older
+#     configuration files.
+    
+#     Parameters
+#     ----------
+#     file : pathlib object
+#         Where to find the configuration file
+
+#     Returns
+#     -------
+#     A Configuration class instance.
+
+#     """
+    
+#     dirname = Path(file).parents[0].absolute() 
+#     conf_file = None
+    
+#     # Get configuration file from the current folder
+#     for f  in dirname.iterdir():
+#         if f.suffix == ".yaml": 
+#             conf_file = f
+#             if debug: print(" Found configuration file :",conf_file)
+            
+#     # If not found, try the archive        
+#     if conf_file == None:
+#         print(" No configuration file found in",dirname,". Try archive")
+#         conf_file = file_from_tar(folder=dirname, 
+#                                   tarname=None, 
+#                                   target="config.yaml")
+        
+#     # if found, open
+#     if conf_file != None:
+#         # Dump file in memory on disk as Confguration handle a fiel  name
+        
+#         from configuration import Configuration
+#         cf = Configuration([],conf_file = conf_file, 
+#                               vis_file  = "../../visibility.yaml")
+#     else:
+#         import sys
+#         sys.exit(" No configuration file found")
+        
+#     if debug:
+#         from utilities import Log
+#         cf.print(log=Log(name  = "tobedeleted.log", 
+#                          talk=not cf.silent) )
+    
+#     return cf
 
 ###-------------------------------------------------------------
 def create_csv(file     = "parameter.yaml", 
@@ -355,7 +390,8 @@ def create_csv(file     = "parameter.yaml",
         if debug: print(csvfilename," exists")
         return nyears, csvfilename
     
-    ### Try to create from existing text file otherwise check the archive    
+    ### No file found.
+    # Try to create from existing text file otherwise check the archive    
     print("csvfile not found - should be created")
     
     if txtfilename.is_file():
@@ -364,24 +400,7 @@ def create_csv(file     = "parameter.yaml",
         
     else: ### Extract data from the archive
         print(" Text file not found, try to extract from tar.gz")
-        # Check the file to be opened
-        if tarname == None:
-            p = Path(base+folder).glob('*.tar.gz')
-            files = [x for x in p if x.is_file()]
-            if len(files)>1:
-                import sys
-                sys.exit("More than one .tar.gz file, please specify a name")
-            else:
-                tarname = files[0]
-        print(" Opening ",tarname)
-        
-        # Opentar file, get members, check data.txt exists
-        import tarfile
-        tar = tarfile.open(tarname, "r:gz")
-        if not dataname in [member.name for member in tar.getmembers()]:
-            sys.exit(" Archive does not contain '{}'".format(dataname))
-        else:
-            datafile = tar.extractfile(dataname)
+        datafile = file_from_tar(folder=base+folder, target="data.txt")
         
     # At this stage, data are in hands and can be converted
     print("Converting data...")
@@ -452,9 +471,4 @@ if __name__ == "__main__":
     
     nyears, file = create_csv(file="parameter.yaml",debug=True)
     (grb, gn0, gs0, gn, gs, gb) = get_data(file, debug=True)
-    # sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
-
-    from statistics import rate
-    # rate(grb)
-    rate(grb,nyears=nyears)
-    # # # computing_time(grb)
+    sanity_check(file, grb, gn0, gs0, gn, gs, gb, debug=True) 
