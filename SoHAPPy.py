@@ -485,7 +485,7 @@ def main(argv):
     tar.add(cf.filename,arcname=os.path.basename(cf.filename))
     if (cf.remove_tar):
         os.remove(sim_filename)
-        os.remove(cf.filename)
+        os.remove(Path(cf.res_dir,cf.filename.name)) # Remove the copy, not the original !
         os.remove(log_filename)
 
     tar.close()
