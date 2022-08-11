@@ -81,7 +81,7 @@ class Configuration(object):
                 sys.exit()
                 
         ### --------------------------
-        ### Check if configuration file is given
+        ### Check if configuration file is given on command line
         ### --------------------------            
         self.filename = None # Assume not given
         
@@ -91,18 +91,24 @@ class Configuration(object):
                     self.filename =  Path(arg)
                 else:
                     sys.exit("Error: configuration file does not exist")
-
-        if self.filename == None:
-            # Default parameter read from an existing default file
-            # Where the code is
-            basefolder = Path(__file__).parent
-            self.filename = Path(basefolder,conf_file)
-            
-        # Change filename to absolute Path
-        self.filename = self.filename.resolve()
+                    
+        # Not on command line - get default config file 
+        # Can be obtained from a file name or from an archive
+        import tarfile
+        if not type(conf_file) == tarfile.ExFileObject:
+            if self.filename == None:
+                # Default parameter read from an existing default file
+                # Where the code is
+                basefolder = Path(__file__).parent
+                self.filename = Path(basefolder,conf_file)
+                
+            # Change filename to absolute Path
+            self.filename = self.filename.resolve()
+        else:
+            self.filename = conf_file # In memory
         
         ### --------------------------
-        ### Read configuration file
+        ### Read configuration file from file name
         ### --------------------------            
         if (debug): print(" Now read config file ", self.filename)
         self.read()
@@ -270,16 +276,21 @@ class Configuration(object):
                     
             return
         #---------------------------------------------------
-        
         print(">>> Read configuration from ",self.filename)
-        with open(self.filename) as f:
-            data = yaml.load(f, Loader=SafeLoader)
-            obj_dic(data)
-            self.dtslew_North = u.Quantity(self.dtslew_North)
-            self.dtslew_South = u.Quantity(self.dtslew_South )
-            self.dtswift = u.Quantity(self.dtswift)
-            self.arrays = {"North": self.array_North, "South":self.array_South}
-            self.dtslew = {"North": self.dtslew_North, "South":self.dtslew_South}
+        import tarfile
+        if not type(self.filename) == tarfile.ExFileObject:
+            f = open(self.filename)
+        else:
+            f = self.filename
+
+        data = yaml.load(f, Loader=SafeLoader)
+        obj_dic(data)
+        self.dtslew_North = u.Quantity(self.dtslew_North)
+        self.dtslew_South = u.Quantity(self.dtslew_South )
+        self.dtswift = u.Quantity(self.dtswift)
+        self.arrays = {"North": self.array_North, "South":self.array_South}
+        self.dtslew = {"North": self.dtslew_North, "South":self.dtslew_South}
+        if hasattr(self, 'Emax'):
             if self.Emax != None: self.Emax = u.Quantity(self.Emax)
  
         return
