@@ -579,7 +579,7 @@ class GammaRayBurst(object):
         if not folder.exists(): 
             sys.exit(" Wrong prompt data folder")
         else:
-            print("Time integrated prompt data from ",folder)
+            if debug: print("Time integrated prompt data from ",folder)
             
         if grb_id == None: sys.exit(" Provide a GRB identifier")
         
