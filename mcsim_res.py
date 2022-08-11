@@ -187,7 +187,6 @@ def result(mc,grb, log=None, header=True,pop=None):
 
     ### General status message
     status(mc,log=log)
-    
 
     ###-----------------------------------------
     ### Compute results if everything went well
