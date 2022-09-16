@@ -35,7 +35,7 @@ from timeslot       import Slot
 from configuration  import Configuration
 
 import mcsim_res  as mcres
-from utilities    import Log
+from utilities    import Log, source_ids
 
 # Do not refresh IERS data
 from astropy.utils import iers
@@ -110,28 +110,26 @@ def get_time_resolved_prompt_fromfile():
 
 ###############################################################################
 def get_grb_fromfile(item, cfg        = None, 
-                           prompt     = None,
                            dt         = 0,
-                           dt_abs     = False,
-                           log        = None):
+                           dt_abs     = False):
     """
     Obtain data from files on disk in various conditions.
 
     Parameters
     ----------
-    item : TYPE
-        DESCRIPTION.
-    cfg : TYPE, optional
-        DESCRIPTION. The default is None.
-    grb_folder : TYPE, optional
-        DESCRIPTION. The default is None.
-    log : TYPE, optional
-        DESCRIPTION. The default is None.
+    item : integer
+        Identifier of a source in a list.
+    cfg : Configuration instance, optional
+        The current configuration parameters. The default is None.
+    dt : float or array of float, optional
+        Number of days to shift the trigger date. The default is 0.
+    dt_abs : Boolean, optional
+        True if the shift is absolute. The default is False.
 
     Returns
     -------
-    grb : GammaRayBurst
-        A GammaRayBurst instance
+    grb : TYPE
+        DESCRIPTION.
 
     """
     
@@ -166,7 +164,7 @@ def get_grb_fromfile(item, cfg        = None,
         fname = "Event"+str(item)+".fits.gz" 
         grb = GammaRayBurst.from_fits(Path(cfg.data_dir,fname),
                                       vis     = cfg.visibility,
-                                      prompt  = cfg.prompt_folder, 
+                                      prompt  = cfg.prompt_dir, 
                                       ebl     = cfg.EBLmodel,
                                       n_night = cfg.n_night,
                                       Emax    = cfg.Emax,
@@ -195,8 +193,8 @@ def get_delay(dtslew,fixslew,dtswift,fixswift):
 
     Returns
     -------
-    dt : Quantity (time)
-        Delay before the detection can start.
+    delay : Quantity (time)
+            Delay before the detection can start.
 
     """
     delay = {"North":0*u.s, "South":0*u.s}
@@ -291,17 +289,9 @@ def main(argv):
     start_all = time.time() # Starts chronometer #1
     
     ### ------------------------------------------------
-    ### Source list to be simulated / analysed
+    ### Identifiers of the sources to be simulated / analysed
     ### ------------------------------------------------
-    if type(cf.ifirst)!=list:
-        if isinstance(cf.ifirst,str):
-            grblist = [cf.ifirst]
-        elif isinstance(cf.ifirst, int):
-            grblist = list(range(cf.ifirst,cf.ifirst+cf.ngrb))
-            first = str(cf.ifirst)
-    else:
-        grblist = cf.ifirst
-        first = str(grblist[0])
+    grblist = source_ids(cf.ifirst, cf.ngrb)
 
     ### ------------------------------------------------
     ### Check trigger time modification (either fixed or variable)
@@ -312,6 +302,7 @@ def main(argv):
         if len(trig_data) < len(grblist):
             sys.exit(" {:s} length lower than the number of sources"
                      .format(cf.trigger))
+
     ### ------------------------------------------------
     ### Start processing
     ### ------------------------------------------------ 
@@ -334,8 +325,7 @@ def main(argv):
             grb = get_grb_fromfile(item, 
                                    cfg    = cf,
                                    dt     = trig_data, 
-                                   dt_abs = trig_abs, 
-                                   log    = log) 
+                                   dt_abs = trig_abs) 
             
             # Create original slot (slices) and fix observation points
             origin = Slot(grb,
