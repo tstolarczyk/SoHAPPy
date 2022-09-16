@@ -139,6 +139,7 @@ class Configuration(object):
         self.data_dir   = Path(self.infolder,self.data_dir)
         self.swiftfile  = Path(self.infolder,self.swiftfile)
         self.irf_dir    = Path(self.infolder,self.irf_dir)
+        self.res_dir    = Path(self.resfolder,self.out_dir)
         if type(self.trigger) is str:
             self.trigger = Path(self.infolder,self.trigger)
             if not self.trigger.is_file():
@@ -162,10 +163,10 @@ class Configuration(object):
             sys.exit(" Visibility information not defined")
             
         # If prompt has to be simulated, build the folder name
-        if self.prompt_folder != None:
-            self.prompt_folder = Path(self.infolder,self.prompt_folder)
-            if not self.prompt_folder.is_dir():
-                sys.exit(" {} not a valid folder".format(self.prompt_folder))
+        if self.prompt_dir != None:
+            self.prompt_dir = Path(self.infolder,self.prompt_dir)
+            if not self.prompt_dir.is_dir():
+                sys.exit(" {} not a valid folder".format(self.prompt_dir))
            
         # Create the show debugging flag from the general debug flag
         if (self.dbg < 0): 
@@ -374,11 +375,12 @@ class Configuration(object):
                     sys.exit("Check the visibility attribute")
                 else:    
                     print(" Visibilities read from folder ",self.visibility)           
-        if self.prompt_folder != None:
-            if self.prompt_folder.is_dir():
-                print(" Prompt data read from folder ",self.prompt_folder)
+        if self.prompt_dir != None:
+            if self.prompt_dir.is_dir():
+                print(" Prompt data read from folder ",self.prompt_dir)
             else:
-                sys.exit("Prompt data : {} not a valid folder".format(self.prompt_folder))
+                sys.exit("Prompt data : {} not a valid folder"
+                         .format(self.prompt_dir))
     
         log.prt("+----------------------------------------------------------------+")
         log.prt("|                 *: can be changed with command line (use -h)   |")
