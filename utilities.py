@@ -9,6 +9,27 @@ import numpy as np
 import astropy.units as u
 
 ###----------------------------------------------------------------------------
+def source_ids(first,nsrc):
+    """
+    Obtain the source list from the input parameters.
+    `first`is either an integer (identifier of the first source to be analysed)
+    or list with integer (identifiers) or string (source name).
+
+    Returns
+    -------
+    A list of source to be analysed.
+
+    """
+    if type(first)!=list:
+        if isinstance(first, str):
+            srclist = [first]
+        elif isinstance(first, int):
+            srclist = list(range(first,first+nsrc))
+    else:
+        srclist = first   
+        
+    return srclist
+###----------------------------------------------------------------------------
 def file_from_tar(folder=None, tarname=None, target=None):
     """
     
@@ -472,7 +493,12 @@ class Log():
     
     """
     def __init__(self, name="default.log",talk=True):
-
+        
+        from pathlib import Path
+        name = Path(name) # In case this would not be a paht
+        if not name.absolute().parent.exists(): # Check folder exists
+            name.absolute().parent.mkdir(parents=True, exist_ok=True)
+     
         self.log_file = open(name,'w')
         self.name     = name
         self.talk     = talk
