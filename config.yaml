@@ -1,74 +1,130 @@
-# Configuration file
+#=============================================================================#
+#                         SoHAPPY Configuration file
+#=============================================================================#
 #
-# This file contains the steering parameters of SoHAPPy.
-# In YAML, True and False are equivalent to python, whereas the python None 
-# is coded as Null
-
+# This YAML file contains the steering parameters of SoHAPPy.
+# True and False are equivalent to python, whereas python None is coded as Null
+# Some parameter values can be superseded by the command line
+#
 #=============================================================================#
-# The following parameter values can be superseded by the command line
-# dbg:
-#   if negative or zero : no plot
-#   0: evt counting, 1: + some results, 2: + event details
-#   3: details for each trials
-# ifirst : either an id to start with, or a list (then ngrb is useless)
-#  e.g. ifirst=1 
-#       ifirst=[1,2,3] 
-#       ifirst =[751, "090902B","080916C","130427A"]
+# PHYSICS PARAMETERS
 #-----------------------------------------------------------------------------#
-ifirst          : 69  # integer, first source. Can be a list, e.g. [12, "190829A"]
-ngrb            : 1   # integer, number of source to be read - if 1 specific actions on one grb
-niter           : 1   # Number of Monte Carlo trials
-dbg             : 2   # From 0 to 3, increasingly talkative
-res_dir         : "../output/test"   # The output folder
-save_simu       : False         # Simulation saved to file for offline use
-save_grb        : False         # GRB class saved to disk -> use grb.py main
-grb_dir         : "../input/lightcurves/"   # Folder hosting the GRB files
-
-#=============================================================================#
-# Simulation 
-# Possible EBL models are from gammapy or gilmore data on disk. 
-# Use "built-in" for the absorbed data in the input file (if any)
+# ifirst     : either an id to start with, or a list (then ngrb is useless)
+#              e.g. ifirst=1 
+#                   ifirst=[1,2,3] 
+#                   ifirst =[751, "090902B","080916C","130427A"]
+# ngrb       : integer, number of source to be read (if 1 specific actions)
+# trigger:   : real (days) or a file with a list of days
+# visibility : can be "Null" (read from the data file if it exists),
+#              a folder where to find the pre-computed visibility files,
+#              a keyword corresponding to a dicitionnay in visibility.yaml
+#              to compute the visivility on the fly.
+# EBLmodel   : Possible EBL models are from gammapy or gilmore data on disk. 
+#                 Use "built-in" for the absorbed data in the input file (if any)   
 #-----------------------------------------------------------------------------#
-EBLmodel        : "dominguez"   # Extragalactic Background Light model 
-prompt          : True          # If True getdata from disk if they exist
-
-array_North     : "FullArray"   # IRF subarrays in North (FullArray, MST...)
-dtslew_North    : "30 s"        # Maximum slewing time delay
-array_South     : "FullArray"   # IRF subarrays in South (FullArray, MST...)
-dtslew_South    : "30 s"        # Maximum slewing time delay
-fixslew         : True          # If False generate a random delay < dtslew
-
-dtswift         : "77 s"        # Fixed SWIFT latency
-fixswift        : True          # If False, latency generated from Swift data 
-swiftfile       : "../input/swift/Swift_delay_times.txt" # Swift latency file
-
-# IRF folder (specific subfolder organisation)
-irf_dir         : "D:/CTA/00-Data/IRF-SoHAPPy/prod3-v2" 
-# irf_dir    = "../input/irf/Full/prod3-v2"
-# irf_dir    = "../input/irf/Full/prod5-v1"
-
-seed            : 2021          # Choose ‘random-seed’ to randomize
-do_fluctuate    : True          # Statistical fluctuations are enabled
-do_accelerate   : False         # When True, the simulation is stopped if
-                                # none of the first trials in the limit
-                                # of 1 - det_level have reached the minimal
-                                #significance (3 sigma).
-# Visibility can be read from disk (folder is given), 
-# from the GRB input files (Null) or recomputed with parameters defined in 
-# visibility.yaml                                
-# visibility      : "../input/visibility/vis_24_strictmoonveto"  
-# visibility      : Null
-visibility      : "strictmoonveto"
+ifirst       : 343 #[980, 465, 785,343]
+ngrb         : 1
+trigger      : 0
+visibility   : "visibility/long/vis_24_strictmoonveto" 
+EBLmodel     : "dominguez"  
 
 #=============================================================================#
-# output files
+# INPUT/OUPUT
 #-----------------------------------------------------------------------------#
-datafile        : "data.txt"    # Population main output file
-logfile         : "analysis.log" # Text file with results, status and warnings 
-remove_tarred   : False         # Remove tarred files, otherwise keep for faster access
-  
+# infolder   : Base inoput folder (e.g. ../input)
+# resfolder  : Base output main folder (e.g. ../output)
+# out_dir    : Specific output subfolder
+#              Recommendations for naming (physics, IRF, visibility):
+#              /long/omega_prod3/strictmoonveto
+#              /short/beta_prod5/nomoonveto
+# data_dir   : data folder
+# prompt_dir : if not Null, read time-integrated prompt from this subfolder 
+# irf_dir    : IRF subfolder - should contain a tag for the production used
+#-----------------------------------------------------------------------------#
+
+infolder     : "D:/CTAA/SoHAPPy/input/" 
+resfolder    : "D:/CTAA/SoHAPPy/output/"
+out_dir      : "test"  
+data_dir     : "lightcurves/LONG_FITS/"
+prompt_dir   : "lightcurves/prompt/ctagrbs_spop"
+irf_dir      : "irf/Full/prod3-v2"
+
 #=============================================================================#
-# These parameters are intended to be modified by experts only
+# SIMULATION PARAMETERS 
+#-----------------------------------------------------------------------------# 
+# niter         : Number of Monte Carlo trials 
+# seed          : Choose ‘random-seed’ to randomize
+# do_fluctuate  : If True Statistical fluctuations are enabled. 
+#                 If False niter forced to one
+# do_accelerate : When True, the simulation is stopped if none of the first 
+#                 trials in the limit of 1 - det_level have reached the minimal
+#                 significance (3 sigma).
+#-----------------------------------------------------------------------------#
+niter           : 100
+seed            : 2021          
+do_fluctuate    : True         
+do_accelerate   : False   
+
+#=============================================================================#
+# DETECTION PARAMETERS
+#-----------------------------------------------------------------------------#
+# array_North  : IRF subarrays in North (FullArray, MST...)
+# array_South  : IRF subarrays in South (FullArray, MST...)
+# dtslew_North : Maximum slewing time delay in North
+# dtslew_South : Maximum slewing time delay in South
+# fixslew      : If True use ma. slewing value, otherwise a random delay < dtslew
+# dtswift      : Alert latency (e.g. SWIFT latency, with amean value of 77 s)
+# fixswift     : If True, use above value. 
+#                If False, latency generated from Swift data 
+# swiftfile    : Latency dsitribution data file 
+#-----------------------------------------------------------------------------#
+array_North    : "FullArray"  # Prod3
+array_South    : "FullArray"  # Prod3
+dtslew_North   : "30 s"
+dtslew_South   : "30 s" 
+fixslew        : True 
+dtswift        : "77 s"
+fixswift       : True   
+swiftfile      : "swift/Swift_delay_times.txt" 
+                              
+#=============================================================================#
+# DEBUGGING / BOOKKEEPING 
+#-----------------------------------------------------------------------------#
+# dbg        : From 0 to 3, increasingly talkative
+#              if negative or zero : no plot
+#              0: evt counting, 1: + some results, 2: + event details
+#              3: details for each trials
+# save_simu  : If True, Simulation saved to file for offline use
+# save_grb   : If True, GRB class saved to disk -> use grb.py main
+# datafile   : Population main output file name
+# logfile    : Text log file with results, status and warnings 
+# remove_tar : If True, remove tarred files, otherwise keep for faster access
+#-----------------------------------------------------------------------------#
+dbg          : 1
+save_simu    : False
+save_vis     : True
+save_grb     : False
+save_fig     : True
+datafile     : "data.txt"   
+logfile      : "analysis.log" 
+remove_tar   : True
+
+#=============================================================================#
+# EXPERTS/DEVELOPPERS ONLY
+#-----------------------------------------------------------------------------#
+# method          : Not used (detection method)
+# obs_point       : Observation position in the time slice
+# test_prompt     : If True test prompt alone (experimental)
+# use_afterglow   : Prompt characteristics from the afterglow with same id.
+# signal_to_zero  : Keep only background, set signal to zero
+# fixed_zenith    : If a value ("20 deg") freezes zenith in IRF
+# magnify         : Multiplicative factor of the input flux, for tests
+# silent          : If True, nothing on screen (output to log)
+# write_slices    : Store detailed information on slices if True
+# save_dataset    : Not implemented (save datasets)
+# forced_visible  : If True, the GRB is always visible (infinite nights)
+# n_night         : Limit GRB data to a maximal number of nights
+# Emax            : Limit GRB data energy bins to Emax
 #-----------------------------------------------------------------------------#
 method          : 0      # Not used (detection method)
 obs_point       : "end"  # Observation position in the time slice
@@ -77,7 +133,9 @@ use_afterglow   : False  # Prompt characteristics from the afterglow with same i
 signal_to_zero  : False  # Keep only background, set signal to zero
 fixed_zenith    : Null   # If a value ("20 deg") freezes zenith in IRF
 magnify         : 1      # Multiplicative factor of the input flux, for tests
-silent          : False  # If True, nothing on screen (output to log)
+silent          : True  # If True, nothing on screen (output to log)
 write_slices    : False  # Store detailed information on slices if True
 save_dataset    : False  # Not implemented (save datasets)
 forced_visible  : False  # If True, the GRB is always visible (infinite nights)
+n_night         : Null   # Limit GRB data to a maximal number of nights
+Emax            : Null   # Limit GRB data energy bins to Emax
