@@ -33,17 +33,18 @@ block = False
 def show(mc,ax=None, loc="nowhere",pdf=None):
     
     fig_sig = sigma_vs_time(mc)
-    # if (mc.niter > 1): fig_n = non_vs_noff(mc,ax)
-    # else: fig_n = None # Otherwise plot one single point
+    
+    if (mc.niter > 1): fig_n = non_vs_noff(mc,ax)
+    else: fig_n = None # Otherwise plot one single point
         
-    # fig_vis = story(mc,loc=loc,ref="VIS")
-    # fig_grb = story(mc,loc=loc,ref="GRB")
+    fig_vis = story(mc,loc=loc,ref="VIS")
+    fig_grb = story(mc,loc=loc,ref="GRB")
     
     if pdf != None:
         pdf.savefig(fig_sig)
-        # if fig_n != None: pdf.savefig(fig_n)
-        # pdf.savefig(fig_vis)
-        # pdf.savefig(fig_grb)
+        if fig_n != None: pdf.savefig(fig_n)
+        pdf.savefig(fig_vis)
+        pdf.savefig(fig_grb)
         
     # used to pause plot display in interactive mode on a shell script. In the
     # abscence of a call to that function figures will stack on the screen during
@@ -55,22 +56,38 @@ def show(mc,ax=None, loc="nowhere",pdf=None):
     return
 
 ###----------------------------------------------------------------------------
-def sigma_vs_time(mc):
-        
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
-                                       gridspec_kw={'width_ratios': [2, 1]})
-   
-    # Measurement points
-    t_s = np.asarray([s.tobs().value for s in mc.slot.slices])
+def sigma_vs_time(mc, unit_def="s"):
     
+    from utilities import t_fmt
+        
+    if mc.niter>1:
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
+                                       gridspec_kw={'width_ratios': [2, 1]})
+    else:
+        fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10,5))   
+        
+    # Get base_unit    
+    base_unit = mc.slot.slices[0].tobs().unit
+   
     # Max siginificance and error and time
-    tmax     = [mc.slot.slices[i].tobs().value for i in mc.id_smax_list]
+    tmax     = [mc.slot.slices[i].tobs().value for i in mc.id_smax_list]*base_unit
     smax     = np.mean(mc.smax_list)
     err_smax = np.std(mc.smax_list)
     
+    # Measurement points
+    t_s = np.asarray([s.tobs().value for s in mc.slot.slices])*base_unit
+
     # 3 sigma and 5 sigma times
-    t3s = [mc.slot.slices[i].tobs().value for i in mc.id_3s_list]
-    t5s = [mc.slot.slices[i].tobs().value for i in mc.id_5s_list]    
+    t3s = [mc.slot.slices[i].tobs().value for i in mc.id_3s_list]*base_unit
+    t5s = [mc.slot.slices[i].tobs().value for i in mc.id_5s_list]*base_unit  
+    
+    # Convert times to appropriate unit based on tmax
+    t_unit = t_fmt(np.mean(tmax)).unit   
+    
+    t_s    = t_s.to(t_unit)
+    tmax   = tmax.to(t_unit)
+    t3s    = t3s.to(t_unit)
+    t5s    = t5s.to(t_unit)
     
     with quantity_support():
 
@@ -90,17 +107,27 @@ def sigma_vs_time(mc):
                                          errlist,
                                          collist,
                                          taglist):
-            ax1.errorbar(x    = np.mean(t), y    = sig,
-                         xerr = np.std(t),  yerr = errs,
-                         fmt="o",color=c,
-                         label = tag)
-            ax1.vlines(np.mean(t), ymin = ymin, ymax = smax,
-                       alpha=0.5,ls=":",color=c)
-            ax1.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
-                       alpha=0.5,color=c)
+            if len(t)>0:
+                import matplotlib
+                if matplotlib.__version__ < "3.4.2":
+                    # Does not support Quantity erros
+                    ax1.errorbar(x    = np.mean(t).value, y    = sig,
+                                 xerr = np.std(t).value,  yerr = errs,
+                                 fmt="o",color=c,label = tag)
+                    ax1.set_xlabel('Observation duration ('+str(t_unit)+")")
+
+                else:
+                    ax1.errorbar(x    = np.mean(t), y    = sig,
+                                 xerr = np.std(t),  yerr = errs,
+                                 fmt="o",color=c, label = tag)
+                    ax1.set_xlabel('Observation duration ('+ax1.get_xlabel()+")")
+
+                ax1.vlines(np.mean(t), ymin = ymin, ymax = smax,
+                           alpha=0.5,ls=":",color=c)
+                ax1.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
+                           alpha=0.5,color=c)
 
     
-        ax1.set_xlabel('Observation duration (s)')
         ax1.set_ylabel("Significance $\sigma$")
         # ax1.legend(bbox_to_anchor=[1,1])
         ax1.legend()
@@ -111,21 +138,20 @@ def sigma_vs_time(mc):
         else:
             ax1.set_xscale("log", nonposx='clip') # 3.1.1
         ax1.grid(which='both',alpha=0.2)    
+        ax1.set_title(mc.name +' ('+str(mc.niter)+' iter.)',loc="right")
         
         # Sigma max distribution (if niter > 1)
-        # if (mc.niter >1):
-        # axx = ax.inset_axes([0.3,0.15,0.2,0.3]) # lower corner x,y, w, l
-        n, bins,_ = ax2.hist(mc.smax_list,
-                    bins  = max(int(mc.niter/2),1), # Cannot be < 1
-                    range = [smax-3*err_smax,smax+3*err_smax],
-                    alpha=0.5,
-                    color = "grey",
-                    label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
-        ax2.set_xlabel("$\sigma_{max}$")
-        ax2.set_ylabel('Trials')
+        if (mc.niter >1):
+            n, bins,_ = ax2.hist(mc.smax_list,
+                        bins  = max(int(mc.niter/2),1), # Cannot be < 1
+                        range = [smax-3*err_smax,smax+3*err_smax],
+                        alpha=0.5,
+                        color = "grey",
+                        label = " {:5.1} $\pm$ {:5.1}".format(smax,err_smax))
+            ax2.set_xlabel("$\sigma_{max}$")
+            ax2.set_ylabel('Trials')
 
         
-        ax1.set_title(mc.name +' ('+str(mc.niter)+' iter.)',loc="right")
         
     plt.tight_layout()
     
