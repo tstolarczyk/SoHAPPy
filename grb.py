@@ -347,7 +347,7 @@ class GammaRayBurst(object):
                                                   debug     = bool(dbg>2))                
             else:
                 name = Path(vis,cls.name+"_"+loc+"_vis.bin")
-                cls.vis[loc] = Visibility.read(name)   
+                cls.vis[loc] = Visibility.read_from_binary(name)   
             
         ###--------------------------
         ### Limit the data to a certain number of nights
