@@ -346,7 +346,7 @@ class IRF():
 ###############################################################################
 ###------------------------------------------------------------------------
 import mcsim_config as mcf
-from utilities import single_legend
+from niceplot import single_legend
 
 def containment_plot(irf,
                      eunit="GeV",erec_min =10*u.GeV, erec_max = 100*u.TeV,
