@@ -6,6 +6,7 @@ Created on Mon Apr  6 17:04:35 2020
 """
 import numpy as np
 import astropy.units as u
+from pathlib import Path
 
 from irf import IRF
 ###----------------------------------------------------------------------------
@@ -105,7 +106,7 @@ class Slice():
         return
     #--------------------------------------------------------------------------
     def dress(self,grb,
-                   irf_dir = "./",
+                   irf_dir = Path("./"),
                    arrays  = None,
                    opt     = "end",
                    zenith  = None,
@@ -222,7 +223,7 @@ class Slice():
         if (self.__site == "North") or (self.__site == "South"):
             site_list=[self.__site]
         elif (self.__site == "Both"):
-            site_list = grb.site_keys
+            site_list = ["North","South"]
 
         for site in site_list:
             # Altitude at slice start where the flux is expected larger
