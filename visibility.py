@@ -12,87 +12,167 @@ for the default horizon value (10 degrees) and for the nights found within
 
 @author: Stolar
 """
+import sys
 import math
+import numpy as np
 from pathlib import Path
 
 import astropy.units as u
 from   astropy.time import Time
-from   astropy.coordinates import AltAz, get_moon
+from   astropy.coordinates import AltAz, SkyCoord, get_moon
 from   astropy.table         import Table
-from   astropy.coordinates   import EarthLocation, Angle
-
 from   astroplan import Observer, FixedTarget, moon_illumination
-
+from moon import moon_alt_plot, moonlight_plot, moon_dist_plot  #, moonphase_plot
 import warnings
 
-### Site poisitions
-site_xyz = { 
-    "CTA":
-         { "North": EarthLocation.from_geocentric( float(5327448.9957829),
-                                                   float(-1718665.73869569),
-                                                   float(3051566.90295403),
-                                                   unit="m"),
-           "South": EarthLocation.from_geocentric( float(1946404.34103884),
-                                                   float(-5467644.29079852),
-                                                   float(-2642728.20144425),
-                                                   unit="m")
-           # Requires to have an internet connection
-           # Get all possible sites with : EarthLocation.get_site_names()
-           # "North": EarthLocation.of_site('Roque de los Muchachos'),
-           # "South": EarthLocation.of_site('Paranal Observatory')
-           # Values taken from Maria Grazia Bernardini (July 28, 2020)
-           # "North": EarthLocation.from_geocentric( 5327285.09211954,
-           #                                        -1718777.11250295,
-           #                                         3051786.7327476,
-           #                                         unit="m"),
-           # "South": EarthLocation.from_geocentric(1946635.7979987,
-           #                                       -5467633.94561753,
-           #                                       -2642498.5212285,
-           #                                        unit="m")   
-           # Alternative :
-           # "North": EarthLocation.from_geodetic('342.1184',
-           #                                       '28.7606',2326.* u.meter)
-           # "South": EarthLocation.from_geodetic('289.5972',
-           #                                      '-24.6253',2635.* u.meter)
-         },
-         
-  # from default values in
-  # https://www.mpi-hd.mpg.de/hfm/HESS/pages/home/visibility/
-  # Warning : use CTA-North for virtual HESS North
-  "HESS":
-        { "North": EarthLocation.from_geocentric( float(5327448.9957829),
-                                                   float(-1718665.73869569),
-                                                   float(3051566.90295403),
-                                                   unit="m"),
-          "South": EarthLocation.from_geodetic(lat=Angle('-23d16m18.0s'),
-                                      lon=Angle('16d30m0.0s'),
-                                      height=1800*u.m)
-        }
- }
+def_vis_dicts  = "visibility.yaml"
 
 __all__ = ["Visibility"]
-###------------------------------------------------------------------------
+
+###############################################################################
+### Utilities
+###############################################################################
+
 def Df(x):
     """
     Returns a time in Julian day format if the argument is finite
     """
-    if math.isfinite(x):
-        return Time(x,format="jd")
-    else:
-        return x
+    if math.isfinite(x): return Time(x,format="jd")
+    else: return x
+    
 ###------------------------------------------------------------------------
 def Dp(x):
     """
     Returns a time in ISO format if the argument is an astropy 
     :class:`Time`, and if not returns the argument (unchanged).
     """
-    if isinstance(x,Time):
-        return x.iso
-    else:
-        return x
+    if isinstance(x,Time): return x.iso
+    else: return x
+    
+###------------------------------------------------------------------------
+def F(x):
+    return x.datetime
 
+###---------------------------------------------------------------------------
+def period_plot(twindow,
+                ax=None,
+                alpha = 0.2, color="black", color2="black",tag="?",
+                tshift=0*u.s,
+                **kwargs):
+    
+    import matplotlib.pyplot as plt
+    ax = plt.gca() if ax is None else ax
+     
+    if (len(twindow[0]) == 0): return ax
+    for elt in twindow:
+        if elt[0] !=-9 and elt[1] != -9:  # Check if -9, i.e. undefined
+            t1  = (elt[0] - tshift).datetime
+            t2  = (elt[1] - tshift).datetime
+            if isinstance(tag, list):
+                ax.axvline(t1,color=color,label=tag[0])
+                ax.axvline(t2,color=color2,label=tag[1])
+            else:
+                ax.axvspan(t1,t2,
+                           alpha = alpha, color=color,label=tag,**kwargs)
+    
+    return ax
+
+
+###------------------------------------------------------------------------
+def object_to_serializable(obj):
+    
+    """How Turn any non-standard object into a serializable type so that 
+    JSON can write it.
+    Note that this function explicitely returns a dictionnary.
+    Written by K. Kosack, September 2022
+    """
+    from visibility import Visibility
+    from astropy.time import Time
+    import astropy.units.quantity
+    from   astroplan import FixedTarget
+    
+    if isinstance(obj, Visibility):
+        return {k:v for k,v in obj.__dict__.items() 
+                if k not in Visibility.ignore}
+    
+    if isinstance(obj, Time): return obj.jd
+    if isinstance(obj, FixedTarget): 
+        return (str(u.Quantity(obj.ra)), 
+                str(u.Quantity(obj.dec)) )  
+    if isinstance(obj, astropy.coordinates.earth.EarthLocation):
+        return [str(obj.x), str(obj.y), str(obj.z)]
+    if isinstance(obj, astropy.units.quantity.Quantity): return str(obj)
+    
+    return
+                
+###----------------------------------------------------------------------------
+def params_from_key(keyword, parfile=def_vis_dicts, debug=False):
+    """
+    Get the parameters to compute the visibility from the exisiting 
+    dictionnaries.
+
+    Parameters
+    ----------
+    keyword : string
+        One of the key in the dictionnary file.
+    parfile : string, optional
+        The file name holding the dictionnaries. The default is def_vis_dicts.
+    debug : boolean, optional
+        If True display information. The default is False.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    
+    import yaml
+    from yaml import SafeLoader
+        
+    try:
+        with open(def_vis_dicts) as f:
+            visdict  = yaml.load(f, Loader=SafeLoader)
+            if keyword in visdict.keys(): 
+                
+                if debug:
+                    print("   Vis. computed up to   : {} night(s)"
+                            .format(keyword["depth"]))
+                    print("   Skip up to            : {} night(s)"
+                            .format(keyword["skip"]))
+                    print("   Minimum altitude      : {}"
+                            .format(keyword["altmin"]))
+                    print("   Moon max. altitude    : {}"
+                            .format(keyword["altmoon"]))
+                    print("   Moon min. distance    : {}"
+                            .format(keyword["moondist"]))
+                    print("   Moon max. brightness  : {}"
+                            .format(keyword["moonlight"]))   
+                
+                return visdict[keyword]           
+            else: 
+                sys.exit("{}.py: Keyword not referenced"
+                         .format(__name__))
+    except IOError:
+        sys.exit("{}.py: {} not found"
+                 .format(__name__,def_vis_dicts))
+            
+    return
+
+###----------------------------------------------------------------------------
+def valid(t0,tslices):
+    if len(tslices[0]) == 0 : return False # No slice !
+    ok = False
+    for slices in tslices:
+        if (t0 >= slices[0] and t0 <= slices[1]):
+            if (ok == False): ok = True
+    return ok
 ###############################################################################
 class Visibility():
+    
+    # Members to be ignored when exported to Json
+    ignore = []
+    
     """
     This class defines the visibility periods for a given GRB and a certain
     site (North or South).
@@ -105,17 +185,26 @@ class Visibility():
 
     Excerpt from the astroplan documentation:
         
-    * Moonrise is defined as the instant when, in the eastern sky, under ideal meteorological conditions, with standard refraction of the Moon's rays, the upper edge of the Moon's disk is coincident with an ideal horizon.
+    * Moonrise is defined as the instant when, in the eastern sky, under ideal 
+    meteorological conditions, with standard refraction of the Moon's rays, 
+    the upper edge of the Moon's disk is coincident with an ideal horizon.
 
-    * Moonset is defined as the instant when, in the western sky, under ideal meteorological conditions, with standard refraction of the Moon's rays, the upper edge of the Moon's disk is coincident with an ideal horizon.
+    * Moonset is defined as the instant when, in the western sky, under ideal 
+    meteorological conditions, with standard refraction of the Moon's rays, 
+    the upper edge of the Moon's disk is coincident with an ideal horizon.
 
     The Moon angular diameter varies between 29.3 to 34.1 arcminutes 
-    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon is below the horizon at a negative angle half of these values, respectively -0.244 and -0.284 degree
+    (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon 
+    is below the horizon at a negative angle half of these values, respectively 
+    -0.244 and -0.284 degree
     
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self,grb,loc,depth=0, observatory="CTA"):
+    def __init__(self, pos    = SkyCoord(0*u.deg,0*u.deg, frame='icrs'), 
+                       site   = None, 
+                       window =[ 0,0], 
+                       status = "Empty", name="Dummy"):
         """
         Visibility constructor, setting a full visibility of the GRB, from the
         start to the stop of the GRB data. 
@@ -125,9 +214,9 @@ class Visibility():
         Parameters
         ----------
         grb : GammaRayBurst instance
-            The objetc to which the visibility will be attached
+            The object to which the visibility will be attached
         loc : String
-            Site (North or Souht)
+            Site (North or South)
         observatory: String
             The simulated observatory. default is "CTA".
         Returns
@@ -135,22 +224,28 @@ class Visibility():
         None.
 
         """
-        
-        self.status  = "init"
-        self.site    = site_xyz[observatory][loc]
-        self.target  = FixedTarget(coord=grb.radec, name=grb.name)
-        self.tstart  = grb.t_trig
-        self.tstop   = grb.t_trig + min(grb.tval[-1],depth*u.day)
-        self.name    = grb.name+"_"+loc
+    
+        self.status  = status
+        self.site    = site
+        self.target  = FixedTarget(coord=pos, name="Source")
+        self.tstart  = window[0]
+        self.tstop   = window[1]
+        self.name    = name        
 
-        self.altmin  = 0*u.deg # GRB Minimal allowed altitude
+        # GRB Minimal allowed altitude
+        self.altmin  = 10*u.deg 
+        
+        # Moon period veto - Default is no veto
+        self.moon_maxalt     = 90*u.deg # Maximal allowed altitude
+        self.moon_mindist    =  0*u.deg # Minimum distance to source
+        self.moon_maxlight   =  1       # Maximum allowed brightness
 
         # These three variables were defined by M.G.Bernardini in the first 
         # version of the visibilty, without moon veto, and with a visibility 
         # computed for the first night only. They are kept for consistency but 
         # have a somewhat smaller importance with the presence of moon vetoes 
         # and a visibility that can be computed on more than one night.
-        # However the vis_prompt varaibale still indicate the chance to have
+        # However the vis_prompt variable still indicates the chance to have
         # the prompt emission detected if the alert and slewing times are not
         # too long.
         # Here below, better definitions of these variables are given.
@@ -180,82 +275,20 @@ class Visibility():
 
         # Rise and set of the target - list of pair
         self.t_event    = [[self.tstart,self.tstop]]  
-
-        # Moon period veto - Default is no veto
-        self.moon_maxalt     = 90*u.deg # Maximal allowed altitude
-        self.moon_mindist    =  0*u.deg # Minimum distance to source
-        self.moon_maxlight   =  1       # Maximum allowed brightness
-
+    
         self.t_moon_up       = [[]] # Altitude exceeds moon_maxalt
         self.moon_too_bright = [] # Moon brigthness above threshold
         self.moon_too_close  = [] # Moon distance too small
+        
+        self.depth = 3 # Number of nights to be considred
+        self.skip  = 0 # Number of first nights to be skipped
 
         return
-    
-    ###-----------------------------------------------------------------------
-    @classmethod
-    def from_fits(cls, grb, hdr, hdul, hdu=1, loc="None"):
-        """
-        Default visibility from input file.
-        
-        * The start and stop dates are searched during 24h after the trigger and correspond to the first visibility interval.
-        
-        * Does not report a second visibility interval during 24h, that should be possible only if the target is promptly visible (about 15% of the targets)
-        
-        Parameters
-        ----------
-        grb : TYPE
-            DESCRIPTION.
-        hdr : TYPE
-            DESCRIPTION.
-        hdul : TYPE
-            DESCRIPTION.
-        hdu : TYPE, optional
-            DESCRIPTION. The default is 1.
-        loc : TYPE, optional
-            DESCRIPTION. The default is "None".
-
-        Returns
-        -------
-        None.
-
-        """
-        cls = Visibility(grb,loc)  # This calls the constructor
-
-        vis = Table.read(hdul,hdu=hdu)
-
-        def f(t,loc):
-            t = Time(t.data,format="jd",scale="utc")
-            if (loc == "North"): return [ [ t[0:2][0], t[0:2][1] ] ]
-            if (loc == "South"): return [ [ t[2:4][0], t[2:4][1] ] ]
-
-         # Visibility has been computed with this minimum altitude
-        if (loc == "North"):
-            cls.vis          = hdr['V_N_ANYT']
-            cls.vis_night    = hdr['V_N_TNG'] # formerly vis_tonight
-            cls.vis_prompt   = hdr['V_N_PR']
-
-        if (loc == "South"):
-            cls.vis          = hdr['V_S_ANYT']
-            cls.vis_night    = hdr['V_S_TNG'] # formerly vis_tonight
-            cls.vis_prompt   = hdr['V_S_PR']
-
-        cls.altmin     = vis.meta["MIN_ALT"]*u.deg # Minimum altitude
-        cls.t_true     = f(vis["True"],loc)
-        cls.t_twilight = f(vis["Twilight"],loc)
-        cls.t_event    = f(vis["Event"],loc)
-
-        #print(self.grb.name," : visibility read for ",loc)
-
-        return cls
 
     ###-----------------------------------------------------------------------
-    @classmethod
-    def compute(cls,grb, loc, 
-                    param       = None,
-                    npt         = 150,
-                    force_vis   = False,
-                    debug       = True):
+    def compute(self, param       = None,
+                      npt         = 150,
+                      debug       = True):
         """
         
         Compute the visibility periods for a given GRB and site. This constructor 
@@ -291,7 +324,7 @@ class Visibility():
 
         Parameters
         ----------
-        cls : Visibility Object
+        self : Visibility Object
             The present instance.
         grb : TYPE
             DESCRIPTION.
@@ -314,99 +347,65 @@ class Visibility():
 
         """
 
-        # Decode the parameter dictionnay or set defaults
+        # Decode the parameter dictionnay - keep default otherwise
         if param != None:
             observatory = param["where"]
-            altmin      = u.Quantity(param["altmin"])
-            altmoon     = u.Quantity(param["altmoon"])
-            moondist    = u.Quantity(param["moondist"])
-            moonlight   = param["moonlight"]
-            depth       = param["depth"]
-            skip        = param["skip"]        
-        else:
-            observatory = "CTA"
-            altmin      = 10*u.degree
-            altmoon     = 0*u.degree
-            moondist    = 0*u.degree
-            moonlight   = 1
-            depth       = 3
-            skip        = 0
+            self.altmin        = u.Quantity(param["altmin"])
+            self.moon_maxalt   = u.Quantity(param["altmoon"])
+            self.moon_mindist  = u.Quantity(param["moondist"])
+            self.moon_maxlight = param["moonlight"]
+            self.depth         = param["depth"]
+            self.skip          = param["skip"]        
 
-        cls = Visibility(grb,loc,depth=depth, observatory=observatory)  # This calls the constructor
-                
-        ###---------------------------------------------------
-        def valid(t0,tslices):
-            if len(tslices[0]) == 0 : return False # No slice !
-            ok = False
-            for slices in tslices:
-                if (t0 >= slices[0] and t0 <= slices[1]):
-                    if (ok == False): ok = True
-            return ok
-        ###---------------------------------------------------
-
-        cls.altmin        = altmin
-        cls.moon_maxalt   = altmoon
-        cls.moon_mindist  = moondist
-        cls.moon_maxlight = moonlight
-
-        cls.status    = "Updated"
-
-        obs  = Observer(location  = cls.site,
-                        name      = cls.name,
+        self.status    = "Computed"
+        
+        obs  = Observer(location  = self.site,
+                        name      = self.name,
                         timezone  ="utc")
 
         ###---------------------
         ### Find the nights  ---
         ###---------------------
-        if force_vis: 
-            # If the visibility is forced, a single night covers all the data
-            t_night = [[cls.tstart.jd, cls.tstop.jd]]
-            is_night = True
-        else: is_night, t_night  = cls.nights(obs, skip=skip, npt=npt)
+        is_night, t_night  = self.nights(obs, npt=npt)
 
         ###---------------------
         ### MOON VETOES (high enough, close enough, bright enough) ---
         ###---------------------
-        if force_vis:
-            # If the visibility is forced, the Moon period list is empty
-            t_moon_alt_veto = [[]]
-            t_moon_veto = [[]]
-        else:
-            # These are the perioss when the Moon is above horizon
-            t_moon_alt_veto    = cls.moon_alt_veto(obs, npt=npt)
-            # When Moon is up, check if moonlight is affordable
-            t_moon_veto = []
-            for dt in t_moon_alt_veto:
-                (too_bright, too_close) = cls.moonlight_veto(dt)
-                cls.moon_too_bright.append(too_bright)
-                cls.moon_too_close.append(too_close)
-                # If the Moon being above the horizon itgives too much
-                # light, add the corresponding perido to the Moon veto
-                if too_bright or too_close: t_moon_veto.append(dt)
-            # In case there is no Moon veto period, then conclude with
-            # an empty array of [t1,t2] arrays
-            if len(t_moon_veto) == 0: t_moon_veto = [[]]
+        # These are the periods when the Moon is above horizon
+        t_moon_alt_veto    = self.moon_alt_veto(obs, npt=npt)
+        # When Moon is up, check if moonlight is affordable
+        t_moon_veto = []
+        for dt in t_moon_alt_veto:
+            (too_bright, too_close) = self.moonlight_veto(dt)
+            self.moon_too_bright.append(too_bright)
+            self.moon_too_close.append(too_close)
+            # If the Moon being above the horizon it gives too much
+            # light, add the corresponding period to the Moon veto
+            if too_bright or too_close: t_moon_veto.append(dt)
+        # In case there is no Moon veto period, then conclude with
+        # an empty array of [t1,t2] arrays
+        if len(t_moon_veto) == 0: t_moon_veto = [[]]
 
         ###---------------------
         ### HORIZON ---
         ###---------------------
-        (high, t_above) = cls.horizon(obs)
+        (high, t_above) = self.horizon(obs)
         
         ###---------------------
         ### Collect the ticks from all periods (authorised and forbidden)
         ###---------------------
         
         # First tick is the start of data
-        ticks = [cls.tstart.jd]
+        ticks = [self.tstart.jd]
 
         # Restrict the windows to the last night end or the GRB data length
-        if cls.tstop < Df(t_night[-1][1]):
+        if self.tstop < Df(t_night[-1][1]):
             # The GRB data stop before the end of last night
             # print(" >>>> Analysis shortened by lack of data")
-            ticks.extend([cls.tstop.jd])
+            ticks.extend([self.tstop.jd])
         else:
             # Set the end at last night for convenience
-            cls.tstop = Df(t_night[-1][1])
+            self.tstop = Df(t_night[-1][1])
 
         # Add the ticks of all previously computed wnidows
         for elt in t_night       : ticks.extend(elt)
@@ -419,7 +418,7 @@ class Visibility():
         if (debug):
             print("Ticks : ",len(ticks))
             for t in ticks:
-                print("{:10s} {:<23s} ".format(cls.name, Df(t).iso))
+                print("{:10s} {:<23s} ".format(self.name, Df(t).iso))
                 
         ###---------------------
         ### Check the visibility within all tick intervals
@@ -438,7 +437,7 @@ class Visibility():
             # authorised or forbidden window
             
             # The GRB shines (in the limit of the available data
-            bright   = valid(tmid,[[cls.tstart.jd,cls.tstop.jd]])
+            bright   = valid(tmid,[[self.tstart.jd,self.tstop.jd]])
             
             # It is night
             dark     = valid(tmid,t_night)
@@ -470,127 +469,90 @@ class Visibility():
         ### Write back all intervals into Time and into Class
         ###---------------------------------------        
         if len(t_night[0])==0 : # Night periods
-            cls.t_twilight  = [[]]
+            self.t_twilight  = [[]]
         else:
-            cls.t_twilight  = []
+            self.t_twilight  = []
             for elt in t_night:
-                cls.t_twilight.append( [Df(elt[0]), Df(elt[1])] )
+                self.t_twilight.append( [Df(elt[0]), Df(elt[1])] )
 
         if len(t_above[0])==0 : # Above horizon period
-            cls.t_event  = [[]]
+            self.t_event  = [[]]
         else:
-            cls.t_event  = []
+            self.t_event  = []
             for elt in t_above:
-                cls.t_event.append( [Df(elt[0]), Df(elt[1])] )
+                self.t_event.append( [Df(elt[0]), Df(elt[1])] )
 
         if len(t_moon_alt_veto[0])==0 : # Moon veto periods
-            cls.t_moon_up  = [[]]
+            self.t_moon_up  = [[]]
         else:
-            cls.t_moon_up  = []
+            self.t_moon_up  = []
             for elt in t_moon_alt_veto:
-                cls.t_moon_up.append( [Df(elt[0]), Df(elt[1])] )
+                self.t_moon_up.append( [Df(elt[0]), Df(elt[1])] )
                 
         ###---------------------------------------        
         ### Finalise the visibility windows and flags
         ###---------------------------------------         
            
-        cls.vis = False
-        cls.vis_night = False
-        cls.vis_prompt  = False
+        self.vis = False
+        self.vis_night = False
+        self.vis_prompt  = False
         
         # At least a period above the horizon
         # Note that this function could stop as soon as no window above
         # the horizon is found, which is not the case in this implementation 
-        if len(t_above) > 0: cls.vis = True        
+        if len(t_above) > 0: self.vis = True        
         
         # At least a visibility period for observation
         if len(t_vis) > 0: 
-            cls.vis_night = True
+            self.vis_night = True
             
-            # In this first window the prompt is visible    
-            if  valid(grb.t_trig.jd,[t_vis[0]]):
-                cls.vis_prompt=True
+            # In this first window the prompt is visible  
+            # Note that tstart is considered to be grb.t_trig
+            if  valid(self.tstart.jd,[t_vis[0]]):
+                self.vis_prompt=True
             
             # Store definitively the visibility windows
-            cls.t_true = [] # Warning: default is the GRB window
+            self.t_true = [] # Warning: default is the GRB window
             for elt in t_vis:
-                cls.t_true.append( [Df(elt[0]), Df(elt[1])] )             
+                self.t_true.append( [Df(elt[0]), Df(elt[1])] )             
                             
         # There is no visibility window at all - sad World             
         else:
-            cls.t_true  = [[]]
+            self.t_true  = [[]]
            
-        return cls
-
+        return self
+    
     ###-----------------------------------------------------------------------
-    @classmethod
-    def read(cls,name,folder=".",debug=False):
-        """
-        Read a visibility instance from disk
+    def force(self, altmin = 24*u.deg, depth = 3, npt = 150, debug = True):
+     
+        self.status    = "Forced"
+        self.depth     = depth        
+        self.altmin    = altmin
+        
+        
+        # Horizon (defines the visibiltiy)
+        obs  = Observer(location  = self.site,
+                        name      = self.name,
+                        timezone  ="utc")
 
-
-        Parameters
-        ----------
-        cls : TYPE
-            DESCRIPTION.
-        name : TYPE
-            DESCRIPTION.
-        folder : TYPE, optional
-            DESCRIPTION. The default is ".".
-        debug : TYPE, optional
-            DESCRIPTION. The default is False.
-
-        Returns
-        -------
-        vis : TYPE
-            DESCRIPTION.
-
-        """
-
-        import pickle
-        import os, sys        
-        filename = Path(folder,name)
-        if os.path.isfile(filename):
-            infile  = open(filename,"rb")
-            cls =  pickle.load(infile)
-            infile.close()
-            if (debug): print(" <<<< Visibility read from : ",filename)
+        (high, self.t_event) = self.horizon(obs)
+        if len(self.t_event[0])==0 : # Above horizon period
+            self.t_true = [[]]
         else:
-            sys.exit(" Visibility file "+filename.name+" does not exist !")
-
-        return cls
-
+            self.vis = True
+            self.vis_prompt = True
+            self.t_event = [ [Df(t[0]), Df(t[1])] for t in self.t_event]
+            self.t_true = self.t_event
+        
+        # Infinite nights - starts at trigger (with margins)
+        self.t_twilight  = [[self.tstart - 0.1*u.d, 
+                             self.tstop  + 0.1*u.d]] # Infini
+        self.vis_night = True
+           
+        return self    
+        
     ###-----------------------------------------------------------------------
-    def write(self, folder=".",debug=False):
-        """
-        Write current visibility instance to disk
-
-        Parameters
-        ----------
-        folder : TYPE, optional
-            DESCRIPTION. The default is ".".
-        debug : TYPE, optional
-            DESCRIPTION. The default is False.
-
-        Returns
-        -------
-        None.
-
-        """
-
-        import pickle
-        from pathlib import Path
-
-        filename = Path(folder,self.name+"_vis.bin")
-        outfile  = open(filename,"wb")
-        pickle.dump(self,outfile)
-        outfile.close()
-        if (debug): print(" >>> Visibility written to : ",filename)
-
-        return
-
-    ###-----------------------------------------------------------------------
-    def nights(self,obs, skip=0, npt=150):
+    def nights(self,obs, npt=150):
         """
 
 
@@ -631,11 +593,10 @@ class Visibility():
                                                     n_grid_points = npt)
         # Omit first night if requested
         inight = 1 # night counter
-        if (skip ==0):
-            tnights.append([t_dusk.jd, t_dawn.jd])
+        if self.skip == 0: tnights.append([t_dusk.jd, t_dawn.jd])
 
         # Add subsequent nights until reaching the end of GRB data
-        while (t_dusk < self.tstop): # and (inight < self.depth):
+        while (t_dusk < self.tstop) and (inight < self.depth):
             t_dusk = obs.twilight_evening_astronomical(t_dawn,
                                                         which = "next",
                                                         n_grid_points = npt)
@@ -849,8 +810,136 @@ class Visibility():
         if len(tmoons): return tmoons
         else: return [[]]
 
-        return tmoons
+    ###-----------------------------------------------------------------------
+    ### INPUT / OUPUT
+    ###-----------------------------------------------------------------------
+   
 
+    ###-----------------------------------------------------------------------
+    @classmethod
+    def from_fits(cls, grb, hdr=None, hdul=None, hdu=1, loc="None"):
+        """
+        Default visibility from input file.
+        
+        * The start and stop dates are searched during 24h after the trigger 
+        and correspond to the first visibility interval.
+        
+        * Does not report a second visibility interval during 24h, that should 
+        be possible only if the target is promptly visible (about 15% of the 
+        targets)
+        
+        Parameters
+        ----------
+        grb : TYPE
+            DESCRIPTION.
+        hdr : TYPE
+            DESCRIPTION.
+        hdul : TYPE
+            DESCRIPTION.
+        hdu : TYPE, optional
+            DESCRIPTION. The default is 1.
+        loc : TYPE, optional
+            DESCRIPTION. The default is "None".
+
+        Returns
+        -------
+        None.
+
+        """
+        import observatory as obs
+        
+        cls = Visibility(pos    = grb.radec, 
+                         site   = obs.xyz["CTA"][loc], 
+                         window =[grb.tstart, grb.tstop],
+                         name   = grb.name+"_"+loc)  
+
+        vis = Table.read(hdul,hdu=hdu)
+        cls.status = "built-in"
+
+        def f(t,loc):
+            t = Time(t.data,format="jd",scale="utc")
+            if (loc == "North"): return [ [ t[0:2][0], t[0:2][1] ] ]
+            if (loc == "South"): return [ [ t[2:4][0], t[2:4][1] ] ]
+
+         # Visibility has been computed with this minimum altitude
+        if (loc == "North"):
+            cls.vis          = hdr['V_N_ANYT']
+            cls.vis_night    = hdr['V_N_TNG'] # formerly vis_tonight
+            cls.vis_prompt   = hdr['V_N_PR']
+
+        if (loc == "South"):
+            cls.vis          = hdr['V_S_ANYT']
+            cls.vis_night    = hdr['V_S_TNG'] # formerly vis_tonight
+            cls.vis_prompt   = hdr['V_S_PR']
+
+        cls.altmin     = vis.meta["MIN_ALT"]*u.deg # Minimum altitude
+        cls.t_true     = f(vis["True"],loc)
+        cls.t_twilight = f(vis["Twilight"],loc)
+        cls.t_event    = f(vis["Event"],loc)
+
+        return cls   
+    ###-----------------------------------------------------------------------
+    @classmethod    
+    def from_dict(cls, d):
+        """
+        """
+        
+        from   astropy.coordinates   import EarthLocation
+        
+        cls = Visibility()
+        cls.status = d["status"]
+        cls.site    = EarthLocation.from_geocentric(x=u.Quantity(d["site"][0]), 
+                                                    y=u.Quantity(d["site"][1]), 
+                                                    z=u.Quantity(d["site"][2]))
+        cls.target = FixedTarget(SkyCoord(ra=u.Quantity(d["target"][0]),
+                                           dec=u.Quantity(d["target"][1])),
+                                           name="Source")
+
+        cls.name            = d["name"]        
+        cls.moon_maxlight   = d["moon_maxlight"]
+        cls.vis             = d["vis"]
+        cls.vis_night       = d["vis_night"]
+        cls.vis_prompt      = d["vis_prompt"]
+        cls.moon_too_bright = d["moon_too_bright"] 
+        cls.moon_too_close  = d["moon_too_close"]
+        
+        for key in ["altmin","moon_maxalt", "moon_mindist"]:
+            cls.__dict__[key] = u.Quantity(d[key])
+           
+        for key in ["tstart","tstop","t_true","t_twilight","t_event","t_moon_up"]:
+            cls.__dict__[key] = Time(d[key],format="jd")
+    
+        return cls
+    ###-----------------------------------------------------------------------
+    def to_json(self,file=None, debug=False):
+        """
+        Dump individual visibility instance to json.
+        This is here essentially for didactical purpose as it is preferred to 
+        dump a dictionnary of visibilities.
+
+        Parameters
+        ----------
+        file : pointer to file, optional
+            Output file. The default is None.
+        debug : boolean, optional
+            Say something. The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+        import json
+        
+        if debug: 
+            print("Write {} to Json output".format(self.name))
+            record = json.dumps( self, default=object_to_serializable, indent=None)
+            print(record)
+        
+        json.dump(self, file, default=object_to_serializable, indent=None)
+        
+        return    
+    
     ###------------------------------------------------------------------------
     def print(self,log=None, alt=None):
         """
@@ -871,7 +960,7 @@ class Visibility():
         None.
 
         """
-        from utilities import Log
+        from niceprint import Log
         if log == None: log = Log()
         
         log.prt("=================   {:10s}   {:10s}   ================"
@@ -894,9 +983,8 @@ class Visibility():
                 for i, elt in enumerate(t):
                     t1 = elt[0]
                     t2 = elt[1]
-                    log.prt(" {:6s} : {} * {}".format(case,
-                                                      t1.datetime,
-                                                      t2.datetime),end="")
+                    log.prt(" {:6s} : {} * {}"
+                            .format(case, Dp(t1), Dp(t2)),end="")
                     # t1  = (t1-self.grb.t_trig).sec*u.s
                     # t2  = (t2-self.grb.t_trig).sec*u.s
                     # log.prt("        : {:7.2f} {:6.2f} * {:7.2f} {:6.2f}"
@@ -1022,7 +1110,153 @@ class Visibility():
             else: log.prt("--- DOES NOT MATCH")
         return matching
     
+    ###------------------------------------------------------------------------
+    def plot(self, grb,
+                    moon_alt  = True,
+                    moon_dist = True,
+                    ax   = None,
+                    dt_before = 0.25*u.day, # Before trigger
+                    dt_after  = 0.25*u.day, # After visibility window
+                    nalt = 250):
+        """
+        Plot the night, above-the-horizon and visibility periods, the altitude
+        evolution with time as well as a lightcurve for a fixed reference
+        energy.
+    
+        Parameters
+        ----------
+        ax : An axis instance
+            Plots on this axis
+        dt_before : astropy Quantity time, optional
+            Time period for plotting before the trigger.
+            The default is 0.25*u.day.
+        dt_after : astropy Quantity time, optional
+            Time period for plotting after the trigger.
+            The default is 0.5*u.day.
+        nalt : int, optional
+            Number of points to sample the altitude evolution with time.
+            The default is 25.
+        inset : bool, optional
+            IfTrue, the figure will be plotted in an inset of the main plot.
+            They are simplified and the time is referred to the trigger time.
 
+        """
+
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        from astropy.visualization import quantity_support
+                
+        if moon_alt:
+            if moon_dist:
+                ratio = {'height_ratios': [7,2,2]}
+                nrows = 3
+                ysize = 10
+            else:
+                ratio = {'height_ratios': [7,2]}
+                nrows = 2
+                ysize = 9
+        else:
+            ratio = {'height_ratios': [1]}
+            nrows = 1
+            ysize = 7        
+        
+        fig, ax = plt.subplots(nrows=nrows, ncols=1, sharex=True,
+                               gridspec_kw=ratio,
+                               figsize=(17, ysize))
+    
+        with warnings.catch_warnings() and quantity_support() :
+            warnings.filterwarnings("ignore")
+    
+            duration = (self.tstop - self.tstart + dt_after + dt_before).to(u.d)
+            dt   = np.linspace(0,duration.value, nalt)
+            tobs = self.tstart  - dt_before + dt*duration.unit
+    
+            # Minimal altitude
+            ax[0].axhline(y =self.altmin.value,
+                       ls=":",color="tab:green",label="Min. Alt.")
+            
+            ### GRB (main plot)
+            grb.plot_altitude_and_flux(tobs, site=self.site, ax=ax[0])
+            ax[0]. set_title(self.name)
+            ax[0].grid("both",ls="--",alpha=0.5)
+            
+            ## GRB above horizon
+            period_plot(self.t_event,
+                        ax = ax[0],color="tab:blue",alpha=0.2, 
+                        tag="Above horizon",
+                        ymin=0.,  ymax= 0.5,)
+    
+            ### Moon if requested
+            if moon_alt or moon_dist:
+                radec = get_moon(tobs, self.site) # Moon position along time
+    
+                if moon_alt:
+                    ### Moon veto periods
+                    period_plot(self.t_moon_up,
+                                ax =ax[1],color="tab:orange",alpha=0.2, 
+                                tag="Moon veto")
+                    ax[1].grid("both",ls="--",alpha=0.5)
+    
+                    ### Moon altitude
+                    alt = radec.transform_to(AltAz(location=self.site, 
+                                                   obstime=tobs)).alt
+                    moon_alt_plot(tobs, alt, ax = ax[1], alpha=0.5)
+                    ax[1].axhline(y=self.moon_maxalt , 
+                               color= "darkblue", alpha=1, ls=":")
+    
+                    if moon_dist:
+                        ### Moon distance and brigthness
+                        moon_dist_plot(grb.radec,tobs, radec,site=self.site,
+                                        ax = ax[2],alpha=0.5) # Distance
+                        period_plot(self.t_moon_up,
+                        ax =ax[2],color="tab:orange",alpha=0.2, tag="Moon veto")
+                        ax[2].grid("both",ls="--",alpha=0.5)
+                        ax[2].axhline(y=self.moon_mindist , 
+                                      color= "purple", ls=":", 
+                                      alpha=1, label="Min. distance")   
+                        
+                        axx = ax[2].twinx()
+                        moonlight_plot(tobs,ax=axx) # Brightness
+                        #moonphase_plot(tobs,ax=axx) # Phase (correlated to Brightness)
+
+                        axx.axhline(y=self.moon_maxlight , 
+                                    color= "tab:orange", ls=":",
+                                    label="Max. illumination")
+    
+            ### Nights on all plots
+            for axis in ax:
+                period_plot(self.t_twilight,
+                            ax =axis,color="black",alpha=0.1, tag="Night")
+    
+            ### Visibility windows - if the GRB is visible
+            if self.vis:
+                for axis in ax:
+                    period_plot(self.t_true,
+                                ax=axis,color="tab:green",color2="red",
+                                tag=["Start","Stop"])
+    
+            # Reduce legends on all plots
+            import collections
+            for axis in ax:
+                handles, labels = axis.get_legend_handles_labels()
+                by_label = collections.OrderedDict(zip(labels, handles))
+                axis.legend(by_label.values(), by_label.keys(),
+                          loc='center left', bbox_to_anchor=(1.1, 0.5),fontsize=12)
+    
+            axis = ax[nrows-1]
+    
+            axis.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
+            axis.set_xlabel("Date (DD-HH:MM) UTC")
+            axis.tick_params(axis='x', rotation=45)
+            axis.set_xlabel("Date")
+            axis.grid("both",ls="--",alpha=0.5)
+            axis.set_xlim([F(min(tobs)),F(max(tobs))])
+    
+        fig.tight_layout(h_pad=0, w_pad=0)
+        
+        return fig        
+
+    
 ###---------------------------------------------------------------------
 if __name__ == "__main__":
     """
@@ -1046,9 +1280,8 @@ if __name__ == "__main__":
 
     """
 
-    from   utilities import Log, highlight
-    from   SoHAPPy import get_grb_fromfile
-    from pathlib import Path
+    from   niceprint import Log, source_ids
+    from   grb import get_from_file 
     import grb_plot as gplt
     
     # Read default configuration
@@ -1067,59 +1300,31 @@ if __name__ == "__main__":
     
     ngrb     = 1 # 250
     ifirst   = [2] # ["190829A"]
+    grblist  = source_ids(ifirst,ngrb) # GRB list to be analysed
 
-    # Superse some values if needed
+    # Supersede some values if needed
     # cf.dbg       = 1
     # cf.show      = 0
     # cf.vis_cmp   = True    
     # cf.save_grb  = False # (False) GRB saved to disk -> use grb.py main
     # cf.res_dir   = "."
 
-    log_filename    = cf.res_dir  + "/visibility.log"
+    log_filename    = Path(cf.res_dir,"/visibility.log")
     log = Log(name  = log_filename,talk=True)
     
     # Print configuration with possible superseded values
     cf.print(log)
     
-    # GRB list to be analysed
-    if type(ifirst)!=list: grblist = list(range(ifirst, ifirst + ngrb))
-    else:  grblist = ifirst   
-    
-    # # Loop over GRB list
+    # Loop over GRB list 
     for item in grblist:
 
-        grb = get_grb_fromfile(item,
-                               config = cf,
-                               grb_folder = cf.grb_dir,
-                               log = log)
+        grb = get_from_file(item, cfg = cf)
         print(grb)
         gplt.spectra(grb,opt="Packed")
         for loc in ["North","South"]:
             grb.vis[loc].print()
             gplt.visibility_plot(grb, loc=loc)               
-
-        # THi shas to be rewrittend as the visibilitysnow computed from 
-        # withthe GRB class
-        # Handle visibilities for both sites
-        # for loc in ["North","South"]:
             
-        #     if check: # Compare to default visibility
-        #         log.prt("\n--------------- D E F A U L T  -----------------\n")
-        #         grb.vis[loc].print(log=log)
-        #         if (check and ngrb<30 and cf.show>0):
-        #             gplt.visibility_plot(grb, loc=loc)
-                    
-        #         # Save old visibilities
-        #         import copy
-        #         vis_def = copy.deepcopy(grb.vis[loc])          
-
-        #         log.prt()("\n--------------- C H E C K  ----------------\n")
-        #         grb.vis[loc].check(vis_def,log=log,delta_max=1*u.s)
-                
-        #     else:
-        #         grb.vis[loc].print()
-        #         gplt.visibility_plot(grb, loc=loc)               
-
     log.close()
 
     print(" All done !")
