@@ -13,7 +13,7 @@ from   astropy.coordinates import SkyCoord
 
 from regions import CircleSkyRegion
 
-from utilities import t_fmt
+from niceprint import t_fmt
 
 from gammapy.utils.random import get_random_state
 from gammapy.datasets import SpectrumDataset, Datasets, SpectrumDatasetOnOff
