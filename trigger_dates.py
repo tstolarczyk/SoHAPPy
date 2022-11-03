@@ -4,9 +4,7 @@ Created on Thu Jun 30 16:45:41 2022
 
 @author: Stolar
 """
-
 # List of source trigger dates between two dates
-
 import numpy as np
 from astropy.time import Time
 import sys
@@ -41,7 +39,7 @@ class trigger_dates():
         np.random.seed(self.seed)
         days = np.random.random(len(self.filelist))*delta
         
-        self.dates = self.tstart+days   
+        self.dates = self.tstart + days   
         
         print(40*"-")
         print(" Source positions read from files in : ",self.folder)
@@ -54,11 +52,14 @@ class trigger_dates():
         return
         
     #--------------------------------------------------------------------------
-    def dump2yaml(self):
+    def dump2yaml(self,outfolder="./"):
         
         import datetime
 
-        filename = "Trigger_{:d}-{:%Y_%m_%d_%H%M%S}-{:%Y_%m_%d_%H%M%S}.yaml".format(len(self.filelist),self.tstart.datetime,self.tstop.datetime)
+        filename = "Trigger_{:d}-{:%Y_%m_%d_%H%M%S}-{:%Y_%m_%d_%H%M%S}.yaml" \
+        .format(len(self.filelist),self.tstart.datetime,self.tstop.datetime)
+        filename = Path(outfolder, filename)
+        
         out = open(filename,"w")
             
         print(" Now dumping generated dates into :",filename)
@@ -68,9 +69,11 @@ class trigger_dates():
         print("seed: {:d}".format(self.seed),file=out)
         print("start: {}".format(self.tstart),file=out)
         print("stop: {}".format(self.tstop),file=out)
+        
         for fname,d in zip(self.filelist, self.dates):
             print("{}: {:20.10f} # {}"
                   .format(fname,d.jd,Time(d.jd,format="jd",scale="utc").isot),file=out)
+        
         out.close()
         print("Done!")    
             
@@ -100,9 +103,12 @@ def read_from_yaml(folder, filename, nmax=10,  fext=[".gz",".fits"]):
     data =  yaml.load(infile, Loader=SafeLoader)
     
     print(40*"-")
-    print(" Read dates from ",filename)    
+    print(" Read dates from ",filename)   
+    print("   - Limited to ",nmax)
     for f in filelist[: min(nmax,len(filelist))]:
-        print(f," found: ",data[f])
+        print("{:20s}: {:20.10f} - {}"
+              .format(f,data[f],Time(data[f],format="jd",scale="utc").isot))
+    print(40*"-")
     
     infile.close()
 
@@ -137,10 +143,13 @@ def get_trigger_dates(trigger):
         DESCRIPTION.
 
     """
+    
     if type(trigger) in [int, float]: # The triger shift is a fixed number in days
         trig_data =  trigger #np.array(len(grblist)*[cf.trigger])
         trig_abs   = False    
+    
     else: # elif would crash because float cannot be file
+    
         if trigger.is_file():            
             from trigger_dates import get_from_yaml
             trig_data  = get_from_yaml(trigger)
@@ -156,7 +165,10 @@ if __name__ == "__main__":
     """
     A standalone function to generate trigger times
     """
-        
+    import warnings
+    warnings.filterwarnings('ignore')
+    # warnings.filterwarnings('error')       
+    
     # Get this from the command line    
     tstart    = Time('2028-01-01T00:00:00', format='isot', scale='utc')
     tstop     = Time('2034-12-31T23:59:59', format='isot', scale='utc')
@@ -164,16 +176,13 @@ if __name__ == "__main__":
     nmax      = 10 
     datafiles = "D:\CTAA\SoHAPPy\input\lightcurves\LONG_FITS"
     
-    dates = trigger_dates(tstart, tstop, datafiles)
+    dates = trigger_dates(tstart, tstop, datafiles) # Constructor
     
     dates.generate()
-    
     filename = dates.dump2yaml()
-    
     dates.plot()    
     
-    # read_from_yaml(dates.folder, filename, nmax=1000000)    # For test 
+    read_from_yaml(dates.folder, filename, nmax=10)    # For test 
     
     get_from_yaml(filename)
     
-    print(" *** CONSIDER RECOMPUTING THE VISIBILITIES ***")
