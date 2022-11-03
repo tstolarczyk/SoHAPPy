@@ -19,10 +19,7 @@ by mcsim.py;It is also used by mcsim_plot and mcsim_res.
 import astropy.units as u
 import numpy as np
 
-det_level   = 0.9 # Fraction declaring a detection above the 3,5 sig. threshold
 nLiMamin    = 10  # Count number below which Li&Ma cannot be trusted anymore
-alpha       = 0.2 # 5 zones (1/0.2) to define the off region for B estimate
-
 containment = 0.68
 
 on_size     = { "FullArray"        : 0.4*u.deg,
