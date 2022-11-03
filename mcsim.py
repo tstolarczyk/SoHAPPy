@@ -18,9 +18,7 @@ import mcsim_config as mcf
 from dataset_tools import check_dataset
 
 from gammapy.utils.random import get_random_state
-from gammapy.stats import WStatCountsStatistic
 from gammapy.maps import RegionNDMap, MapAxis
-
 
 # Avoid deprecation Astropy warnings in gammapy.maps
 import warnings
@@ -29,8 +27,39 @@ with warnings.catch_warnings():
 
     from gammapy.datasets import SpectrumDataset
     from gammapy.makers   import SpectrumDatasetMaker
+    
+__all__ = ['mc_welcome', 'MonteCarlo']
 
-__all__ = ['MonteCarlo']
+###########################################################################
+def mc_welcome(subarray,log=None):
+    """
+    Welcome and informative message
+
+    Parameters
+    ----------
+    subarray : string
+        Sub-array name.
+    log : file, optional
+        pointer to log file. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    log.banner("+================================================================+")
+    log.banner("||                     LAUNCHING SIMULATION                     ||")
+    log.banner("+================================================================+")
+    log.prt("   On-region size     : N: {:5} -  S: {:5}"
+            .format(mcf.on_size[subarray["North"]],
+            mcf.on_size[subarray["South"]]))
+    log.prt("   Offset from center : N: {:5} -  S: {:5}"
+            .format(mcf.offset[subarray["North"]],
+            mcf.offset[subarray["South"]]))
+    log.prt("   Eff. area cont.    : {}".format(mcf.containment))
+    log.prt("   Min on/off counts  : {}".format(mcf.nLiMamin))
+
+    return
 
 ###############################################################################
 class MonteCarlo():
@@ -46,11 +75,13 @@ class MonteCarlo():
     to a population studies.
     The extraction of the energy spectrum is done through standalone notebooks
     from the save simulation for individual GRBs.
+    Note that this class also contains the analysis steps consisting in finding 
+    where the 3 sigma, 5 sigma levels are found, and where the maximal 
+    signiificance is reached. 
     """
     ###------------------------------------------------------------------------
     def __init__(self,
                  niter  = 1,
-                 method = 0,
                  debug  = 0,
                  fluctuate = True,
                  nosignal  = False,
@@ -63,8 +94,6 @@ class MonteCarlo():
         ----------
         niter : Integer, optional
             Number of Monte carlo iterations. The default is 1.
-        method : integer, optional
-            Aperture photometry if 0, energy on-off if 1. The default is 0.
         debug : Boolean, optional
             If True, verbosy mode. The default is 0.
         fluctuate : Boolean, optional
@@ -90,10 +119,7 @@ class MonteCarlo():
 
         """
         self.dbg       = debug
-
-        # Input parameters and objects
         self.niter     = niter     # Number of trials
-        self.method    = method    # Analysis method
         self.fluctuate = fluctuate # Poisson fluctuate the count numbers
         self.nosignal  = nosignal  # Force signal count to zero
         self.slot      = None      # The time slot (slices) of this simulation
@@ -104,45 +130,23 @@ class MonteCarlo():
         self.rnd_state =  get_random_state(seed)
 
         # Data set list
-        self.dset_list = [] # Not a Datasets object, just my own list so far
+        # Not a Datasets object, just my own list so far
+        # Contains nslice arrays of datasets for each site 
+        # (i.e. for N or S, 2 for Both)
+        self.dset_list = [[]] 
 
-        # list of simulations (one per slice)
-        self.simulations = None # For gammapy 0.12 compatibility
-
-        # Significance over simulations
-        self.id_smax_list  = [] # Slice indices to get back the time/ altaz
-        self.smax_list     = [] # List of max. significances along trials
-        self.nex_smax_list = [] # List of excess counts at max. signif.
-        self.nb_smax_list  = [] # List of background counts at max. signif.
-
-        self.id_3s_list    = [] # Slice indices ot get back the time/altaz
-        self.nex_3s_list   = [] # List of excess
-        self.nb_3s_list    = [] # List of background
-        self.detect_3s     = 0  # Number of trials 3 sigma was reached
-
-        self.id_5s_list    = [] # Slice indices to get back the time/altaz
-        self.nex_5s_list   = [] # List of excess
-        self.nb_5s_list    = [] # List of background
-        self.detect_5s     = 0  # Number of trials 5 sigma was reached
-
-        # Mean sigma versus time - one value per time slice
-        self.sigma_mean = []
-        self.sigma_std  = []
-
-        # Slice number with error or warning
-        self.err_slice  = []  # useful ?"
-
+        self.mcerr = -999 # Only for the status messages !
         self.mctime = 0.00
-        self.err    = -999 # error code : default, simulation is not completed
 
         return
 
     ###------------------------------------------------------------------------
-    def run(self, slot, boost    = True,
+    def run(self, slot, ana,
+                        boost    = True,
                         savedset = False,
                         dump_dir = None):
         """
-        Run simulations of the current grb, for a given hemisphere.
+        Run simulations of the current grb for a given hemisphere.
         A simulation correspond to a series of observations corresponding
         to the GRB time slices.
         This performs an aperure photometry analysis, and is particularly
@@ -172,65 +176,45 @@ class MonteCarlo():
         None.
 
         """
-
+        
         self.slot   = slot
         self.mctime = time.time() # Starts chronometer
-        self.err    = self.niter # GRB visible, simul. ought to be complete
-
-        if (boost): abort_test = False # Abortion test not yet performed
-        else: abort_test  = True   # Abortion test supposed already performed
-
+        
         # Prepare to dump the slices if requested and an anomaly was found
         if dump_dir != None:
             (fslice, dump_name) = self.dump_slices(phase="open",dir=dump_dir)
             dump = False
 
-        ### Create list of Datasets,and get counts,one for all
+        ### Create list of Datasets,and get all counts, once for all
         self.dset_list = self.create_dataset_list()
 
         ###############################################
         ### Monte Carlo iterations
         ###############################################
-        sigma_sum_t   = 0           # Compute mean and std of sig for slices
-        sigma2_sum_t  = 0           #     "          "
 
         iMC=1
+        print("\n",self.name,": ",end="")
+
         while(iMC <= self.niter):
             if (iMC <= 10) or (np.mod(iMC,10) == 0):
-                if (iMC ==1): print("\n",self.name,": ",end="")
                 print("#",iMC," ",end="")
 
-            if (self.method == 0): ### Aperture photometry
-                (sigma_t, non_t, noff_t) = self.aperture_photometry()
-            else:
-                sys.exit("Unrecognised analysis method")
-
-            # Acummulate sum and sum**2 for mean / error in each slice
-            sigma_sum_t  += sigma_t
-            sigma2_sum_t += sigma_t**2
-
+            # Get running cumulated counts and signifcance for this iteration            
+            (non_t, noff_t) = self.aperture_photometry(ana.alpha)
+            sigma = ana.fill(iMC, non_t, noff_t) # Update analysis data
+            
+            if ana.abort and boost:
+                print(" Aborted")
+                break
 
             # Dump slice stat if requested
             if (dump_dir != None): # dump slices to track problems
                 status = self.dump_slices(iMC  = iMC,
-                                          data = [non_t,noff_t,sigma_t],
+                                          data = [non_t,noff_t, sigma],
                                           file = fslice)
-                if (dump == False): dump= status # If True, dump unchanged
+                if not dump: dump= status # If True, dump unchanged
 
-            # Update statistics
-            self.fill_stat(sigma_t, non_t, noff_t) # Update stat list
-
-            # In case 3 signma is not reached in the first 10% of the trials
-            # then the 90% CL can not be reached.
-
-            if (abort_test == False):
-                 if (iMC/self.niter > 1 - mcf.det_level):
-                     abort_test = True
-                     # If 3 sigma is not reached in the first trials,
-                     # the CL will not be reached - stop simulation
-                     if (self.detect_3s == 0):
-                         self.err = iMC
-                         break
+            if self.dbg> 2: self.plot_onetrial(iMC+1)
 
             iMC += 1 # End of MC loop
 
@@ -238,20 +222,33 @@ class MonteCarlo():
         if (dump_dir !=None) :
             self.dump_slices(phase= "close",
                              dump = dump, name=dump_name, file=fslice)
+            
+        print() # terminate the iteration counting line
 
         # Timing
-        self.mctime = time.time() - self.mctime
-        self.mctime /= self.niter
-
-        ### Mean values
-        self.sigma_mean = sigma_sum_t/self.niter
-        sigma2_mean     = sigma2_sum_t/self.niter
-        self.sigma_std  = np.sqrt(sigma2_mean-self.sigma_mean**2)
-
-        return
+        self.mctime = (time.time() - self.mctime)/self.niter
+        self.mcerr  = ana.err # Only for the status messages !
+        
+        return 
 
     ###------------------------------------------------------------------------
-    def aperture_photometry(self):
+    def status(self,log=None):
+
+        if self.mcerr < 0: message = "Not possible (GRB not visible)"
+        elif self.mcerr> 0 and self.mcerr != self.niter:
+            message = "Aborted at trial {:>3d}".format(self.mcerr)
+        else: message = "Successful ({:5.3f} s)".format(self.mctime)
+         
+        log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
+        log.prt("| Simulation   |  ===> ",end="")
+        log.failure("{:42s}".format(message),end="")
+        log.prt("|")
+        log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
+          
+        return        
+    
+    ###------------------------------------------------------------------------
+    def aperture_photometry(self,alpha):
         
         """
         
@@ -280,17 +277,9 @@ class MonteCarlo():
 
         """
 
-        sigma_vs_time = []
-        # nxs   = []
-        # nbck  = []
-        non_vs_time  = []
-        noff_vs_time = []
-
-        non  = 0
-        noff = 0
-        sig  = 0
-        ns   = 0
-        nb   = 0
+        non_vs_time   = []
+        noff_vs_time  = []
+        non = noff = ns = nb = 0
 
         header = True # for debuging
 
@@ -305,7 +294,7 @@ class MonteCarlo():
                 if self.nosignal: ns = 0
                                     
                 non  += (ns+nb)
-                noff += (nb/mcf.alpha)
+                noff += (nb/alpha)
                 
                 if (self.dbg>2):
                     if header: print()
@@ -318,31 +307,19 @@ class MonteCarlo():
             if (self.fluctuate):
                 non   = self.rnd_state.poisson(non)
                 noff  = self.rnd_state.poisson(noff)
-
-            # Compute significance and background/excess counts
-
-            wstat = WStatCountsStatistic(n_on  = non,
-                                         n_off = noff,
-                                         alpha = mcf.alpha)
-
-            sig =  wstat.sqrt_ts # ? check
                 
-            # Much faster to append list than arrays
-            # Array appending create a new object
-            sigma_vs_time.append(sig)
+            # Much faster to append list element than array
+            # elemenst(because it creates new objects)
             non_vs_time.append(non)
             noff_vs_time.append(noff)
-            # nxs.append(ns)
-            # nbck.append(nb)
 
             # End of loop over slices / datasets
 
         # Access to arrays is much faster than access to lists
-        sigma_vs_time   = np.array(sigma_vs_time)
-        non_vs_time = np.array(non_vs_time)
-        noff_vs_time  = np.array(noff_vs_time)
+        non_vs_time     = np.array(non_vs_time)
+        noff_vs_time    = np.array(noff_vs_time)
 
-        return (sigma_vs_time, non_vs_time, noff_vs_time)
+        return (non_vs_time, noff_vs_time)
 
     ###------------------------------------------------------------------------
     def create_dataset_list(self):
@@ -513,9 +490,6 @@ class MonteCarlo():
 
             # Note: the spectrum is related to the slice, not the site
             model  = self.slot.grb.models[aslice.fid()]
-            ## Obsolete as the grb spectra are now already skymodel
-            # name  = "Spec"+"-"+str(aslice.fid())
-            # model = SkyModel(spectral_model = spec, name = name)
             
             # The reference time and duration of the observation
             # Note that this is the start of the slice
@@ -530,8 +504,8 @@ class MonteCarlo():
             dset_site = []
             for ip, perf in enumerate(aslice.irf()):
 
-                array = perf.subarray
-                kzen = perf.kzen
+                array   = perf.subarray
+                kzen    = perf.kzen
                 on_size = mcf.on_size[array]
                 offset  = mcf.offset[array]
                 # The on-region is on the GRB
@@ -541,14 +515,14 @@ class MonteCarlo():
                 on_ptg = SkyCoord(self.slot.grb.radec.ra + offset,
                                   self.slot.grb.radec.dec, frame="icrs")
 
-                with warnings.catch_warnings(): # because of t_trig
-                    warnings.filterwarnings("ignore")
-                    obs = Observation.create(obs_id   = aslice.idt(),
-                                             pointing = on_ptg,
-                                             livetime = dt,
-                                             irfs     = perf.irf,
-                                             deadtime_fraction = 0,
-                                             reference_time = tref)
+                # with warnings.catch_warnings(): # because of t_trig
+                #     warnings.filterwarnings("ignore")
+                obs = Observation.create(obs_id   = aslice.idt(),
+                                         pointing = on_ptg,
+                                         livetime = dt,
+                                         irfs     = perf.irf,
+                                         deadtime_fraction = 0,
+                                         reference_time = tref)
 
                 # Create dataset - correct for containment - add model
                 ds_name  = aslice.site()+"-"+str(aslice.idt())+"-"+str(ip)
@@ -576,7 +550,7 @@ class MonteCarlo():
                     
                 ds = maker.run(ds_empty, obs)
 
-                # Compute containmentfactor  
+                # Compute containment factor  
                 # The PSF being given versus true energy, using the reconstructed energy
                 # axis to compute the factor assumes that the reconstructed energy is
                 # strictly equals to the true energy, which is certainly not the case at
@@ -586,25 +560,26 @@ class MonteCarlo():
                                                            theta    = mcf.offset[array],
                                                            fraction = mcf.containment)[0]
                 factor  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[array]))
+                
                 # If factor is too large above threshold, error
                 idx = np.where((e_reco.center)[np.where(factor>1 )] >= mcf.erec_min[array][kzen])
-                if (np.size(idx)):
+                if np.size(idx):
                     # Get guilty energies
-
                     print(" E = ",e_reco.center[idx])
                     print(" R = ",radii[idx].value," max = ",
                                   mcf.on_size[array].value)
                     print(" F = ",factor[idx])
-                    #sys.exit("IRF : Initial region too small")
+                    sys.exit("{}.py: IRF, Initial region too small"
+                             .format(__name__))
 
                 # In Gammapy 0.17, it is mandatory to change the effective
-                # area before the mpdel is set, since once the model is set it
+                # area before the model is set, since once the model is set it
                 # cannot be changed anymore.
                 # This feature (bug) was discussed in Gammapy issue #3016 on
                 # Sept 2020.
 
                 # ds.exposure.data   *= mcf.containment
-                ds.exposure   *= mcf.containment
+                ds.exposure        *= mcf.containment
                 ds.background.data *= factor.value.reshape((-1, 1, 1))
                 ds.models           = model
                 mask = ds.mask_safe.geom.energy_mask(energy_min = mcf.erec_min[array][kzen],
@@ -619,95 +594,14 @@ class MonteCarlo():
 
         return np.asarray(dset_list)
 
-    ###------------------------------------------------------------------------
-    def fill_stat(self,sigma, non, noff):
-        """
-        Get the statistics and handle the exceptions of the current MC
-        simulation
-
-        Parameters
-        ----------
-        sigma : numpy array, float
-            One siginificance per time slice
-        nxs : numpy array, float
-            One excess count per time slice
-        nbck : numy array, float
-            One background counter per time slice
-
-        Returns
-        -------
-        None.
-
-        """
-
-        nb  = mcf.alpha*noff
-        nex  = non - nb
-        
-        ### Find maximum - cannot be a slice with non or noff below limit
-        sigmax = np.nanmax(sigma) # Returns Nan only if all are Nan
-        if np.isnan(sigmax):
-            print(" All sigma values are Nan !!! ")
-            maxidx = -1
-            sigmax = -999
-            nexmax = -1
-            nbmax  = -1
-        else:
-            maxidx = np.nanargmax(sigma) # If sigma is nan, it would be the max !
-            nexmax = nex[maxidx]
-            nbmax  = nb[maxidx]
-
-        self.id_smax_list.append(maxidx)
-        self.smax_list.append(sigmax)
-        self.nex_smax_list.append(nexmax)
-        self.nb_smax_list.append(nbmax)
-
-        # Find where 3 sigma is reached
-        nex_3s = -1
-        nb_3s  = -1
-        id_3s = np.where(sigma>=3)[0] # This ignore Nan values
-        if (np.size(id_3s) != 0):
-            id_3s  = id_3s[0] # First one
-            nex_3s = nex[id_3s]
-            nb_3s  = nb[id_3s]
-            self.id_3s_list.append(id_3s)
-            self.detect_3s += 1
-
-        self.nex_3s_list.append(nex_3s)
-        self.nb_3s_list.append(nb_3s)
-
-        # Find where 5 sigma is reached
-        nex_5s = -1
-        nb_5s  = -1
-        id_5s = np.where(sigma>=5)[0]  # This ignore Nan values
-        if (np.size(id_5s) != 0):
-            id_5s  = id_5s[0] # First one
-            nex_5s = nex[id_5s]
-            nb_5s  = nb[id_5s]
-            self.id_5s_list.append(id_5s)
-            self.detect_5s += 1
-
-        self.nex_5s_list.append(nex_5s)
-        self.nb_5s_list.append(nb_5s)
-
-        if (self.dbg>2):
-            print(" >>> t_smax = {:8.2f}, ({:5.2f} sigma at slice {:2d})"
-                  .format(self.slot.slices[maxidx].tobs(),
-                          sigma[maxidx],
-                          maxidx),end="")
-            if (np.size(id_3s) != 0):
-                print(" - 3s at t3s = {:8.2f} at slice {:2d})"
-                      .format(self.slot.slices[id_3s].tobs(),id_3s))
-            else:
-                print(" - 3s not reached")
-        return
-
+    
     ###------------------------------------------------------------------------
     def dump_slices(self, phase=None,**kwargs):
         """
         Print out the list of on and off counts and the corresponding
         Li & Ma value. If non and off are less than a minimum value
         return a True status flag for further actions.
-        This function ca nbe used to dump all slices (just changing the
+        This function can be used to dump all slices (just changing the
         nLiMamin value to a very large value)
 
         Parameters
@@ -728,8 +622,9 @@ class MonteCarlo():
 
         if phase== "open":
             # Open output file
-            name  = "/" + self.slot.grb.name+"-"+ self.slot.site+"_slices.txt"
-            name  = kwargs["dir"]+name
+            from pathlib import Path
+            name  = self.slot.grb.id+"-"+ self.slot.site+"_slices.txt"
+            name  = Path(Path(kwargs["dir"]),name)
             fslice  = open(name,"w")
 
             print("{:9s}".format("iMC / dt"),end="",file = fslice)
@@ -765,12 +660,10 @@ class MonteCarlo():
 
             # If an anomaly is found, the status become true, the file will
             # not be deleted, and the anomalous event is written out
-            if len(non[badon]) + len(noff[badoff]) :
-                status = True # will dump
-                self.err_slice += list(badon[0])+list(badoff[0])
-            else:
-                return False
+            if len(non[badon]) + len(noff[badoff]) : status = True
+            else: return False
 
+            # Dump
             for name in ["non", "noff","sigma"]:
                 d = eval(name)
                 print("{:3d} {:5s}".format(kwargs["iMC"],name),end="",
@@ -807,13 +700,166 @@ class MonteCarlo():
 
         print(" Saving simulation to file : {}".format(filename))
         return
-    
+
+
     ###------------------------------------------------------------------------
-    def plot(self, pdf=None):
+    def plot_onetrial(self, itrial):
+        """
         
-        # fig_sl = self.slot.plot()
-        import mcsim_plot as mplt
-        mplt.show(self,loc=self.slot.site,pdf=pdf)
+    
+        Parameters
+        ----------
+        self.dset_list : TYPE
+            DESCRIPTION.
+        slot : TYPE
+            DESCRIPTION.
+    
+        Returns
+        -------
+        None.
+    
+        """
+        import matplotlib.pyplot as plt
+        from gammapy.estimators import FluxPointsEstimator
+        import astropy.units as u
+    
+        # import sys
+        # sys.exit("{}.py: plot_onetrial to be reimplemented",__name__)
         
-        # if pdf!=None: pdf.savefig(fig_sl)
+        print(" One trial plots")
+
+        nplots = len(self.dset_list)
+        ncols  = 5
+        nrows  = int((nplots)/ncols)+1
+        
+    
+        # Predicted counts
+        fig, ax = plt.subplots(ncols=ncols,nrows=nrows,
+                               figsize=(20,5*nrows), sharey=True)
+        iplot = 0
+        import itertools
+        
+        for jrow, icol in itertools.product(range(nrows), range(ncols)):
+
+            if nplots !=1: ax0 = ax[jrow][icol] if (nrows>1) else ax[icol]
+            else: ax0=ax
+
+            if iplot<nplots:    
+                # self.dset_list[iplot].plot_counts(ax=ax0)
+                for ds in self.dset_list[iplot]:
+                    ds.npred().plot(ax=ax0, label=ds.name)
+                ax0.legend()
+            
+            if (jrow<nrows-1):
+                ax0.axes.get_xaxis().set_visible(False)
+            iplot+=1
+            
+        fig.suptitle("Trial "+str(itrial))
+        fig.tight_layout(h_pad=0)
+        plt.show()
+    
+        fig, ax = plt.subplots(ncols=ncols,nrows=nrows,figsize=(15,5*nrows))
+        iplot = 0
+        import itertools
+        
+        for jrow, icol in itertools.product(range(nrows), range(ncols)):
+
+            if nplots !=1: ax0 = ax[jrow][icol] if (nrows>1) else ax[icol]
+            else: ax0=ax
+                
+            if iplot<nplots: 
+                for ds in self.dset_list[iplot]:               
+                    slc = self.slot.slices[iplot]    
+                    e_true = slc.irf()[0].irf["aeff"].data.axes["energy_true"].edges
+                    fpe = FluxPointsEstimator(energy_edges=e_true)
+                    flux_points = fpe.run(datasets=ds)
+        #             flux_points.table["is_ul"] = flux_points.table["ts"] < 4
+        #             flux_points.plot(energy_power=2,
+        #                       flux_unit="erg-1 cm-2 s-1",
+        #                       color="tab:blue",ax=ax0)
+        #             spectrum = self.slot.grb.spectra[slc.fid()]
+        #             t = slc.tobs().to(u.s)
+        #             if (t.value > 3600):
+        #                 t = t.to(u.h)
+        #             if (t.value > 3600*24):
+        #                 t = t.to(u.day)
+        #             tobs = str( round(t.value,2)) + str(t.unit)
+        #             spectrum.plot(energy_range=dset.energy_range,
+        #                               flux_unit='cm-2 s-1 erg-1',
+        #                               energy_power=2,
+        #                               energy_unit='TeV',
+        #                               n_points=10,
+        #                               ax=ax0,ls=":",color="red",marker="",
+        #                               label=tobs)
+        #             ax0.legend()
+        #             if (jrow<nrows-1):
+        #                 ax0.axes.get_xaxis().set_visible(False)
+        #             iplot+=1
+        #             if (icol !=0): ax0.set_ylabel(None)
+        # fig.tight_layout(h_pad=0)
+        # plt.show()
+        
+        # for dset, slice in zip(self.dset_list, slot.slices):
+        #     fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols= 3, figsize=(16,5))
+    
+        #     # Extract spectrum
+        #     # flux_points.to_sed_type("e2dnde").plot_ts_profiles(ax=ax3,
+        #     #                                                    cmap="Blues",
+        #     #                                                    alpha=0.5)
+        #     spectrum = slot.grb.spectra[slice.fid()]
+        #     spectrum.plot(energy_range=dset.energy_range,
+        #                               flux_unit='cm-2 s-1 erg-1',
+        #                               energy_power=2,
+        #                               energy_unit='TeV',
+        #                               n_points=10,
+        #                               ax=ax3,ls=":",color="red",marker="",
+        #                               label="Theory")
+        #     ax3.legend()
+        
+ ### This seems very old       
+ #    @staticmethod
+ #    def plot(simu, target):
+ #        """Plot some simulation results"""
+ #
+ #        import matplotlib.pyplot as plt
+ #        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
+ #                                       figsize=(10, 5))
+ #
+ #        # Spectrum plot
+ #        energy_range = [0.01 * u.TeV, 100 * u.TeV]
+ #        target.model.plot(ax=ax1, energy_range=energy_range,
+ #                          label='Model')
+ #        plt.text(0.55, 0.65, target.__str__(),
+ #                 style='italic', transform=ax1.transAxes, fontsize=7,
+ #                 bbox={'facecolor': 'white', 'alpha': 1, 'pad': 10})
+ #        ax1.set_xlim([energy_range[0].value, energy_range[1].value])
+ #        ax1.set_ylim(1.e-17, 1.e-5)
+ #        ax1.grid(which='both')
+ #        ax1.legend(loc=0)
+ #
+ #        # Counts plot
+ #        on_off = simu.on_vector.data.data.value
+ #        off = 1. / simu.off_vector.backscal * simu.off_vector.data.data.value
+ #        excess = on_off - off
+ #        bins = simu.on_vector.energy.lo.value
+ #        x = simu.on_vector.energy.nodes.value
+ #        ax2.hist(x, bins=bins, weights=on_off,
+ #                 facecolor='blue', alpha=1, label='ON')
+ #        ax2.hist(x, bins=bins, weights=off,
+ #                 facecolor='green', alpha=1, label='OFF')
+ #        ax2.hist(x, bins=bins, weights=excess,
+ #                 facecolor='red', alpha=1, label='EXCESS')
+ #        ax2.legend(loc='best')
+ #        ax2.set_xscale('log')
+ #        ax2.set_xlabel('Energy [TeV]')
+ #        ax2.set_ylabel('Expected counts')
+ #        ax2.set_xlim([energy_range[0].value, energy_range[1].value])
+ #        ax2.set_ylim([0.0001, on_off.max() * (1 + 0.05)])
+ #        ax2.vlines(simu.lo_threshold.value, 0, 1.1 * on_off.max(),
+ #                   linestyles='dashed')
+ #        ax2.grid(which='both')
+ #        ax2.text(0.55, 0.05, simu.__str__(),
+ #                 style='italic', transform=ax2.transAxes, fontsize=7,
+ #                 bbox={'facecolor': 'white', 'alpha': 1, 'pad': 10})
+ #        plt.tight_layout()   
         return
