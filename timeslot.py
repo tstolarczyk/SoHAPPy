@@ -51,12 +51,12 @@ class Slot():
         5. In the end, "dress" the slot with the physical information
         (flux, energy and sky position boundaries).
 
-    The slot is then ready to be sent to the simulation Class.
+    The slot is then ready to be sent to the simulation and analysis Classes.
 
     """
     #------------------------------------------------------------
     def __init__(self,grb, name="naked",
-                 site="?",delay=-1*u.s,opt="end",debug=False):
+                 loc="?",delay=-1*u.s,opt="end",debug=False):
         """
         
         Create a naked observation slot consisting of a GRB, a visibility
@@ -86,8 +86,8 @@ class Slot():
         """
 
         self.grb   = grb
-        self.name  = grb.name
-        self.site  = site
+        self.name  = grb.id
+        self.loc  = loc
         self.delay = delay # Has so far no sense if merged sites
         self.opt   = opt
         self.tstart= np.NINF*u.h # Negative infinite
@@ -102,6 +102,7 @@ class Slot():
             slices.append(s)
 
         self.slices   = np.asarray(slices) # Works also it the list is already an array
+        
         return
 
     #------------------------------------------------------------
@@ -228,7 +229,7 @@ class Slot():
 
         """
 
-        self.site = site
+        self.loc = site
         unit = self.grb.tval[0].unit
 
         #------------------------------------------
@@ -253,7 +254,7 @@ class Slot():
         shift = True
         tstart =[]
         tstop = []
-        for tvis in self.grb.vis[self.site].t_true:
+        for tvis in self.grb.vis[self.loc].t_true:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 t0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
@@ -282,7 +283,7 @@ class Slot():
             t1 = ticks[i]
             t2 = ticks[i+1]
             if visible(0.5*(t1+t2)):
-                s  = Slice(idx,t1*unit,t2*unit,site=self.site)
+                s  = Slice(idx,t1*unit,t2*unit,site=self.loc)
                 idx+=1
                 newslices.append(s)
 
@@ -316,11 +317,11 @@ class Slot():
         """
 
        # Check that the slots are attributed to an authorised site keyword
-        if not (self.site in self.grb.site_keys and
-                slot.site in self.grb.site_keys) :
-            print("merge : site required -> ",self.grb.site_keys)
-            print("Slot unchanged")
-            return
+        # if not (self.loc in self.grb.site_keys and
+        #         slot.site in self.grb.site_keys) :
+        #     print("merge : site required -> ",self.grb.site_keys)
+        #     print("Slot unchanged")
+        #     return
 
         # Get the list of all slices edges
         ticks = []
@@ -343,9 +344,9 @@ class Slot():
             idxb = slot.find(tmid*unit)
             if (idxa >=0):
                 if (idxb >=0): loc = "Both"
-                else:          loc = self.site
+                else:          loc = self.loc
             else:
-                if (idxb >=0): loc = slot.site
+                if (idxb >=0): loc = slot.loc
                 else:          loc = None
             # Append only if associated to one or two sites
             if (loc != None):
@@ -359,7 +360,7 @@ class Slot():
         #self.dress(name="Merged")
         self.tstart = min(ticks)*unit
         self.tstop  = max(ticks)*unit
-        self.site   = "Both"
+        self.loc   = "Both"
         self.delay  = -1*u.s # Loose the delay information after merging
         return
 
@@ -459,13 +460,13 @@ class Slot():
         ### Visibility windows
         tref = self.grb.t_trig
 
-        if (self.site == "North" or self.site == "Both"):
+        if (self.loc == "North" or self.loc == "Both"):
             for elt in self.grb.vis["North"].t_true:
                 ax.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
                             alpha=0.2,color="tab:blue",label="vis. North")
 
-        if (self.site == "South" or self.site=="Both"):
+        if (self.loc == "South" or self.loc=="Both"):
             for elt in self.grb.vis["South"].t_true:
                 ax.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
@@ -476,7 +477,7 @@ class Slot():
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         ax.legend(by_label.values(), by_label.keys())
-        ax.set_title(self.grb.name + " - " + self.site + " - " + self.name)
+        ax.set_title(self.grb.name + " - " + self.loc + " - " + self.name)
 
         return fig
 
@@ -486,7 +487,7 @@ class Slot():
         Print our the content of a slice set.
         """
 
-        print(" Observation set : ",self.name," site=",self.site)
+        print(" Observation set : ",self.name," site=",self.loc)
         print("   Visibility : ",self.tstart," to ",self.tstop)
         print("    including : ",self.delay, "of delay")
         show_header = True
