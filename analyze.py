@@ -42,8 +42,7 @@ class Analysis():
               "abort"]
     
     ###------------------------------------------------------------------------
-    def __init__(self, slot, nstat=None, alpha=0., cl=0., 
-                             name=None, loc=None):
+    def __init__(self, slot, nstat=None, alpha=0., cl=0., loc=None):
         """
         Define the default instance.
         Note that the site can be obtained from the slot instance. But 
@@ -183,8 +182,6 @@ class Analysis():
         self.err    = -999  
         self.abort  = False # True if analysis was aborted 
         
-        return
-        
     ###------------------------------------------------------------------------
     def run(self):
         """
@@ -258,7 +255,6 @@ class Analysis():
         self.alt5s,self.ealt5s, \
         self.az5s, self.eaz5s  = self.mean_values(self.id_5s_list)
                 
-        return 
     ###------------------------------------------------------------------------
     def mean_values(self, idlist):
     
@@ -399,16 +395,16 @@ class Analysis():
     ###------------------------------------------------------------------------
     def summary(self,log=None):
 
-        print(" GRB {:<4} {:<s}".format(self.slot.grb.name[5:],self.slot.loc))
-        print("  z    = {:6.2f}".format(self.slot.grb.z))
-        print("  Eiso = {:6.2e}".format(self.slot.grb.Eiso))
-        print("  Detection")
-        print("   - Visible : {:6.2f} - {:4.2f}"
+        log.prt(" GRB {:<4} {:<s}".format(self.slot.grb.name[5:],self.slot.loc))
+        log.prt("  z    = {:6.2f}".format(self.slot.grb.z))
+        log.prt("  Eiso = {:6.2e}".format(self.slot.grb.Eiso))
+        log.prt("  Detection")
+        log.prt("   - Visible : {:6.2f} - {:4.2f}"
               .format(t_fmt(self.slot.tstart),t_fmt(self.slot.tstop)))
-        print("   - Slices  : {:d}".format(len(self.slot.slices)))
-        print("   - Delay   : {:6.2f} ".format(t_fmt(self.slot.delay),))
-        print("   - sigmax  : {:<6.2f} @ {:<6.2f}".format(self.sigmx(),self.tmx_mean()))
-        print("   - 5 sigma @ {:<6.2f}".format(self.t5s))
+        log.prt("   - Slices  : {:d}".format(len(self.slot.slices)))
+        log.prt("   - Delay   : {:6.2f} ".format(t_fmt(self.slot.delay),))
+        log.prt("   - sigmax  : {:<6.2f} @ {:<6.2f}".format(self.sigmx,self.tmx))
+        log.prt("   - 5 sigma @ {:<6.2f}".format(self.t5s))
 
         return
     ###------------------------------------------------------------------------
@@ -500,7 +496,7 @@ class Analysis():
 
         """
         
-        import astropy, numpy
+        import astropy
         
         ### ------------------------------------------------------------        
         def head_fmt(k, v):
@@ -508,7 +504,7 @@ class Analysis():
             if k=="radec" or k=='   ra   dec': return ">14s"
             if isinstance(v, str): return ">10s"
             if isinstance(v, int): return ">4s"
-            if isinstance(v, float) or isinstance(val,numpy.float32):
+            if isinstance(v, float) or isinstance(val,np.float32):
                 return ">10s"
             if isinstance(v, astropy.time.core.Time): return ">10s"
 
@@ -520,8 +516,8 @@ class Analysis():
             if isinstance(v, int): return ">4d"
             if isinstance(v, astropy.time.core.Time): return ">10.2f"
             if isinstance(v, float) or \
-               isinstance(v,numpy.float32) or \
-               isinstance(v,numpy.float64) :
+               isinstance(v,np.float32) or \
+               isinstance(v,np.float64) :
                 if v<1e9: return ">10.2f"
                 else: return ">10.2e"
             return ""
@@ -558,7 +554,8 @@ class Analysis():
                 # Pay attention to identical member names
                 if key in self.ignore or key in grb.ignore: 
                     continue      
-                # print(">>> ",key,": ",val," / ",values(val)," / ",val_fmt(key,values(val)))
+                if debug:
+                    print(f"> {key}: {val}, values(val) = {val_fmt(key,values(val))}")
                 print("{val:{fmt}}".format(val=values(val),
                                            fmt=val_fmt(key, values(val))),
                       end=" ",file=pop)
@@ -596,7 +593,7 @@ class Analysis():
         return
 
     ###----------------------------------------------------------------------------
-    def plot_sigma_vs_time(self, unit_def="s"):
+    def plot_sigma_vs_time(self):
         """
         
 
@@ -614,7 +611,6 @@ class Analysis():
         
         import matplotlib.pyplot as plt
         from astropy.visualization import quantity_support
-        from niceprint import t_fmt
             
         # If only one MC trial, no max significance distribution
         if self.nstat>1:
@@ -637,15 +633,13 @@ class Analysis():
     
             ### Mean significance at each slice
             ax1.errorbar(t_s, self.sigma_mean, yerr = self.sigma_std, fmt  ='o')
-            xmin, xmax = ax1.get_xlim()
-            ymin, ymax = ax1.get_ylim()
                 
             for t, sig, errs, c, tag  in zip(
                                 [tmax, t3s, t5s],
                                 [self.sigmx, 3, 5],
                                 [self.esigmx, 0, 0],
                                 [colmx, col3, col5],
-                                ["$\sigma_{max}$","$3\sigma$","$5\sigma$"]
+                                [r"$\sigma_{max}$",r"$3\sigma$",r"$5\sigma$"]
                                               ):
             #     if len(t)>0:
                 import matplotlib
@@ -662,12 +656,14 @@ class Analysis():
                                   fmt="o",color=c, label = tag)
                     ax1.set_xlabel('Observation duration ('+ax1.get_xlabel()+")")
 
+                xmin, xmax = ax1.get_xlim()
+                ymin, ymax = ax1.get_ylim()                
                 ax1.vlines(np.mean(t), ymin = ymin, ymax = self.sigmx,
                             alpha=0.5,ls=":",color=c)
-                ax1.hlines(sig, xmin=xmin,ls=":", xmax=np.mean(t),
+                ax1.hlines(sig, xmin=xmin,ls=":", xmax = np.mean(t),
                             alpha=0.5,color=c)
     
-            ax1.set_ylabel("Significance $\sigma$")
+            ax1.set_ylabel(r"Significance $\sigma$")
             ax1.legend()
     
             import matplotlib
@@ -681,15 +677,15 @@ class Analysis():
             
             # Sigma max distribution (if niter > 1)
             if (self.nstat >1):
-                n, bins,_ = ax2.hist(self.smax_list,
-                            bins  = max(int(self.nstat/2),1), # Cannot be < 1
-                            range = [self.sigmx -3*self.esigmx,
-                                     self.sigmx +3*self.esigmx],
-                            alpha=0.5,
-                            color = "grey",
-                            label = " {:5.1} $\pm$ {:5.1}"
-                            .format(self.sigmx,self.esigmx))
-                ax2.set_xlabel("$\sigma_{max}$")
+                ax2.hist(self.smax_list,
+                         bins  = max(int(self.nstat/2),1), # Cannot be < 1
+                         range = [self.sigmx -3*self.esigmx,
+                                  self.sigmx +3*self.esigmx],
+                         alpha=0.5,
+                         color = "grey",
+                         label = r" {:5.1} $\pm$ {:5.1}"
+                         .format(self.sigmx,self.esigmx))
+                ax2.set_xlabel(r"$\sigma_{max}$")
                 ax2.set_ylabel('Trials')
     
         plt.tight_layout()
@@ -712,7 +708,7 @@ class Analysis():
         nexlist = [self.nex_3s_list, self.nex_5s_list, self.nex_mx_list ]
         nblist  = [self.nb_3s_list,  self.nb_5s_list,  self.nb_mx_list]
         collist = [col3, col5, colmx]
-        taglist = ["$3\sigma$","$5\sigma$","$\sigma_{max}$"]
+        taglist = [r"$3\sigma$",r"$5\sigma$",r"$\sigma_{max}$"]
             
         for nex, nb, col, tag in zip(nexlist, nblist, collist, taglist):
     
@@ -758,7 +754,6 @@ class Analysis():
         """
         
         import matplotlib.pyplot as plt
-        import astropy.units as u
         from   astropy.coordinates   import AltAz
         from astropy.visualization import quantity_support
         import matplotlib.dates as mdates
@@ -863,7 +858,7 @@ class Analysis():
                          self.altmx.value,
                          xerr= self.etmx.to(u.s).value,
                          yerr= self.ealtmx.value,
-                         fmt='o',color=colmx, label="$\sigma_{max}$")
+                         fmt='o',color=colmx, label=r"$\sigma_{max}$")
             ax1.vlines(self.tmx.to(u.s).value + t_trig_rel.sec,
                        ymin=0, 
                        ymax=self.altmx.value,
@@ -881,7 +876,7 @@ class Analysis():
                              xerr = self.et3s.to(u.s).value,
                              yerr = self.ealt3s.value,
                              fmt='o',color=col3,
-                             label="$3\sigma$")
+                             label=r"$3\sigma$")
     
                 ax1.vlines(self.t3s.to(u.s).value + t_trig_rel.sec,
                            ymin=0,
@@ -899,7 +894,7 @@ class Analysis():
                              xerr=self.et5s.to(u.s).value,
                              yerr=self.ealt5s.value,
                              fmt='o',color=col5,
-                             label="$5\sigma$")
+                             label=r"$5\sigma$")
     
                 ax1.vlines(self.t5s.to(u.s).value + t_trig_rel.sec,
                            ymin=0,
