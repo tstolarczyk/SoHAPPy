@@ -5,14 +5,14 @@ Created on Mon Oct 17 09:56:58 2022
 @author: Stolar
 """
 import numpy as np
-import astropy.units as u
+import matplotlib.pyplot as plt
 
 ###----------------------------------------------------------------------------
 def MyLabel(var,label="",stat="std"):
     """
     A label for plots and histograms with statistics.
-    Add extra statistical information (counts, dispersions) to a classical 
-    matplotlib label. 
+    Add extra statistical information (counts, dispersions) to a classical
+    matplotlib label.
 
     Parameters
     ----------
@@ -21,22 +21,22 @@ def MyLabel(var,label="",stat="std"):
     label : String, optional
         The classical label text. The default is "".
     stat : String, optional
-        A keyword defining the extra information to be displayed (on top 
-        of counts) : "std" for standard deviation, "med" for median, None to 
+        A keyword defining the extra information to be displayed (on top
+        of counts) : "std" for standard deviation, "med" for median, None to
         have counts only. The default is "std".
 
     Returns
     -------
     legend : String
         The modfied label text.
-    
+
     """
-    
+
     if (len(label)!=0): label = label+"\n"
-    
+
     legend="bad option"
     if stat == None: return label + "$n$ : {:d}".format(len(var))
-    
+
     if stat.find("std") !=-1:
         legend = label  \
                 + "$n$ : {:d} \n".format(len(var)) \
@@ -53,9 +53,9 @@ def MyLabel(var,label="",stat="std"):
 ###----------------------------------------------------------------------------
 def single_legend(ax,**kwargs):
     """
-    Remove duplicated labels in legend (e.g. a vertical and an horizontal 
+    Remove duplicated labels in legend (e.g. a vertical and an horizontal
     lines defining and intersection havingthe same labels).
-    
+
     Parameters
     ----------
     ax : matplotlib.axes
@@ -70,16 +70,53 @@ def single_legend(ax,**kwargs):
     handles, labels = ax.get_legend_handles_labels()
     by_label = OrderedDict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(),**kwargs)
-    
+
     return
 
+###----------------------------------------------------------------------------
+def vals_legend(ax, vals=[5 , 10, 20, 50, 100, 500], alpha=0.5, var_max=1000, **kwargs):
+    """
+    Create a legend with colored circles form a list of values    
+
+    Parameters
+    ----------
+    ax : Matplotlib axes
+        Current axis.
+    vals: list of float
+        List of values in legend
+    alpha : float, optional
+        Alpha value. The default is 0.5.
+    var_max : float, optional
+        Maximal value. The default is 1000.
+    **kwargs : Dictionnary
+        Extra parameters.
+
+    Returns
+    -------
+    patches : legend elements
+        Legend associated to the current axis.
+
+    """
+
+    labels = [str(x) for x in vals]
+    # symbol = Line2D(range(1), range(1), color="white", marker='o', markerfacecolor="red")
+
+    colors, sizes = col_size(vals,var_max=var_max)
+    patches = [ plt.plot([],[], marker="o", alpha=alpha,
+                          ms = 7+sizes[i]/50,
+                          ls="", mec=None,
+                          color=colors[i],
+                          label="{:s}".format(labels[i]) )[0]  for i in range(len(labels)) ]
+    # ax.legend(title="$\sigma_{max}$",handles=patches,**kwargs)
+
+    return patches
 ###----------------------------------------------------------------------------
 def stamp(text, axis=None,
           where="right",x=None, y=None, rotation=0, **kwargs):
     """
     Annotation on the side of any plot referred from the axis, including
     the gammapy version.
-    
+
     Parameters
     ----------
     text : String
@@ -94,7 +131,7 @@ def stamp(text, axis=None,
         Text rotation - If not given use default. The default is None.
      axis : matplotlib.axes, optional
          Current plot axis. The default is None.
-    **kwargs : 
+    **kwargs :
         Any additionnal arguments for matplotlib.axes.text
 
     Returns
@@ -104,32 +141,32 @@ def stamp(text, axis=None,
 
     import gammapy
     text = text + " - " + gammapy.__version__
-    
+
     if x==None or y== None:
-        if   where =="right":  
+        if   where =="right":
             (x,y) = (  1, 0.5)
             rotation = 270
-        elif where =="left":   
+        elif where =="left":
             (x,y) = (  0, 0.5)
             rotation = 90
-        elif where =="top":    
+        elif where =="top":
             (x,y) = (0.5,   1)
             rotation = 0
-        elif where =="bottom": 
+        elif where =="bottom":
             (x,y) = (0.5,   0)
             rotation = 0
-    
+
     axis.text(x=x,y=y,s=text,
               horizontalalignment='center',
               verticalalignment="center",
               rotation=rotation)
     return
 ###----------------------------------------------------------------------------
-def projected_scatter(xsize=12, ysize=8, 
-                      left=0.1, width=0.7, bottom=0.1, height=0.7, 
+def projected_scatter(xsize=12, ysize=8,
+                      left=0.1, width=0.7, bottom=0.1, height=0.7,
                       spacing=0.02):
     """
-    Matplotlib template to display a scatter plot and the horizontal and 
+    Matplotlib template to display a scatter plot and the horizontal and
     vertical projections of the data. Adapted from :
     https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html#sphx-glr-gallery-lines-bars-and-markers-scatter-hist-py
 
@@ -163,7 +200,7 @@ def projected_scatter(xsize=12, ysize=8,
 
     """
     import matplotlib
-    
+
     rect_scatter = [left, bottom, width, height]
     rect_histx   = [left, bottom + height + spacing, width, 0.2]
     rect_histy   = [left + width + spacing, bottom, 0.2, height]
@@ -174,14 +211,14 @@ def projected_scatter(xsize=12, ysize=8,
     axv = fig.add_axes(rect_histy, sharey=ax)
 
     axh.tick_params(axis="x", labelbottom=False)
-    axv.tick_params(axis="y", labelleft=False)    
-    
+    axv.tick_params(axis="y", labelleft=False)
+
     return fig, ax, axh, axv
 
 ###----------------------------------------------------------------------------
 def ColorMap(threshold,maxval):
     """
-    Create a colormap based on a threshold and a maximal value 
+    Create a colormap based on a threshold and a maximal value
 
     Parameters
     ----------
@@ -196,7 +233,7 @@ def ColorMap(threshold,maxval):
         A matplotlib color map.
 
     """
-    
+
     import matplotlib.pyplot as plt
     import matplotlib.colors as mcolors
 
@@ -210,3 +247,14 @@ def ColorMap(threshold,maxval):
     mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
     return mymap
 
+###----------------------------------------------------------------------------
+def col_size(var,var_min=1.1,var_max = 1000):
+
+    import matplotlib.cm as cm
+    # Limit values in case they are not yet limited
+    var   = np.clip(var, var_min, None)
+
+    color = cm.cool(np.log10(var)/np.log10(var_max))
+    size  = 100*np.log10(var)**2
+
+    return color, size
