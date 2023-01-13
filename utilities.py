@@ -21,45 +21,46 @@ def pause():
 
     """
     import matplotlib.pyplot as plt
-    
+
     plt.show(block=True)
     return
 
 ###----------------------------------------------------------------------------
 def file_from_tar(folder=None, tarname=None, target=None):
     """
-    
+
 
     Parameters
     ----------
     folder : string, optional
         The folder to scan. The default is "None".
     tarname : string, optional
-        The archive name in case more than one in the folder. 
+        The archive name in case more than one in the folder.
         The default is None.
     target : string, optional
-        The file to be found in the archive, or a file name with the same 
+        The file to be found in the archive, or a file name with the same
         extension. The default is None.
 
     Returns
     -------
     A pointer to a file in memory
 
-    """    
-    
+    """
+
     import tarfile
     from pathlib import Path
-    
+
     tag = "file_from_tar: "
-    
+
     ### ------------------------
     ### Get archive file name
     ### ------------------------
-    if folder == None: sys.exit("{} Folder not found".format(tag))
-    
-    if target == None: 
+    if not Path(folder).is_dir():
+        sys.exit("{} Folder not found".format(tag))
+
+    if target == None:
         sys.exit("{} Specify a target in the archive".format(tag))
-    
+
     if tarname == None:
         # Find the archive in the folder
         p = Path(folder).glob('*.tar.gz')
@@ -69,39 +70,39 @@ def file_from_tar(folder=None, tarname=None, target=None):
                      .format(tag))
         else:
             tarname = files[0]
-    print("{} found {}".format(tag,tarname))    
+    print("{} found {}".format(tag,tarname))
 
     ### ------------------------
     ### Open tar file, get members, check data.txt exists
     ### ------------------------
     tar = tarfile.open(tarname, "r:gz")
-        
+
     # If the target is not found explicitely, tires a file with same extension
     if not target in [member.name for member in tar.getmembers()]:
-        
+
         print("{} No {} in archive. Tries with extension"
               .format(tag, target))
-        
+
         # find members with correct extension
         extmatch = \
             [(m.name if Path(m.name).suffix==Path(target).suffix else None) \
              for m in tar.getmembers()]
         extmatch = list(filter(None,extmatch)) # Remove None
-    
-        if len(extmatch)>1: 
+
+        if len(extmatch)>1:
             sys.exit("{} More than one file matching in archive (try largest?)"
                      .format(tag))
-        elif len(extmatch)==0: 
+        elif len(extmatch)==0:
             sys.exit("{} No file matching extension in the archive"
                      .format(tag))
-        else: 
+        else:
             print("{} {} matches {}".format(tag, extmatch[0],target))
             target = extmatch[0]
-    
+
     # At this stage, ether the target was found or deduced from the extension
     print("{} A file matching {} was found".format(tag,target))
-    datafile = tar.extractfile(target)       
-            
+    datafile = tar.extractfile(target)
+
     return datafile
 
 
@@ -149,6 +150,6 @@ def backup_file(filename,folder=None, dbg=False):
     shutil.copy(filename, output_file)
     if (dbg): print("   ----",filename," copied to ",output_file())
 
-    return 
+    return
 
 
