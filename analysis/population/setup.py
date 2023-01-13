@@ -5,11 +5,9 @@ col_s = "tab:red"
 col_b = "tab:purple"
 col_3 = "tab:orange"
 col_5 = "tab:green"
-dtpop = 44 # Populatin equivalent tie in years
-
 import sys
-codefolder = "../../" 
-sys.path.append(codefolder) 
+codefolder = "../../"
+sys.path.append(codefolder)
 # print(sys.path)
 
 
