@@ -603,7 +603,7 @@ class Visibility():
             t_dawn = obs.twilight_morning_astronomical(t_dusk,
                                                         which = "next",
                                                         n_grid_points = npt)
-            if (inight >= skip):
+            if (inight >= self.skip):
                 tnights.append([t_dusk.jd, t_dawn.jd])
             
             inight +=1
