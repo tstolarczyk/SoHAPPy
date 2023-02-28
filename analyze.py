@@ -478,7 +478,7 @@ class Analysis():
         return   
 
     ###------------------------------------------------------------------------
-    def dump_to_file(self, grb, pop,header=False, debug=False):
+    def dump_to_file(self, grb, pop, header=False, debug=False):
         """
         
 
@@ -499,14 +499,18 @@ class Analysis():
         import astropy
         
         ### ------------------------------------------------------------        
-        def head_fmt(k, v):
-            if k=="name": return ">10s"
-            if k=="radec" or k=='   ra   dec': return ">14s"
-            if isinstance(v, str): return ">10s"
-            if isinstance(v, int): return ">4s"
-            if isinstance(v, float) or isinstance(val,np.float32):
+        def head_fmt(kh, vh):
+            if kh =="name": return ">10s"
+            if kh =="radec" or kh=='   ra   dec': return ">14s"
+            if isinstance(vh, str): return ">10s"
+            if isinstance(vh, int): return ">4s"
+            if isinstance(vh, float) or \
+               isinstance(vh,np.float32) or \
+               isinstance(vh,np.float64) :
                 return ">10s"
-            if isinstance(v, astropy.time.core.Time): return ">10s"
+            if isinstance(vh, astropy.time.core.Time) \
+            or isinstance(vh, astropy.units.quantity.Quantity): 
+                return ">10s"
 
             return ""
         def val_fmt(k,v):
@@ -518,19 +522,19 @@ class Analysis():
             if isinstance(v, float) or \
                isinstance(v,np.float32) or \
                isinstance(v,np.float64) :
-                if v<1e9: return ">10.2f"
+                if abs(v)<1e9: return ">10.2f"
                 else: return ">10.2e"
             return ""
         
-        def values(v):
-            if isinstance(v, astropy.coordinates.sky_coordinate.SkyCoord): 
-                v = [ y for y in [v.ra.value, v.dec.value]]
-                return "{:>6.2f} {:>6.2f}".format(v[0],v[1])
-            if isinstance(v, astropy.units.quantity.Quantity): 
-                return v.value         
-            if isinstance(v, astropy.time.core.Time): 
-                return v.jd  
-            return v
+        def values(var):
+            if isinstance(var, astropy.coordinates.sky_coordinate.SkyCoord): 
+                var = [ y for y in [var.ra.value, var.dec.value]]
+                return "{:>6.2f} {:>6.2f}".format(var[0],var[1])
+            if isinstance(var, astropy.units.quantity.Quantity): 
+                return var.value         
+            if isinstance(var, astropy.time.core.Time): 
+                return var.mjd
+            return var
 
         ### ------------------------------------------------------------
         
@@ -543,9 +547,10 @@ class Analysis():
                     if key in self.ignore or key in grb.ignore: 
                         continue                
                     if key=="radec": key="{:>5s} {:>5s}".format("ra","dec")
+                    if debug:
+                        print(f"> {key}: {val} -> {values(val)} head_fmt(val) = {head_fmt(key,values(val))}")
                     print("{val:{fmt}}".format(val=key,fmt=head_fmt(key,values(val))),
-                      end=" ",file=pop)    
-
+                                            end=" ",file=pop)    
             print("",file=pop)
 
         # Table data
@@ -558,8 +563,7 @@ class Analysis():
                     print(f"> {key}: {val}, values(val) = {val_fmt(key,values(val))}")
                 print("{val:{fmt}}".format(val=values(val),
                                            fmt=val_fmt(key, values(val))),
-                      end=" ",file=pop)
-            
+                      end=" ",file=pop)           
         print("",file=pop)
 
         return False    
