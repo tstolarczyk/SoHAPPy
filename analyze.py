@@ -515,7 +515,7 @@ class Analysis():
             return ""
         def val_fmt(k,v):
             if k=="name": return ">10s"
-            if k=="radec" or k=='   ra   dec': return ">14s"
+            if k=="radec" or k=='   ra   dec': return ">13s"
             if isinstance(v, str): return ">10s"
             if isinstance(v, int): return ">4d"
             if isinstance(v, astropy.time.core.Time): return ">10.2f"
@@ -546,7 +546,7 @@ class Analysis():
                     # Pay attention to identical member names
                     if key in self.ignore or key in grb.ignore: 
                         continue                
-                    if key=="radec": key="{:>5s} {:>5s}".format("ra","dec")
+                    if key=="radec": key="{:>6s} {:>6s}".format("ra","dec")
                     if debug:
                         print(f"> {key}: {val} -> {values(val)} head_fmt(val) = {head_fmt(key,values(val))}")
                     print("{val:{fmt}}".format(val=key,fmt=head_fmt(key,values(val))),
