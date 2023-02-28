@@ -161,15 +161,16 @@ class GammaRayBurst(object):
         self.z        = 0
 
         # GRB properties - Dummy default values
-        self.radec = SkyCoord(ra=100*u.deg, dec= -15*u.deg, frame="icrs")
-        self.Eiso  = 0.*u.erg
-        self.Epeak = 0.*u.keV
-        self.t90   = 0.*u.s
-        self.G0H   = 0.*u.dimensionless_unscaled
-        self.G0W   = 0.*u.dimensionless_unscaled
-        self.Fpeak = 0.*u.erg
-        self.gamle = 0.*u.dimensionless_unscaled
-        self.gamhe = 0.*u.dimensionless_unscaled
+        self.radec     = SkyCoord(ra=100*u.deg, dec= -15*u.deg, frame="icrs")
+        self.Eiso      = 0.*u.erg
+        self.Epeak     = 0.*u.keV
+        self.t90       = 0.*u.s
+        self.G0H       = 0.*u.dimensionless_unscaled
+        self.G0W       = 0.*u.dimensionless_unscaled
+        self.Fpeak     = 0.*u.erg
+        self.Fpeak_GBM = 0.*u.erg
+        self.gamle     = 0.*u.dimensionless_unscaled
+        self.gamhe     = 0.*u.dimensionless_unscaled
 
         # GRB alert received
         self.t_trig   = Time('2000-01-01T02:00:00', scale='utc')
@@ -397,25 +398,52 @@ class GammaRayBurst(object):
 
         cls.filename = filename
         cls.z    = hdr['Z']
+        
         # Remove all extensions
         cls.id = str(filename.name).rstrip(''.join(filename.suffixes))
 
         cls.radec    = SkyCoord(ra = hdr['RA']*u.deg, dec = hdr['DEC']*u.deg,
                                 frame="icrs")
         cls.Eiso     = hdr['EISO']*u.erg
+        if "LISO" in keys_0:
+            cls.Liso = hdr["LISO"]*u.Unit("erg/s") # New large prod. files
+        else:
+            cls.Liso = 0*u.Unit("erg/s")          
         cls.Epeak    = hdr['EPEAK']*u.keV
         cls.t90      = hdr['Duration']*u.s
         cls.G0H      = hdr['G0H']
         if "G0W" in keys_0: # Not in SHORTFITS
             cls.G0W      = hdr['G0W']
-        cls.Fpeak = hdr['PHFLUX']*u.Unit("ph.cm-2.s-1")
+        if "PHFLUX" in keys_0:
+            cls.Fpeak = hdr['PHFLUX']*u.Unit("cm-2.s-1")
+        elif "PHFX" in keys_0:
+            cls.Fpeak = hdr['PHFX']*u.Unit("cm-2.s-1")
+            
         cls.gamle = hdr['LOWSP']
         cls.gamhe = hdr['HIGHSP']
-
-        # GRB trigger time
-        if dt_abs:
-            cls.t_trig = Time(dt*u.day,format="jd",scale="utc")
+        
+        if "PHFX_GBM" in keys_0:
+            cls.Fpeak_GBM = hdr['PHFX_GBM']*u.Unit("cm-2.s-1")
         else:
+            cls.Fpeak_GBM = 0*u.Unit("cm-2.s-1")
+            
+        ###--------------------------
+        ### GRB trigger time
+        ###--------------------------
+        # If the input file does not contain a trigger date, then set a date
+        # by default. It is very likely that this source belongs to a 
+        # for which a list of explosion (trigger) times should be generated.
+
+        if dt_abs:
+            cls.t_trig = Time(dt*u.day,format="mjd",scale="utc")
+        else:
+            # If the input file does not contain a trigger date, then  
+            # the date remains the default set in the _init_ function.
+            # In that case, it is very likely that this source belongs to a 
+            # population for which a list of explosion (trigger) times should 
+            # be generated.
+            # Note that the date are supposed JD encoded wheras in SoHAPPY
+            # MJD will be used.
             if "GRBJD" in keys_0: # Not in SHORTFITS
                 cls.t_trig = Time(hdr['GRBJD']*u.day + dt*u.day,
                                   format="jd",scale="utc")
@@ -443,8 +471,9 @@ class GammaRayBurst(object):
         ###--------------------------
         ### Afterglow Energies - Limited to Emax if defined
         ###--------------------------
-        k = "Energies (afterglow)"
-        cls.Eval  = Table.read(hdul[k])[k].quantity
+        tab_key = "Energies (afterglow)"
+        col_key = Table.read(hdul[tab_key]).colnames[0]
+        cls.Eval  = Table.read(hdul[tab_key])[col_key].quantity
         cls.Eval = np.array(cls.Eval)*cls.Eval[0].unit
         if Emax!=None and Emax<=cls.Eval[-1]:
             warning(" Data up to {:5.3f} restricted to {:5.3f}"
@@ -461,7 +490,9 @@ class GammaRayBurst(object):
         else:
             flux = QTable.read(hdul["SPECTRA (AFTERGLOW)"])
 
-        flux_unit    = u.Unit(flux.meta["UNITS"])/u.Unit("ph") # Removes ph
+        flux_unit    = u.Unit(flux.meta["UNITS"])
+        if str(flux_unit).find("ph") > -1:
+            flux_unit = flux_unit/u.Unit("ph") # Removes ph
 
         # Store the flux. Note the transposition
         itmax = len(cls.tval)-1
@@ -949,31 +980,32 @@ class GammaRayBurst(object):
         .format(self.id)
         txt += "==================================================================\n"
         if self.filename != None:
-            txt += '  Read from     : {}\n'.format(self.filename)
-        txt += '  RA, DEC       : {:6.2f} {:6.2f}\n' \
+            txt += '  Read from      : {}\n'.format(self.filename)
+        txt += '  RA, DEC        : {:6.2f} {:6.2f}\n' \
             .format(self.radec.ra.value, self.radec.dec.value)
-        txt += '  Redshift      : {:6.2f}\n'.format(self.z)
-        txt += '  Eiso          : {:6.2e}\n'.format(self.Eiso)
-        txt += '  Epeak         : {:6.2f}\n'.format(self.Epeak)
-        txt += '  t90           : {:6.2f}\n'.format(self.t90)
-        txt += '  G0H / G0W     : {:6.2f} / {:6.2f}\n' \
+        txt += '  Redshift       : {:6.2f}\n'.format(self.z)
+        txt += '  Eiso           : {:6.2e}\n'.format(self.Eiso)
+        txt += '  Epeak          : {:6.2f}\n'.format(self.Epeak)
+        txt += '  t90            : {:6.2f}\n'.format(self.t90)
+        txt += '  G0H / G0W      : {:6.2f} / {:6.2f}\n' \
         .format(self.G0H,self.G0W)
-        txt += '  Flux peak     : {:6.2f}\n'.format(self.Fpeak)
+        txt += '  Flux peak      : {:6.2f}\n'.format(self.Fpeak)
+        txt += '  Flux peak (GBM): {:6.2f}\n'.format(self.Fpeak_GBM)
         txt += '  gamma LE / HE : {:6.2f} / {:6.2f}\n' \
         .format(self.gamle,self.gamhe)
 
-        txt += '  t_trig        : {}\n'.format(Time(self.t_trig,format="iso"))
-        txt += '  Duration      : {:6.2f} {:10.2f}\n' \
+        txt += '  t_trig         : {}\n'.format(Time(self.t_trig,format="iso"))
+        txt += '  Duration       : {:6.2f} {:10.2f}\n' \
             .format( (self.tval[-1]-self.tval[0]).to(u.d),
                      (self.tval[-1]-self.tval[0]).to(u.s))
         # txt += '  Bins : E, t, dt    : {:4d} {:4d} {:4d} \n' \
         # .format(len(self.Eval), len(self.tval), len(self.time_interval))
-        txt += '  Bins : E, t   : {:4d} {:4d} \n' \
+        txt += '  Bins : E, t    : {:4d} {:4d} \n' \
         .format(len(self.Eval), len(self.tval))
         if self.prompt:
-            txt += ' Prompt component : \n'
-            txt += '  Up to slice   : {:3d}\n'.format(self.id90)
-            txt += "  Bins : E      : {:3d}\n".format(len(self.E_prompt))
+            txt += ' Prompt component  : \n'
+            txt += '  Up to slice    : {:3d}\n'.format(self.id90)
+            txt += "  Bins : E       : {:3d}\n".format(len(self.E_prompt))
         else:
             txt += ' Prompt component not considered\n'
         if self.vis == None:
@@ -1251,9 +1283,19 @@ class GammaRayBurst(object):
                          s= "$t_{90}$="+str(round(self.t90.value,1)*self.t90.unit),
                          rotation=0, fontsize=14)
             else:
-                ax.axvline(30*u.s,color="black", ls="--", alpha=0.8)
-                ax.text(x=30*u.s, y=1.2*ymin, s="30 s",rotation=0, fontsize=14)
-
+                ax.axvline(30*u.s,color="black", ls="--", alpha=0.5)
+                ax.text(x=35*u.s, y=1.25*ymin, s="30 s",
+                        rotation=0, fontsize=14)
+                
+                if max(self.tval) >= 1*u.d:
+                    ax.axvline(1*u.d,color="black", ls="--", alpha=0.5)
+                    ax.text(x=1.05*u.d, y=1.25*ymin, s="1 d",
+                            rotation=0, fontsize=14)
+                
+                if max(self.tval) >= 2*u.d:
+                    ax.axvline(2*u.d,color="black", ls="--", alpha=0.5)
+                    ax.text(x=2.05*u.d, y=1.25*ymin, s="2 d",
+                            rotation=0, fontsize=14)
         ax.set_xlabel("Time (s)")
         title = "{}: {:>2d} E points".format(self.id,len(self.Eval))
         ax.set_title(title,fontsize=12)
@@ -1276,8 +1318,6 @@ class GammaRayBurst(object):
 
         Parameters
         ----------
-        grb : GammaRayBurst instance
-              A self.
         n_E_2disp : integer, optional
             Number of curves to show in energy spectra. The default is 5.
         ymin : float, optional
@@ -1344,7 +1384,7 @@ class GammaRayBurst(object):
                         self.Eval**eindex*flux,
                         ls='--', lw=1., marker=".", alpha=0.5, color=c)
 
-            #Plot the rest faded out
+            # Plot the rest faded out
             for i in range(0,nspectra):
                 t = self.tval[i]
                 self.models[i].spectral_model.plot([min(self.Eval),max(self.Eval)],ax,
@@ -1501,7 +1541,7 @@ class GammaRayBurst(object):
         ax = plt.gca() if ax is None else ax
 
         ### Altitude sampling for plots - absolute time
-        altaz = self.radec.transform_to(AltAz(obstime  = Time(times,format="jd"),
+        altaz = self.radec.transform_to(AltAz(obstime  = Time(times,format="mjd"),
                                                location = site))
 
         ### Change time reference if requested
@@ -1518,7 +1558,7 @@ class GammaRayBurst(object):
 
         flux = [g.spectral_model(Eref).value \
                 for g in self.models]*self.models[0].spectral_model(Eref).unit
-        axx.plot((Time(self.t_trig,format="jd") + self.tval -tshift).datetime,
+        axx.plot((Time(self.t_trig,format="mjd") + self.tval -tshift).datetime,
                   flux,
                   marker=".",
                   ls = "--",
@@ -1530,14 +1570,14 @@ class GammaRayBurst(object):
 
 
         ### Trigger (dot and vertical line)
-        alttrig = self.radec.transform_to(AltAz(obstime  = Time(self.t_trig,format="jd"),
+        alttrig = self.radec.transform_to(AltAz(obstime  = Time(self.t_trig,format="mjd"),
                                            location = site)).alt.value
         ax.plot(tref.datetime,alttrig,label="Trigger",marker="o",markersize=10,
                 color="tab:orange")
         ax.axvline(tref.datetime,ls=":",color="tab:orange")
 
         ### Trigger + 1 day (dot and vertical line)
-        altend = self.radec.transform_to(AltAz(obstime  = Time(self.t_trig,format="jd") + 1*u.day,
+        altend = self.radec.transform_to(AltAz(obstime  = Time(self.t_trig,format="mjd") + 1*u.day,
                                           location = site)).alt.value
         ax.plot((tref+1*u.day).datetime,altend,
                 label="Trigger + 1 day",marker="o",markersize=10,color="black")
@@ -1623,7 +1663,7 @@ if __name__ == "__main__":
 
     import configuration
 
-    infolder  = "D:/CTAA/SoHAPPy/input/"
+    infolder  = "D:/CTA/CTAA/SoHAPPy/input/"
     save_grb = False
 
     ###---------------------------
@@ -1670,7 +1710,7 @@ if __name__ == "__main__":
     # Read from a binary
     if case==3: cf.visibility = "visibility/long/vis_24_strictmoonveto"
 
-    visinfo = cf.decode_keyword()
+    visinfo = cf.decode_visibility_keyword()
 
     ###---------------------------
     ### Loop over sources
