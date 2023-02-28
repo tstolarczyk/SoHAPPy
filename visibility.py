@@ -37,7 +37,7 @@ def Df(x):
     """
     Returns a time in Julian day format if the argument is finite
     """
-    if math.isfinite(x): return Time(x,format="jd")
+    if math.isfinite(x): return Time(x,format="mjd")
     else: return x
     
 ###------------------------------------------------------------------------
@@ -95,7 +95,7 @@ def object_to_serializable(obj):
         return {k:v for k,v in obj.__dict__.items() 
                 if k not in Visibility.ignore}
     
-    if isinstance(obj, Time): return obj.jd
+    if isinstance(obj, Time): return obj.mjd
     if isinstance(obj, FixedTarget): 
         return (str(u.Quantity(obj.ra)), 
                 str(u.Quantity(obj.dec)) )  
@@ -106,7 +106,7 @@ def object_to_serializable(obj):
     return
                 
 ###----------------------------------------------------------------------------
-def params_from_key(keyword, parfile=def_vis_dicts, debug=False):
+def params_from_key(keyword, parfile = def_vis_dicts, debug=False):
     """
     Get the parameters to compute the visibility from the exisiting 
     dictionnaries.
@@ -129,10 +129,10 @@ def params_from_key(keyword, parfile=def_vis_dicts, debug=False):
     
     import yaml
     from yaml import SafeLoader
-        
+    
     try:
-        with open(def_vis_dicts) as f:
-            visdict  = yaml.load(f, Loader=SafeLoader)
+        with open(Path(Path(__file__).parent, def_vis_dicts)) as file:
+            visdict  = yaml.load(file, Loader=SafeLoader)
             if keyword in visdict.keys(): 
                 
                 if debug:
@@ -206,19 +206,21 @@ class Visibility():
                        window =[ 0,0], 
                        status = "Empty", name="Dummy"):
         """
-        Visibility constructor, setting a full visibility of the GRB, from the
-        start to the stop of the GRB data. 
-        The members follow the elements of the original default visibility 
-        files. 
+        
 
         Parameters
         ----------
-        grb : GammaRayBurst instance
-            The object to which the visibility will be attached
-        loc : String
-            Site (North or South)
-        observatory: String
-            The simulated observatory. default is "CTA".
+        pos : TYPE, optional
+            DESCRIPTION. The default is SkyCoord(0*u.deg,0*u.deg, frame='icrs').
+        site : TYPE, optional
+            DESCRIPTION. The default is None.
+        window : TYPE, optional
+            DESCRIPTION. The default is [ 0,0].
+        status : TYPE, optional
+            DESCRIPTION. The default is "Empty".
+        name : TYPE, optional
+            DESCRIPTION. The default is "Dummy".
+
         Returns
         -------
         None.
@@ -288,7 +290,7 @@ class Visibility():
     ###-----------------------------------------------------------------------
     def compute(self, param       = None,
                       npt         = 150,
-                      debug       = True):
+                      debug       = False):
         """
         
         Compute the visibility periods for a given GRB and site. This constructor 
@@ -396,13 +398,13 @@ class Visibility():
         ###---------------------
         
         # First tick is the start of data
-        ticks = [self.tstart.jd]
+        ticks = [self.tstart.mjd]
 
         # Restrict the windows to the last night end or the GRB data length
         if self.tstop < Df(t_night[-1][1]):
             # The GRB data stop before the end of last night
             # print(" >>>> Analysis shortened by lack of data")
-            ticks.extend([self.tstop.jd])
+            ticks.extend([self.tstop.mjd])
         else:
             # Set the end at last night for convenience
             self.tstop = Df(t_night[-1][1])
@@ -413,7 +415,7 @@ class Visibility():
         for elt in t_moon_veto   : ticks.extend(elt)
 
         # Sort in time
-        ticks.sort() # Requires numerical values -> all times are in jd
+        ticks.sort() # Requires numerical values -> all times are in mjd
 
         if (debug):
             print("Ticks : ",len(ticks))
@@ -437,7 +439,7 @@ class Visibility():
             # authorised or forbidden window
             
             # The GRB shines (in the limit of the available data
-            bright   = valid(tmid,[[self.tstart.jd,self.tstop.jd]])
+            bright   = valid(tmid,[[self.tstart.mjd,self.tstop.mjd]])
             
             # It is night
             dark     = valid(tmid,t_night)
@@ -508,7 +510,7 @@ class Visibility():
             
             # In this first window the prompt is visible  
             # Note that tstart is considered to be grb.t_trig
-            if  valid(self.tstart.jd,[t_vis[0]]):
+            if  valid(self.tstart.mjd,[t_vis[0]]):
                 self.vis_prompt=True
             
             # Store definitively the visibility windows
@@ -593,7 +595,7 @@ class Visibility():
                                                     n_grid_points = npt)
         # Omit first night if requested
         inight = 1 # night counter
-        if self.skip == 0: tnights.append([t_dusk.jd, t_dawn.jd])
+        if self.skip == 0: tnights.append([t_dusk.mjd, t_dawn.mjd])
 
         # Add subsequent nights until reaching the end of GRB data
         while (t_dusk < self.tstop) and (inight < self.depth):
@@ -604,7 +606,7 @@ class Visibility():
                                                         which = "next",
                                                         n_grid_points = npt)
             if (inight >= self.skip):
-                tnights.append([t_dusk.jd, t_dawn.jd])
+                tnights.append([t_dusk.mjd, t_dawn.mjd])
             
             inight +=1
 
@@ -615,7 +617,7 @@ class Visibility():
         # t_dusk0 = obs.twilight_evening_astronomical(t_dawn0,
         #                                             which="previous",
         #                                             n_grid_points = npt)
-        # tnights.append([t_dusk0.jd, t_dawn0.jd])
+        # tnights.append([t_dusk0.mjd, t_dawn0.mjd])
         if len(tnights) ==0:
             import sys
             sys.exit("No night found, please check your input parameters")
@@ -660,10 +662,10 @@ class Visibility():
 
         # If rise time is undefined, this means that the GRB is always above
         # or below the horizon - Otherwise the set time can be found.
-        if (math.isnan(t_rise.jd)):
+        if (math.isnan(t_rise.mjd)):
             if (high):
                 self.vis = True
-                return high, [[self.tstart.jd,self.tstop.jd]]
+                return high, [[self.tstart.mjd,self.tstop.mjd]]
             else:
                 self.vis = False
                 return high, [[]]
@@ -675,7 +677,7 @@ class Visibility():
                                         horizon = self.altmin,
                                         n_grid_points = npt)
 
-            t_above.append([t_rise.jd,t_set.jd])
+            t_above.append([t_rise.mjd,t_set.mjd])
 
 
             # Add a subsequent above-horizon periods until GRB end of data
@@ -690,7 +692,7 @@ class Visibility():
                                             which="next",
                                             horizon = self.altmin,
                                             n_grid_points = npt)
-                t_above.append([t_rise.jd,t_set.jd])
+                t_above.append([t_rise.mjd,t_set.mjd])
 
         return (high, t_above)
     ###-----------------------------------------------------------------------
@@ -785,7 +787,7 @@ class Visibility():
         t_rise = obs.moon_rise_time(self.tstart,
                                     which = search, horizon=self.moon_maxalt,
                                     n_grid_points = npt)
-        if (math.isnan(t_rise.jd)):
+        if (math.isnan(t_rise.mjd)):
             # Moon will never rise
             print(" >>>>> Moon will never rise above ",self.moon_maxalt)
             return [[]] # No veto period
@@ -794,10 +796,10 @@ class Visibility():
                                    which="next", horizon=self.moon_maxalt,
                                    n_grid_points = npt)
 
-        tmoons.append([t_rise.jd, t_set.jd])
+        tmoons.append([t_rise.mjd, t_set.mjd])
 
         # Add subsequent nights until reaching the end of GRB data
-        while (t_set.jd < self.tstop.jd):
+        while (t_set.mjd < self.tstop.mjd):
             t_rise = obs.moon_rise_time(t_set,
                                         which = "next", horizon=self.moon_maxalt,
                                         n_grid_points = npt)
@@ -805,7 +807,7 @@ class Visibility():
                                        which = "next",  horizon=self.moon_maxalt,
                                        n_grid_points = npt)
 
-            tmoons.append([t_rise.jd, t_set.jd])
+            tmoons.append([t_rise.mjd, t_set.mjd])
 
         if len(tmoons): return tmoons
         else: return [[]]
@@ -850,14 +852,14 @@ class Visibility():
         
         cls = Visibility(pos    = grb.radec, 
                          site   = obs.xyz["CTA"][loc], 
-                         window =[grb.tstart, grb.tstop],
+                         window = [grb.tstart, grb.tstop],
                          name   = grb.name+"_"+loc)  
 
         vis = Table.read(hdul,hdu=hdu)
         cls.status = "built-in"
 
         def f(t,loc):
-            t = Time(t.data,format="jd",scale="utc")
+            t = Time(t.data,format="mjd",scale="utc")
             if (loc == "North"): return [ [ t[0:2][0], t[0:2][1] ] ]
             if (loc == "South"): return [ [ t[2:4][0], t[2:4][1] ] ]
 
@@ -907,7 +909,7 @@ class Visibility():
             cls.__dict__[key] = u.Quantity(d[key])
            
         for key in ["tstart","tstop","t_true","t_twilight","t_event","t_moon_up"]:
-            cls.__dict__[key] = Time(d[key],format="jd")
+            cls.__dict__[key] = Time(d[key],format="mjd")
     
         return cls
     ###-----------------------------------------------------------------------
