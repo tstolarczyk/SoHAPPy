@@ -26,6 +26,61 @@ def pause():
     return
 
 ###----------------------------------------------------------------------------
+def subset_ids(nmax, nsets, debug=False):
+    """
+    This is a simple code defining nsets interval for a list of integer
+    starting at 1 up to nmax. If nmax is not divisible by nsets, the rest 
+    gives and extra set.
+
+    Parameters
+    ----------
+    nmax : integer
+        Maximal nubmer.
+    nsets : integer
+        Number of sets.
+    debug : Boolean, optional
+        If True, verbosy. The default is False.
+
+    Returns
+    -------
+    dsets : list of List
+        The list of concsecutiveintervals.
+
+    """
+    if nsets >= nmax:
+        return [1,nmax]
+    
+    delta = int(nmax/nsets) # regular set size
+    rest  = nmax%nsets # Last set size
+
+    # Define low and high values of the intervals       
+    ids_low  = [i for i in range(1,nmax,delta)]
+    ids_high = [i for i in range(delta,min(nmax+delta,nmax),delta)]
+    if len(ids_high) < len(ids_low):
+        ids_high += [nmax]
+    elif ids_high[-1]<nmax:
+        ids_high[-1] = nmax
+        
+    if debug:
+        print("steps = ",delta, " uncovered = ",rest)
+        print([id for id in ids_low], " -> ",len(ids_low)," items")
+        print([id for id in ids_high], " -> ",len(ids_high)," items") 
+        
+    # Create interval list
+    dsets = [[idl, idh] for (idl, idh) in zip(ids_low, ids_high)]
+    
+    # Check counts
+    icount=0
+    for ds in dsets:
+        for item in range(ds[0],ds[1]+1):
+            icount+=1
+    if icount != nmax: 
+        print(dsets)
+        sys.exit(f"Total entries = {icount:}")
+    
+    return dsets
+
+###----------------------------------------------------------------------------
 def file_from_tar(folder=None, tarname=None, target=None):
     """
 
