@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import astropy.units as u
 from copy import deepcopy
 import warnings
+from niceprint import failure
 
 from obs_slice import Slice
 
@@ -255,6 +256,8 @@ class Slot():
         tstart =[]
         tstop = []
         for tvis in self.grb.vis[self.loc].t_true:
+            if len(tvis) == 0:
+                continue
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 t0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
@@ -268,7 +271,7 @@ class Slot():
                 ticks.append(t1)
                 if shift : shift=False
 
-        if (len(tstart) == 0):
+        if len(tstart) == 0:
             # If delays are such that all slices disappear, then
             # the GRB become not visible
             return False
@@ -477,7 +480,7 @@ class Slot():
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         ax.legend(by_label.values(), by_label.keys())
-        ax.set_title(self.grb.name + " - " + self.loc + " - " + self.name)
+        ax.set_title(self.grb.id + " - " + self.loc + " - " + self.name)
 
         return fig
 
@@ -547,7 +550,6 @@ class Slot():
             slot_n.merge(slot_s)
             return slot_n
         else:
-            from utilities import failure
             failure(" N and/or S vanished because of delays")
             failure(" Combined analysis not possible")
             return None
