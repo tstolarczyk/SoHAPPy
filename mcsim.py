@@ -47,9 +47,12 @@ def mc_welcome(subarray,log=None):
     None.
 
     """
-    log.banner("+================================================================+")
-    log.banner("||                     LAUNCHING SIMULATION                     ||")
-    log.banner("+================================================================+")
+    log.banner(f"+{78*'=':78s}+")
+    log.banner(f"+{'LAUNCHING SIMULATION':^78s}+")
+    log.banner(f"+{78*'=':78s}+")
+    # log.banner("+================================================================+")
+    # log.banner("||                     LAUNCHING SIMULATION                     ||")
+    # log.banner("+================================================================+")
     log.prt("   On-region size     : N: {:5} -  S: {:5}"
             .format(mcf.on_size[subarray["North"]],
             mcf.on_size[subarray["South"]]))
@@ -214,7 +217,7 @@ class MonteCarlo():
                                           file = fslice)
                 if not dump: dump= status # If True, dump unchanged
 
-            if self.dbg> 2: self.plot_onetrial(iMC+1)
+            if self.dbg> 2 and self.niter <10: self.plot_onetrial(iMC+1)
 
             iMC += 1 # End of MC loop
 
@@ -723,8 +726,8 @@ class MonteCarlo():
         from gammapy.estimators import FluxPointsEstimator
         import astropy.units as u
     
-        # import sys
-        # sys.exit("{}.py: plot_onetrial to be reimplemented",__name__)
+        import sys
+        sys.exit("{}.py: plot_onetrial to be reimplemented",__name__)
         
         print(" One trial plots")
 
