@@ -15,7 +15,7 @@ def t_str(t, digit=2):
     t : astropy Time Quantity
         Input time.
     digit : integer
-        Siginificant digits to be printed.
+        Significant digits to be printed.
     Returns
     -------
     String
@@ -53,10 +53,23 @@ def t_fmt(t, digit=None):
     else:             return t
 
 ###----------------------------------------------------------------------------
-def heading(title):
-    print(f"+{78*'-':78s}+")
+def heading(title, deco="-"):
+    """
+    Display a centered heading with 2 decorated lines above and below a title
+
+    Parameters
+    ----------
+    title : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    print(f"+{78*deco:78s}+")
     print(f"+{title:^78s}+")
-    print(f"+{78*'-':78s}+\n")
+    print(f"+{78*deco:78s}+\n")
 
 ###----------------------------------------------------------------------------
 def textcol(text,t="black",b="white",s=None):
