@@ -22,13 +22,31 @@ nomoonveto:
 
 # Minimize the visibility (i.e. veto as soon as the moon is above horizon)
 strictmoonveto:
- where     :  "CTA"
- depth     :  3       # Max. number of days after GRB start
- skip      :  0        # Number of first nights to be skipped 
- altmin    :  24 deg   # Ensure that the source is always above horizon
- altmoon   : -0.25 deg # Moon above horizon
- moondist  : 180 deg   # The Moon vetoes even if far away
- moonlight :  0.0      # The Moon vetoes even if new Moon
+  where     :  "CTA"
+  depth     :  3       # Max. number of days after GRB start
+  skip      :  0        # Number of first nights to be skipped 
+  altmin    :  24 deg   # Ensure that the source is always above horizon
+  altmoon   : -0.25 deg # Moon above horizon
+  moondist  : 180 deg   # The Moon vetoes even if far away
+  moonlight :  0.0      # The Moon vetoes even if new Moon
+ 
+skip_first_strictmoonveto:
+  where     :  "CTA"
+  depth     :  3       # Max. number of days after GRB start
+  skip      :  1        # Number of first nights to be skipped 
+  altmin    :  24 deg   # Ensure that the source is always above horizon
+  altmoon   : -0.25 deg # Moon above horizon
+  moondist  : 180 deg   # The Moon vetoes even if far away
+  moonlight :  0.0      # The Moon vetoes even if new Moon
+ 
+skip_second_strictmoonveto:
+  where     :  "CTA"
+  depth     :  3       # Max. number of days after GRB start
+  skip      :  2        # Number of first nights to be skipped 
+  altmin    :  24 deg   # Ensure that the source is always above horizon
+  altmoon   : -0.25 deg # Moon above horizon
+  moondist  : 180 deg   # The Moon vetoes even if far away
+  moonlight :  0.0      # The Moon vetoes even if new Moon
  
  # Maximise the visibility
 alwaysvisible:
