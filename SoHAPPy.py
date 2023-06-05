@@ -1,6 +1,6 @@
 """
-Create a source list to be simualted and analysed from uwing parameters given
-in a configuration file and the command line.
+Create a source list to be simulated and analysed from using parameters given
+in a configuration file and the command line, and fiels on disks.
 
 Notes for experts:
 * Change `warnings.filterwarnings('ignore')` into
@@ -19,16 +19,21 @@ or no connections at all. To refresh these data use:
     download_IERS_A
     print(" ->Done")
 
+todo:
+* Remove delay when analysing not the first night (skipping the first night)
+* Why applying the delay only if trigger at night?
+     if grb.vis[loc].vis_night: # Apply delays to original slot
+
 """
 
-import sys
+import sys, os
 
 import time
 from   datetime import datetime
 from   pathlib  import Path
 
 from configuration  import Configuration
-from niceprint      import Log
+from niceprint      import Log, failure, heading, warning
 
 from grb import GammaRayBurst
 from timeslot import Slot
@@ -58,13 +63,14 @@ def welcome(log):
     from __init__ import __version__
 
     log.prt(datetime.now())
-    log.prt("+----------------------------------------------------------------+")
-    log.prt("|                                                                |")
-    log.prt(f"|                    SoHAPPy with GammaPy {gammapy.__version__:8s}               |")
-    log.prt(f"|                            ({__version__:8s})                          |")
-    log.prt("|  (Simulation of High-energy Astrophysics Processes in Python)  |")
-    log.prt("|                                                                |")
-    log.prt("+----------------------------------------------------------------+")
+    
+    log.prt(f"+{78*'-':78s}+")
+    log.prt(f"+{'':^78s}+")
+    log.prt(f"+{'SoHAPPy with GammaPy '+gammapy.__version__:^78s}+")
+    log.prt(f"+{'('+__version__+')':^78s}+")
+    log.prt(f"+{'(Simulation of High-energy Astrophysics Processes in Python)':^78s}+")
+    log.prt(f"+{'':^78s}+")
+    log.prt(f"+{78*'-':78s}+")
 
 ###############################################################################
 def main():
@@ -74,12 +80,13 @@ def main():
     1. Manage input/output
         - Source data identifier list
         - open output simulation and log files
+        - load configuration parameters
 
     2. Loop over input identifier list
-        - get source data from the identifier
-        - create original time slot from the source data
-        - update visibilities in N and S if requested
-        - save source if requested
+        - Get source data from the identifiers
+        - Create original time slot from the source data
+        - Update visibilities in N and S if requested
+        - Save source if requested
         - Check individual sites (N and S)
             - Create a MC object
             - Modify the time slot fopr the visibility including the delays
@@ -96,11 +103,6 @@ def main():
 
     3. Close files, terminate
 
-    Parameters
-    ----------
-    argv : List
-        Command line argument list.
-
     Returns
     -------
     None.
@@ -116,28 +118,31 @@ def main():
     ### ------------------------------------------------
     ### Configuration and output files
     ### ------------------------------------------------
-    # Build the Configuration, from the defaulys, a configuratin file and
-    # the command line if any.
-    cf = Configuration.build(sys.argv[1:])
+    # Build the Configuration, from the defaults, a configuration file and
+    # the command line arguments (sys.argv) if any.
+    cf = Configuration.command_line()
 
-    res_dir  = cf.create_output_folder(log) # Create output folder
-    data_dir = Path(cf.infolder,cf.data_dir) # Input data
+    data_path = Path(cf.infolder,cf.data_dir) # Input data folder
+    
+    # Create output folder
+    # The subfolder name Follows the convention:
+    # "population name"/"user keyword"/"visibility keyword and identifiers"
+    res_dir   = cf.create_output_folder()  
 
     # This is required to have the EBL models read from gammapy
-    import os
     os.environ['GAMMAPY_DATA'] = str(Path(cf.infolder,cf.extra_dir))
 
-    # backup the current configuration data for further use
+    # Backup the current configuration data for further use
     # This is potentially a modified version of the local file
-    conf_filename = Path(res_dir,cf.filename.name)
+    conf_filename = Path(res_dir, cf.filename.name)
     cf.write(out_name = conf_filename)
 
     # Output file names
-    sim_filename = Path(res_dir, cf.datafile) # population file
-    log_filename = Path(res_dir, cf.logfile)  # log file
+    sim_filename = Path(res_dir, cf.datafile) # Population file (data.txt)
+    log_filename = Path(res_dir, cf.logfile)  # Log file
 
-    # Open log file
-    log = Log(name = log_filename, talk=not cf.silent)
+    # Open log file - If Silent is True, only in file, otherwise on Screen too
+    log = Log(name = log_filename, talk = not cf.silent)
 
     # Print welcome message and configuration summary
     welcome(log)
@@ -154,24 +159,10 @@ def main():
         dump_dir = None
 
     ### ------------------------------------------------
-    ### Identifiers of the sources to be simulated / analysed
-    ### ------------------------------------------------
-    srclist = cf.source_ids()
-
-    ### ------------------------------------------------
-    ### Check trigger time modification (either fixed or variable)
-    ### ------------------------------------------------
-    from trigger_dates import get_trigger_dates
-    dt, dt_abs = get_trigger_dates(cf.trigger)
-
-    if dt_abs: # In case more than one value, check lengths
-        if len(dt) < len(srclist):
-            sys.exit(f"{cf.trigger:s} length lower than the number of sources")
-
-    ### ------------------------------------------------
     ### Decode visibility info
     ### ------------------------------------------------
-    visinfo = cf.decode_keyword()
+    # visinfo contains a string or a dictionnary to be treated later
+    visinfo = cf.decode_visibility_keyword(res_dir)
 
     ### ------------------------------------------------
     ### Start processing
@@ -187,17 +178,25 @@ def main():
 
         first = True # Actions for first GRB only
         # for i, item in enumerate(srclist):
-        for item in srclist:
+        for item in cf.srclist:
 
+            # If silence required, keep at least the event number for crashes
+            if cf.silent: 
+                print("#",item)
+                
             ### Get GRB
             if isinstance(item, int):
-                fname = "Event"+str(item)+".fits.gz"
-                grb = GammaRayBurst.from_fits(Path(data_dir,fname),
+                
+                fname = Path(data_path,cf.prefix+str(item)+cf.suffix)
+                if not fname.is_file():
+                    failure(f" SKIPPING - File not found {fname:}")
+                    continue
+                
+                grb = GammaRayBurst.from_fits(fname,
                                               prompt  = cf.prompt_dir,
                                               ebl     = cf.EBLmodel,
                                               Emax    = cf.Emax,
-                                              dt = dt[fname] if dt_abs else dt,
-                                              dt_abs  = dt_abs,
+                                              dt      = cf.tshift,
                                               magnify = cf.magnify)
                 # if cfg.test_prompt:
                 #     return get_time_resolved_prompt_fromfile()
@@ -211,12 +210,13 @@ def main():
 
             # Assign visibilities
             for loc in ["North","South"]:
-                grb.set_visibility(loc,info=visinfo)
+                grb.set_visibility(item, loc,info=visinfo)
                 # grb.limit_time_range(cf.n_night, tmin, tmax)
 
             # Printout grb, visibility windows, display plots
             if (cf.niter<=1 and cf.do_fluctuate==True) \
                 or cf.dbg>0 or cf.nsrc==1 :
+                heading(grb.id)
                 log.prt(grb)
                 grb.vis["North"].print(log=log)
                 grb.vis["South"].print(log=log)
@@ -243,10 +243,11 @@ def main():
             for loc in ["North","South","Both"]:
 
                 name = grb.id + "-" + loc
-                log.banner(" SIMULATION  : {:<50s} ".format(name))
+                if not cf.silent: # For large production, be silent
+                    log.banner(" SIMULATION  : {:<50s} ".format(name))
 
                 # Create a MC object
-                # It has dummy values that will be dumpped to the output
+                # It has dummy values that will be dumped to the output
                 # even if the simulation is not possible (not visible)
                 mc = MonteCarlo(niter     = cf.niter,
                                 fluctuate = cf.do_fluctuate,
@@ -264,7 +265,7 @@ def main():
                     if grb.vis["North"].vis_night \
                     and grb.vis["South"].vis_night:
                         slot = origin.both_sites(delay = delay,
-                                                debug = (cf.dbg>1))
+                                                 debug = (cf.dbg>1))
                         if slot != None: still_vis = True
 
                 ### ------------
@@ -277,7 +278,7 @@ def main():
                         still_vis = slot.apply_visibility(delay = delay[loc],
                                                           site  = loc)
                 ### ------------
-                ### Run simulation if still visible;, preapre analysis
+                ### Run simulation if still visible;, prepare analysis
                 ### ------------
 
                 if still_vis:
@@ -290,8 +291,10 @@ def main():
                     ana = Analysis(slot, nstat = mc.niter,
                                          alpha = cf.alpha, cl = cf.det_level)
 
-                    if cf.dbg > 2: print(slot)
-
+                    if cf.dbg > 1: 
+                        print(slot)
+                        slot.plot() 
+                            
                     mc.run(slot, ana,
                                  boost     = cf.do_accelerate,
                                  dump_dir  = dump_dir)
@@ -320,12 +323,14 @@ def main():
 
             # End of loop over sites
         # END of Loop over GRB
-
+        if cf.silent:
+            print("") # Line break
+        
     # Stop chronometer
     end_pop = time.time()
     elapsed = end_pop-start_pop
 
-    log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+    log.prt("\n""-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
     log.prt(" Duration   = {:8.2f} (s)".format(elapsed))
     log.prt("  per GRB   = {:8.2f} (s)".format( (elapsed)/cf.nsrc))
     log.prt("  per trial = {:8.3f} (s)".format( (elapsed)/cf.nsrc/cf.niter))
@@ -369,4 +374,11 @@ def main():
 
 ###############################################################################
 if __name__ == "__main__":
+    
+    if len(sys.argv[1:]) <= 0:
+        print("------------------> Execute examples")
+        # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
+        # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
+        sys.argv=["", "-c","config.yaml"]
+    
     main()
