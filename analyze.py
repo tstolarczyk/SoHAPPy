@@ -422,7 +422,7 @@ class Analysis():
         log.prt("|")
         #.....................................................................
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
-        log.prt(" Window : {:6.2f} - {:6.2f} * Delay: {:6.2f} * {:3d} slices"
+        log.prt(" Window : {:6.3f} - {:6.3f} * Delay: {:6.2f} * {:3d} slices"
                .format(t_fmt(self.slot.tstart),t_fmt(self.slot.tstop),
                        t_fmt(self.slot.delay),len(self.slot.slices)))
         log.prt("+" + 64*"-" + "+") 
@@ -435,13 +435,13 @@ class Analysis():
         log.prt("  Max. sigma           = {:>8.1f}  +/- {:<8.1f}"
               .format(self.sigmx,self.esigmx))
         
-        log.prt("                  time = {:>8.1f}  +/- {:<8.1f} {:5s}"
+        log.prt("                  time = {:>8.2f}  +/- {:<8.2f} {:5s}"
                .format(t_fmt(self.tmx).value,
                        t_fmt(self.etmx.to(self.tmx.unit)).value,
                        t_fmt(self.tmx).unit))
-        log.prt("                  alt. = {:>8.1f}  +/- {:<8.1f} {:5s}"
+        log.prt("                  alt. = {:>8.2f}  +/- {:<8.2f} {:5s}"
                .format(self.altmx.value,self.ealtmx.value,self.altmx.unit))
-        log.prt("                   az. = {:>8.1f}  +/- {:<8.1f} {:5s}"
+        log.prt("                   az. = {:>8.2f}  +/- {:<8.2f} {:5s}"
                .format(self.azmx.value,self.eazmx.value,self.azmx.unit))
         log.prt("           S, B counts = {:>8.1f} {:0.1f}"
               .format(self.nexmx,self.nbmx))
@@ -451,16 +451,16 @@ class Analysis():
         log.prt("+" + 64*"-" + "+")       
         log.prt("                           3 sig                   5 sig")
         log.prt("+" + 64*"-" + "+")       
-        log.prt(" Time ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
+        log.prt(" Time ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
               .format(t_fmt(self.t3s).unit, 
                       t_fmt(self.t3s).value, 
                       t_fmt(self.et3s).value,
                       self.t5s.to(t_fmt(self.t3s).unit).value , 
                       self.et5s.to(t_fmt(self.t3s).unit).value))
-        log.prt(" Alt. ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
+        log.prt(" Alt. ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
               .format(self.alt3s.unit,self.alt3s.value, self.ealt3s.value,
                                  self.alt5s.value, self.ealt5s.value))
-        log.prt(" Az.  ({:3s})     = {:>8.1f}  +/- {:<8.1f}  {:>8.1f}  +/- {:<8.1f}"
+        log.prt(" Az.  ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
               .format(self.az3s.unit , self.az3s.value, self.eaz3s.value,
                                   self.az5s.value, self.eaz5s.value))
         log.prt(" Det. level (%) =  {:>8.2f}                {:>8.2f}"
