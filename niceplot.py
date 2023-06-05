@@ -7,6 +7,9 @@ Created on Mon Oct 17 09:56:58 2022
 import numpy as np
 import matplotlib.pyplot as plt
 
+from matplotlib.colors import LightSource
+from mpl_toolkits import mplot3d
+
 ###----------------------------------------------------------------------------
 def MyLabel(var,label="",stat="std"):
     """
@@ -32,7 +35,7 @@ def MyLabel(var,label="",stat="std"):
 
     """
 
-    if (len(label)!=0): label = label+"\n"
+    if len(label)!=0 : label = label+"\n"
 
     legend="bad option"
     if stat == None: return label + "$n$ : {:d}".format(len(var))
@@ -258,3 +261,30 @@ def col_size(var,var_min=1.1,var_max = 1000):
     size  = 100*np.log10(var)**2
 
     return color, size
+
+###----------------------------------------------------------------------------
+def draw_sphere(radius=1, colormap=plt.cm.viridis,ax=None, **kwargs):
+
+    if ax==None:
+        fig = plt.figure(figsize=(8,8), dpi=300)
+        ax = fig.add_subplot(111, projection='3d')
+    
+    import matplotlib
+    if matplotlib.__version__ > "3.5":
+        ax.set_box_aspect(aspect = (1,1,1))
+
+    u = np.linspace(0, 2 * np.pi, 100)
+    v = np.linspace(0, np.pi, 100)
+
+    x = radius* np.outer(np.cos(u), np.sin(v))
+    y = radius* np.outer(np.sin(u), np.sin(v))
+    z = radius* np.outer(np.ones(np.size(u)), np.cos(v))
+    
+    ls = LightSource(azdeg=0, altdeg=65)
+    rgb = ls.shade(z, colormap)
+
+    ax.plot_surface(x, y, z,  rstride=1, cstride=1, 
+#                     color=color,   
+                    facecolors=rgb, linewidth=0, **kwargs)
+
+    return
