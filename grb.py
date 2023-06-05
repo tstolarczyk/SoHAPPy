@@ -8,7 +8,7 @@ Created on Tue Jan 22 11:41:34 2019
 @author: Stolar
 """
 
-import sys
+import os, sys
 import numpy as np
 from pathlib import Path
 
@@ -22,7 +22,7 @@ from   astropy.coordinates   import AltAz
 
 import observatory as obs
 from visibility import Visibility
-from niceprint import warning, failure
+from niceprint import warning, failure, heading
 
 from gammapy.modeling.models import PointSpatialModel, SkyModel
 from gammapy.modeling.models import EBLAbsorptionNormSpectralModel
@@ -34,75 +34,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 __all__ = ["GammaRayBurst","GRBDummy"]
-
-###############################################################################
-def check_models_from_fits(filename):
-
-    from gammapy.modeling.models import Models
-
-    hdul = fits.open(filename)
-    print(hdul.info())
-
-    # Get trigger time
-    hdu = hdul[1]
-    print("Trigger/explosion time :",hdu.header["TRIGGER"])
-
-    # Get spectral data
-    # data = hdu.data
-    # print(data.columns)
-    # data["time_start"]
-    # data["time_stop"]
-    # for m in data["mod"]:
-    #     print(Models.from_yaml(m))
-
-    # Get visibility periods
-    print("Visibility windows in North")
-    print(hdul["VIS_N"].data["tstart"])
-    print(hdul["VIS_N"].data["tstop"])
-
-    print("Visibility windows in South")
-    print(hdul["VIS_S"].data["tstart"])
-    print(hdul["VIS_S"].data["tstop"])
-
-    hdul.close()
-
-    # Simplest case
-    # table_in = Table.read(output_name, format="fits")
-    # for i,m in enumerate(table_in):
-    #     print(Models.from_yaml(table_in["mod"][i]))
-
-###----------------------------------------------------------------------------
-def get_time_resolved_prompt_fromfile():
-
-    sys.exit("Please reimplement")
-    # ### -------------------------------------------
-    # ### # Special case for time-resolved prompts
-    # ### -------------------------------------------
-#      # create a new object from the default (Visible in North)
-#      loc = Path('../input/lightcurves/prompt'
-#                 + "/events_"+str(item)+".fits")
-
-#      if cfg.use_afterglow:
-#          # use afterglow characteristics
-#          loc_glow = Path(grb_folder + "/Event"+str(item)+".fits")
-#          glow = GammaRayBurst.from_fits(loc_glow, ebl = cfg.EBLmodel)
-#          grb = GammaRayBurst.read_prompt(loc,
-#                                          glow    = glow,
-#                                          ebl     = cfg.EBLmodel,
-#                                          magnify = cfg.magnify,
-#                                          n_night = cfg.n_night,
-#                                          Emax    = cfg.Emax)
-#      else:
-#          # use default visibility
-#          sys.exit(" Redshift should be provided")
-#          grb = GammaRayBurst.read_prompt(loc,
-#                                          glow    = None,
-#                                          ebl     = cfg.EBLmodel,
-#                                          z       = None,
-#                                          magnify = cfg.magnify,
-#                                          n_night = cfg.n_night,
-#                                          Emax    = cfg.Emax)
-    # return grb
 
 ###############################################################################
 class GRBDummy():
@@ -142,9 +73,11 @@ class GammaRayBurst(object):
     (G. Ghirlanda) and they connect the afterglow and prompt emissions together.
 
     """
+    # Ignore these variables when dumpingthe class out. 
     ignore = ["id","filename", "Eval","tval", "tstart", "tstop", "fluxval",
               "spec_afterglow", "prompt", "id90", "E_prompt", "flux_prompt",
               "spec_prompt", "models", "vis"]
+    
     ###------------------------------------------------------------------------
     def __init__(self):
         """
@@ -173,7 +106,7 @@ class GammaRayBurst(object):
         self.gamhe     = 0.*u.dimensionless_unscaled
 
         # GRB alert received
-        self.t_trig   = Time('2000-01-01T02:00:00', scale='utc')
+        self.t_trig   = Time('2020-01-01T02:00:00', format="isot", scale='utc')
 
         # Afterglow Flux table - Flux at a series of points
         self.Eval           = [0]*u.GeV
@@ -233,12 +166,21 @@ class GammaRayBurst(object):
         return attflux
 
     ###------------------------------------------------------------------------
-    def set_visibility(self, loc, info=None, status="", dbg=False):
+    def set_visibility(self, item, loc, info=None, status="", dbg=False):
         """
         Attach a visibility to a GRB instance
         Either recompute it if a keyword has been given and a dictionnary
         retrieved or read it from the specified folder or dictionnary.
-
+        
+        Two possibilities:
+            - a dictionnary is given, it can be;
+                1. From the visbility yaml file - the visibility shall be
+                   computed on the fly
+                2. Not from the visibility.yaml file, the dictionnary contain
+                   a computed visibility from a jason file.
+            - a keyword
+                1. built-in, the visibility is read from the fits file
+                2. forced, the visibility is forced to be maximal
 
         """
 
@@ -254,7 +196,7 @@ class GammaRayBurst(object):
                 self.vis[loc] = self.vis[loc].compute(param = info,debug = dbg)
 
             else: # A dictionnary of all visibilities (from a .json file)
-                self.vis[loc]  = Visibility.from_dict(info[self.id+"_"+loc])
+                self.vis[loc]  = Visibility.from_dict(info[str(item)+"_"+loc])
 
         else: # A keyword
 
@@ -280,14 +222,14 @@ class GammaRayBurst(object):
 
     ###------------------------------------------------------------------------
     @classmethod
-    def from_fits(cls, filename,
-                  prompt   = None,
-                  ebl      = None,
-                  Emax     = None,
-                  dt       = 0.0,
-                  dt_abs   = False,
-                  magnify  = 1,
-                  dbg = 0,
+    def from_fits(cls, 
+                  filename,
+                  prompt  = None,
+                  ebl     = None,
+                  Emax    = None,
+                  dt      = 0.0,
+                  magnify = 1,
+                  dbg     = 0,
                   vis_from_file = False):
 
         """
@@ -348,19 +290,11 @@ class GammaRayBurst(object):
         ebl : String, optional
             The EBL absorption model considered. If ebl is "built-in", uses
             the absorbed specrum from the data if available.
-        # n_night : Integer, optional
-        #     Maximum number of nights (from the visibility) during which the
-        #     data are considered. The default is 10. This ensures that the data
-        #     are cut after the very last night window for a visibility with
-        #     less than 10 nights.
         Emax : Astropy Quantity, optionnal
            Maximal energy considered in the data. The default is None.
         dt: float, optionnal
             A number of Julian days to be added to the present source trigger
-            time. Can be relative or absolute.
-        dt_abs: Boolean, optionnal
-            If True, the Julian days replace the current trigger date,
-            otherwise they are added to the date.
+            time. The default is 0.0.
         magnify : float, optional
             Flux multiplicative factorto the afterglow model for tests.
             Default is 1
@@ -404,16 +338,20 @@ class GammaRayBurst(object):
 
         cls.radec    = SkyCoord(ra = hdr['RA']*u.deg, dec = hdr['DEC']*u.deg,
                                 frame="icrs")
+        
         cls.Eiso     = hdr['EISO']*u.erg
+        
         if "LISO" in keys_0:
             cls.Liso = hdr["LISO"]*u.Unit("erg/s") # New large prod. files
         else:
-            cls.Liso = 0*u.Unit("erg/s")          
+            cls.Liso = 0*u.Unit("erg/s")    
+            
         cls.Epeak    = hdr['EPEAK']*u.keV
         cls.t90      = hdr['Duration']*u.s
         cls.G0H      = hdr['G0H']
         if "G0W" in keys_0: # Not in SHORTFITS
             cls.G0W      = hdr['G0W']
+        
         if "PHFLUX" in keys_0:
             cls.Fpeak = hdr['PHFLUX']*u.Unit("cm-2.s-1")
         elif "PHFX" in keys_0:
@@ -434,23 +372,17 @@ class GammaRayBurst(object):
         # by default. It is very likely that this source belongs to a 
         # for which a list of explosion (trigger) times should be generated.
 
-        if dt_abs:
-            cls.t_trig = Time(dt*u.day,format="mjd",scale="utc")
+        if "GRBJD" in keys_0: # Not in SHORTFITS
+            cls.t_trig = Time(hdr['GRBJD']*u.day + dt*u.day,
+                              format="jd",scale="utc")
+        elif "GRBTIME" in keys_0: # Add start date
+            cls.t_trig = Time(hdr['GRBTIME'] + dt*u.day,
+                              format="jd",scale="utc")
         else:
-            # If the input file does not contain a trigger date, then  
-            # the date remains the default set in the _init_ function.
-            # In that case, it is very likely that this source belongs to a 
-            # population for which a list of explosion (trigger) times should 
-            # be generated.
-            # Note that the date are supposed JD encoded wheras in SoHAPPY
-            # MJD will be used.
-            if "GRBJD" in keys_0: # Not in SHORTFITS
-                cls.t_trig = Time(hdr['GRBJD']*u.day + dt*u.day,
-                                  format="jd",scale="utc")
-            elif "GRBTIME" in keys_0: # Add start date
-                cls.t_trig = Time(hdr['GRBTIME'] + dt*u.day,
-                                  format="jd",scale="utc")
-
+            warning(f"{__name__:}.py: Trigger time absent from file, using random value")
+            import random
+            cls.t_trig += random.uniform(0, 365)*u.day
+            
         ###--------------------------
         ### Time slices - so far common to afterglow and prompt
         ###--------------------------
@@ -460,6 +392,7 @@ class GammaRayBurst(object):
         # The flux value is given on an interval ("col0", "col1°°.
         # The default is to consider that the flux is valid at the end of the
         # interval.
+        
         if isinstance(tval[0][0], astropy.units.quantity.Quantity):
             cls.tval = np.array(tval[tval.colnames[0]].value)*tval[0][0].unit
         else: # In SHORT GRB, the time bin is given, [t1, t2].
@@ -484,7 +417,7 @@ class GammaRayBurst(object):
         ### Afterglow flux
         ###--------------------------
 
-        # Get flux,possibly already absorbed
+        # Get flux, possibly already absorbed
         if (ebl == "in-file"): # Read default absorbed model
             flux = QTable.read(hdul["EBL-ABS. SPECTRA (AFTERGLOW)"])
         else:
@@ -586,16 +519,19 @@ class GammaRayBurst(object):
         cls.Fpeak  = u.Quantity(data['Fluxpeak'])
         cls.gamle  = data['gamma_le']
         cls.gamhe  = data['gamma_he']
-        cls.t_trig = Time(data["t_trig"],format="isot",scale="utc")  # Julian days
-
-        ### Energies, times and fluxes ---
-        Emin     = u.Quantity(data["Emin"])
-        Emax     = u.Quantity(data["Emax"])
+        
+        ###--------------------------
+        ### GRB trigger time
+        ###--------------------------
+        cls.t_trig = Time(data["t_trig"],format="datetime",scale="utc")
+        
+        ###--------------------------
+        ### Time slices 
+        ###--------------------------
         tmin     = max(u.Quantity(data["tmin"]),1*u.s) # Cannot be zero
         tmax     = u.Quantity(data["tmax"])
         ntbin    =  data["ntbin"]
-        cls.Eval = np.asarray([Emin.value, Emax.to(Emin.unit).value])*Emin.unit
-
+        
         if ntbin != 1:
             cls.tval = np.logspace(np.log10(tmin.to(u.s).value),
                                    np.log10(tmax.to(u.s).value),
@@ -605,6 +541,19 @@ class GammaRayBurst(object):
 
         cls.tstart   = cls.t_trig
         cls.tstop    = cls.t_trig + cls.tval[-1]
+        
+        ###--------------------------
+        ### Afterglow Energies - Limited to Emax if defined
+        ###--------------------------
+        Emin     = u.Quantity(data["Emin"])
+        Emax     = u.Quantity(data["Emax"])
+
+        cls.Eval = np.asarray([Emin.value, 
+                               Emax.to(Emin.unit).value])*Emin.unit
+
+        ###--------------------------
+        ### Afterglow flux
+        ###--------------------------
 
         flux_unit = u.Unit("1/(cm2 GeV s)")
         cls.fluxval = np.zeros( (len(cls.tval),len(cls.Eval)) )*flux_unit
@@ -616,25 +565,17 @@ class GammaRayBurst(object):
                 #print(i,j,dnde)
                 cls.fluxval[i][j] = magnify* dnde.to(flux_unit)
 
-        ### No prompt component foreseen in this case
+        ###--------------------------
+        ### Prompt - No prompt foreseen in this case
+        ###--------------------------
         cls.prompt = False
 
+        ###--------------------------
+        ### Total attenuated spectra
+        ###--------------------------
+        # See note in from_fits for explanatins on some parameters 
         for i,t in enumerate(cls.tval):
-            # Note that TableModel makes an interpolation
-            # Following a question on the Slack gammapy channel on
-            # November 27th, and the answer by Axel Donath:
-            # The foloowing statement later in the code gave an error
-            # (dlist_onoff is a collection of Dataset)
-            # dlist_onoff.write(datapath,prefix="cls",overwrite=True)
-            # gives:
-            # ...\gammapy\modeling\models\spectral.py", line 989, in to_dict
-            # "data": self.energy.data.tolist(),
-            # NotImplementedError: memoryview: unsupported format >f
-            # This error comes from the fact that the energy list as to be
-            # explicitely passed as a float as done below:
-            #    cls.Eval.astype(float)
-            # (A Quantity is passed as requested but the underlying numpy
-            # dtype is not supported by energy.data.tolist()
+
             tab = TemplateSpectralModel(energy = cls.Eval.astype(float),
                                         values = cls.fluxval[i],
                                         interp_kwargs={"values_scale": "log"})
@@ -708,6 +649,7 @@ class GammaRayBurst(object):
                         cls.vis[loc].vis_night = False
                         cls.vis[loc].t_true    = [[]]
         return cls
+
     ###------------------------------------------------------------------------
     def get_prompt(self, grb_id = None, folder = None, debug = False):
         """
@@ -858,7 +800,7 @@ class GammaRayBurst(object):
     def read_prompt(cls, filename, glow= None, ebl= None,
                     z=0*u.dimensionless_unscaled, magnify=1):
         """
-        This function is for tests using ttime-resolved spectra.
+        This function is for tests using time-resolved spectra.
         Read prompt data from a file and associate it to the afterglow
         information if requested (or keep the default from the constructor
         otherwise)
@@ -932,6 +874,89 @@ class GammaRayBurst(object):
 
         hdul.close()
         return grb
+    
+    ###------------------------------------------------------------------------
+    @staticmethod
+    def check_models_from_fits(filename):
+        """
+        To be checked and re-implemented or deleted
+
+        Parameters
+        ----------
+        filename : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        from gammapy.modeling.models import Models
+    
+        hdul = fits.open(filename)
+        print(hdul.info())
+    
+        # Get trigger time
+        hdu = hdul[1]
+        print("Trigger/explosion time :",hdu.header["TRIGGER"])
+    
+        # Get spectral data
+        # data = hdu.data
+        # print(data.columns)
+        # data["time_start"]
+        # data["time_stop"]
+        # for m in data["mod"]:
+        #     print(Models.from_yaml(m))
+    
+        # Get visibility periods
+        print("Visibility windows in North")
+        print(hdul["VIS_N"].data["tstart"])
+        print(hdul["VIS_N"].data["tstop"])
+    
+        print("Visibility windows in South")
+        print(hdul["VIS_S"].data["tstart"])
+        print(hdul["VIS_S"].data["tstop"])
+    
+        hdul.close()
+    
+        # Simplest case
+        # table_in = Table.read(output_name, format="fits")
+        # for i,m in enumerate(table_in):
+        #     print(Models.from_yaml(table_in["mod"][i]))
+        
+    ###------------------------------------------------------------------------
+    def get_time_resolved_prompt_fromfile():    
+        sys.exit("Please reimplement")
+        # ### -------------------------------------------
+        # ### # Special case for time-resolved prompts
+        # ### -------------------------------------------
+    #      # create a new object from the default (Visible in North)
+    #      loc = Path('../input/lightcurves/prompt'
+    #                 + "/events_"+str(item)+".fits")
+    
+    #      if cfg.use_afterglow:
+    #          # use afterglow characteristics
+    #          loc_glow = Path(grb_folder + "/Event"+str(item)+".fits")
+    #          glow = GammaRayBurst.from_fits(loc_glow, ebl = cfg.EBLmodel)
+    #          grb = GammaRayBurst.read_prompt(loc,
+    #                                          glow    = glow,
+    #                                          ebl     = cfg.EBLmodel,
+    #                                          magnify = cfg.magnify,
+    #                                          n_night = cfg.n_night,
+    #                                          Emax    = cfg.Emax)
+    #      else:
+    #          # use default visibility
+    #          sys.exit(" Redshift should be provided")
+    #          grb = GammaRayBurst.read_prompt(loc,
+    #                                          glow    = None,
+    #                                          ebl     = cfg.EBLmodel,
+    #                                          z       = None,
+    #                                          magnify = cfg.magnify,
+    #                                          n_night = cfg.n_night,
+    #                                          Emax    = cfg.Emax)
+        # return grb    
+        
     ###------------------------------------------------------------------------
     def write_to_bin(self, folder, debug=True):
 
@@ -972,13 +997,9 @@ class GammaRayBurst(object):
 
     ###------------------------------------------------------------------------
     def __str__(self):
-        """ Printout the GRB properties (Not the visibilities"""
+        """ Printout the GRB properties (Not the visibilities)"""
 
-        txt = '\n'
-        txt += "==================================================================\n"
-        txt += "===                             {:10s}                     ===\n"\
-        .format(self.id)
-        txt += "==================================================================\n"
+        txt=""
         if self.filename != None:
             txt += '  Read from      : {}\n'.format(self.filename)
         txt += '  RA, DEC        : {:6.2f} {:6.2f}\n' \
@@ -991,7 +1012,7 @@ class GammaRayBurst(object):
         .format(self.G0H,self.G0W)
         txt += '  Flux peak      : {:6.2f}\n'.format(self.Fpeak)
         txt += '  Flux peak (GBM): {:6.2f}\n'.format(self.Fpeak_GBM)
-        txt += '  gamma LE / HE : {:6.2f} / {:6.2f}\n' \
+        txt += '  gamma LE / HE  : {:6.2f} / {:6.2f}\n' \
         .format(self.gamle,self.gamhe)
 
         txt += '  t_trig         : {}\n'.format(Time(self.t_trig,format="iso"))
@@ -1010,7 +1031,7 @@ class GammaRayBurst(object):
             txt += ' Prompt component not considered\n'
         if self.vis == None:
             txt += ' Visibility not available\n'
-        return txt
+        return  txt
 
     ###------------------------------------------------------------------------
     def models_to_fits(self, output="model2fits", debug=False):
@@ -1535,6 +1556,28 @@ class GammaRayBurst(object):
                           tshift=0*u.s,
                           Eref = 100*u.GeV,
                           ax=None):
+        """
+        
+
+        Parameters
+        ----------
+        times : TYPE
+            DESCRIPTION.
+        site : TYPE, optional
+            DESCRIPTION. The default is None.
+        tshift : TYPE, optional
+            DESCRIPTION. The default is 0*u.s.
+        Eref : TYPE, optional
+            DESCRIPTION. The default is 100*u.GeV.
+        ax : TYPE, optional
+            DESCRIPTION. The default is None.
+
+        Returns
+        -------
+        ax : TYPE
+            DESCRIPTION.
+
+        """
 
         import matplotlib.pyplot as plt
 
@@ -1662,41 +1705,21 @@ if __name__ == "__main__":
     """
 
     import configuration
-
-    infolder  = "D:/CTA/CTAA/SoHAPPy/input/"
     save_grb = False
 
     ###---------------------------
     ### Input source data
     ###---------------------------
     cf = configuration.Configuration()
+    cf.find_and_read("config.yaml")
+
     cf.ifirst     = 1
     cf.nsrc       = 1 # 250
-
     grblist    = cf.source_ids()
-    grb_folder = Path(infolder,"lightcurves/LONG_FITS/")
-    # grb_folder = Path(infolder,"lightcurves/SHORT_FITS/")
-    # prompt_folder = Path(infolder,"lightcurves/prompt/ctagrbs_spop_tev_22")
-    # prompt_folder = Path(infolder,"lightcurves/prompt/ctagrbs_spop")
+
+    data_path   = Path(cf.infolder,cf.data_dir) # Input data
     prompt_folder = None
-
-    # This is required to have the EBL models read from gammapy
-    import os
-    os.environ['GAMMAPY_DATA'] = str(Path(infolder,cf.extra_dir))
-
-    ###------------------
-    ### Trigger dates
-    ###------------------
-    trigger = Path(infolder,
-    "visibility/long/Trigger_1000-2028_01_01_000000-2034_12_31_235959.yaml")
-    trigger = 0
-
-    from trigger_dates import get_trigger_dates
-    dt, dt_abs = get_trigger_dates(trigger)
-    if dt_abs:
-        if len(dt) < len(grblist):
-            sys.exit(" {:s} length lower than the number of sources"
-                      .format(trigger))
+    os.environ['GAMMAPY_DATA'] = str(Path(cf.infolder,cf.extra_dir)) # EBL
 
     ###---------------------------
     ### visibility parameters
@@ -1705,30 +1728,26 @@ if __name__ == "__main__":
 
     # Computed from a keyword
     if case==1: cf.visibility = "strictmoonveto"
+
     # Obtained from a directory as json files
     if case==2: cf.visibility = "visibility/long/vis_301_400_strictmoonveto.json"
-    # Read from a binary
-    if case==3: cf.visibility = "visibility/long/vis_24_strictmoonveto"
 
-    visinfo = cf.decode_visibility_keyword()
+    visinfo = cf.decode_visibility_keyword(cf.create_output_folder())
 
     ###---------------------------
     ### Loop over sources
     ###---------------------------
     for i, item in enumerate(grblist):
 
-        fname = Path(grb_folder,"Event"+str(item)+".fits.gz" )
+        fname = cf.prefix+str(item)+cf.suffix
 
         # Get GRB
-        grb = GammaRayBurst.from_fits(fname,
+        grb = GammaRayBurst.from_fits(Path(data_path,fname),
                                       prompt  = prompt_folder,
-                                      dt      = dt[fname] if dt_abs else dt,
-                                      dt_abs  = dt_abs,
-                                      ebl     = "dominguez"
-                                      )
+                                      ebl     = "dominguez")
 
         for loc in ["North","South"]:
-            grb.set_visibility(loc,info=visinfo)
+            grb.set_visibility(item,loc,info=visinfo)
 
         print(grb)
 
