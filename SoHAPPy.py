@@ -1,6 +1,6 @@
 """
-Create a source list to be simulated and analysed from using parameters given
-in a configuration file and the command line, and fiels on disks.
+Create a source list to be simulated and analysed using the parameters given
+in a configuration file and the command line, and files on disks.
 
 Notes for experts:
 * Change `warnings.filterwarnings('ignore')` into
@@ -9,20 +9,16 @@ and be able to identify its origin.
 * The 'ignore' option is motivated by warnings issued by astropy for
 deprecation or too distant dates with respect to the running date.
 * IERS data are not refreshed as it can take long in case of bad Internet
-or no connections at all. To refresh these data use:
+or no connections at all.
+To refresh these data use:
 
-..  code-block::
+..  code-block:: python
 
     # For refreshing
     print(" Refreshing IERS")
     from astroplan import download_IERS_A
     download_IERS_A
     print(" ->Done")
-
-todo:
-* Remove delay when analysing not the first night (skipping the first night)
-* Why applying the delay only if trigger at night?
-     if grb.vis[loc].vis_night: # Apply delays to original slot
 
 """
 
@@ -33,7 +29,7 @@ from   datetime import datetime
 from   pathlib  import Path
 
 from configuration  import Configuration
-from niceprint      import Log, failure, heading, warning
+from niceprint      import Log, failure, heading
 
 from grb import GammaRayBurst
 from timeslot import Slot
@@ -63,7 +59,7 @@ def welcome(log):
     from __init__ import __version__
 
     log.prt(datetime.now())
-    
+
     log.prt(f"+{78*'-':78s}+")
     log.prt(f"+{'':^78s}+")
     log.prt(f"+{'SoHAPPy with GammaPy '+gammapy.__version__:^78s}+")
@@ -75,31 +71,26 @@ def welcome(log):
 ###############################################################################
 def main():
     """
-    The SoHAPPy main function.
+    The `SoHAPPy` main function.
 
     1. Manage input/output
         - Source data identifier list
         - open output simulation and log files
         - load configuration parameters
 
-    2. Loop over input identifier list
+    2. Loop over input object list
         - Get source data from the identifiers
+        - Compute the visibility on all sites
+        - Get the delays on all sites
         - Create original time slot from the source data
-        - Update visibilities in N and S if requested
-        - Save source if requested
-        - Check individual sites (N and S)
-            - Create a MC object
+        - Loop over site configurations (N, S abd Both)
+            - Create a MonteCarlo object
             - Modify the time slot fopr the visibility including the delays
             - If GRB is still vsisible:
-                - Dress the GRB slot with physics (IRF and spectra)
-                - Run the simulation
-            - Display results even if not visible
-        - Check the N+S case if GRB visible on both sites
-            - Create a MC object
-            - Modify the time slot fopr the visibility including the delays
-            - Dress the GRB slot with physics (IRF and spectra)
-            - Run the simulation
-            - Display results
+                - Dress the GRB slot with physics (IRF and spectra).
+                - Create and initialize and Analysis object.
+                - Run the simulation.
+                - Analyse the simulation.
 
     3. Close files, terminate
 
@@ -123,14 +114,15 @@ def main():
     cf = Configuration.command_line()
 
     data_path = Path(cf.infolder,cf.data_dir) # Input data folder
-    
+
     # Create output folder
     # The subfolder name Follows the convention:
     # "population name"/"user keyword"/"visibility keyword and identifiers"
-    res_dir   = cf.create_output_folder()  
+    res_dir   = cf.create_output_folder()
 
     # This is required to have the EBL models read from gammapy
-    os.environ['GAMMAPY_DATA'] = str(Path(cf.infolder,cf.extra_dir))
+    os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
+                                          "data"))
 
     # Backup the current configuration data for further use
     # This is potentially a modified version of the local file
@@ -181,17 +173,17 @@ def main():
         for item in cf.srclist:
 
             # If silence required, keep at least the event number for crashes
-            if cf.silent: 
+            if cf.silent:
                 print("#",item)
-                
+
             ### Get GRB
             if isinstance(item, int):
-                
+
                 fname = Path(data_path,cf.prefix+str(item)+cf.suffix)
                 if not fname.is_file():
                     failure(f" SKIPPING - File not found {fname:}")
                     continue
-                
+
                 grb = GammaRayBurst.from_fits(fname,
                                               prompt  = cf.prompt_dir,
                                               ebl     = cf.EBLmodel,
@@ -203,9 +195,7 @@ def main():
 
 
             elif isinstance(item, str): # this is a GRB name string
-                fname    = "lightcurves/historical/GRB_"+item+".yml"
-                filename = Path(cf.infolder,fname)
-                grb = GammaRayBurst.historical_from_yaml(filename,
+                grb = GammaRayBurst.historical_from_yaml(item,
                                                          ebl = cf.EBLmodel)
 
             # Assign visibilities
@@ -291,10 +281,10 @@ def main():
                     ana = Analysis(slot, nstat = mc.niter,
                                          alpha = cf.alpha, cl = cf.det_level)
 
-                    if cf.dbg > 1: 
+                    if cf.dbg > 1:
                         print(slot)
-                        slot.plot() 
-                            
+                        slot.plot()
+
                     mc.run(slot, ana,
                                  boost     = cf.do_accelerate,
                                  dump_dir  = dump_dir)
@@ -325,7 +315,7 @@ def main():
         # END of Loop over GRB
         if cf.silent:
             print("") # Line break
-        
+
     # Stop chronometer
     end_pop = time.time()
     elapsed = end_pop-start_pop
@@ -374,11 +364,11 @@ def main():
 
 ###############################################################################
 if __name__ == "__main__":
-    
+
     if len(sys.argv[1:]) <= 0:
         print("------------------> Execute examples")
         # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
         # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
         sys.argv=["", "-c","config.yaml"]
-    
+
     main()
