@@ -4,21 +4,25 @@ Created on Mon Apr  6 17:04:35 2020
 
 @author: Stolar
 """
-import numpy as np
-import astropy.units as u
 from pathlib import Path
 
+import numpy as np
+import astropy.units as u
+
 from irf import IRF
+
+__all__ = ["Slice"]
+
 ###----------------------------------------------------------------------------
 class Slice():
     """
-    A (time) slice is a time window associated to a physical flux, an 
-    observation time within the window, a list of sites and the corresponding 
-    IRF as for combined analysis a slice can be associated to more than one 
-    site. 
-    The observation time can be simply set at the beginning or at the end of 
-    the slice or at a date defined in a more elabrated way. Variations due to 
-    these various hypothesis highly depends on the slice length and how the 
+    A (time) slice is a time window associated to a physical flux, an
+    observation time within the window, a list of sites and the corresponding
+    IRF as for combined analysis a slice can be associated to more than one
+    site.
+    The observation time can be simply set at the beginning or at the end of
+    the slice or at a date defined in a more elaborated way. Variations due to
+    these various hypothesis highly depends on the slice length and how the
     flux variates in the slice.
     """
     #--------------------------------------------------------------------------
@@ -58,15 +62,93 @@ class Slice():
         self.__irf    = []        # Detector IRFs at obs. point
         self.__site   = site      # Sites North, South, Both
 
-        return
     #--------------------------------------------------------------------------
-    def idt(self) : return self.__idt
-    def ts1(self) : return self.__ts1
-    def ts2(self) : return self.__ts2
-    def tobs(self): return self.__tobs
-    def fid(self) : return self.__f_id
-    def site(self): return self.__site
-    def irf(self): return self.__irf
+    def idt(self) :
+        """
+        Get the Slice identifier.
+
+        Returns
+        -------
+        integer
+            Slice identifier.
+
+        """
+        return self.__idt
+    #--------------------------------------------------------------------------
+    def ts1(self) :
+        """
+        Get the slice start time.
+
+        Returns
+        -------
+        Astropy Quantity
+            Start time.
+
+        """
+        return self.__ts1
+    #--------------------------------------------------------------------------
+    def ts2(self) :
+        """
+        Get the slice stop time.
+
+        Returns
+        -------
+        Astropy Quantity
+            Stop time.
+
+        """
+
+        return self.__ts2
+    #--------------------------------------------------------------------------
+    def tobs(self):
+        """
+        Get the slice observation point.
+
+        Returns
+        -------
+        Astropy Quantity
+            Observation time.
+
+        """
+        return self.__tobs
+
+    #--------------------------------------------------------------------------
+    def fid(self) :
+        """
+        Get the flux identifier.
+
+        Returns
+        -------
+        integer
+            Flux identifuier in the GRB object.
+
+        """
+        return self.__f_id
+
+    #--------------------------------------------------------------------------
+    def site(self):
+        """
+        Get Site location.
+
+        Returns
+        -------
+        String
+            A String describing the site(s) attached to this Slice instance.
+        """
+
+        return self.__site
+    #--------------------------------------------------------------------------
+    def irf(self):
+        """
+        get detector IRF(s) at obs. point
+
+        Returns
+        -------
+        IRF
+            List of IRF attached to this Slice instance.
+
+        """
+        return self.__irf
 
     #--------------------------------------------------------------------------
     def set_id(self,idt):
@@ -84,7 +166,7 @@ class Slice():
 
         """
         self.__idt = idt
-        return
+
     #--------------------------------------------------------------------------
     def set_site(self,site="?"):
         """
@@ -103,23 +185,28 @@ class Slice():
 
         """
         self.__site = site
-        return
+
     #--------------------------------------------------------------------------
     def dress(self,grb,
                    irf_dir = Path("./"),
                    arrays  = None,
                    opt     = "end",
-                   zenith  = None,
-                   debug   = False):
+                   zenith  = None):
         """
-        Add physical information to the slice
+        Add physical information to the slice.
 
         Parameters
         ----------
         grb : GammaRayBurst
             A GRB instance
+        irf_dir : Path
+            IRF top directory. The default is the local directory.
+        arrays : string, optional
+            String defining the telescope (sub)array. The defualt is None.
         opt : string, optional
             Define the position at which the flux is estimated. The default is "end".
+        zenith : astropy Quantity, optional
+            Value of the forced zenith angle. The default is None.
         debug : boolean, optional
             Allow debug printing. The default is False.
 
@@ -131,7 +218,6 @@ class Slice():
         self.obs_point(opt)
         self.get_flux(grb,self.__tobs)
         self.get_perf(grb,irf_dir= irf_dir,arrays=arrays,zenith=zenith)
-        return
 
     #------------------------------------------------------------
     def merge(self, next_slice):
@@ -140,7 +226,6 @@ class Slice():
         self.__ts2 = next_slice.ts2()
         self.__tobs = next_slice.tobs()
 
-        return
     #------------------------------------------------------------
     def obs_point(self,opt):
         """
@@ -159,13 +244,16 @@ class Slice():
 
         """
 
-        if   (opt =="end")    : self.__tobs = self.__ts2
-        elif (opt =="start")  : self.__tobs = self.__ts1
-        elif (opt =="mean")   : self.__tobs = 0.5*(self.__ts1+self.__ts2)
-        elif (opt =="interp") : self.__tobs = self.__ts2
-        else: self.__tobs=0*(self.__ts1.unit)
-
-        return
+        if   opt =="end":
+            self.__tobs = self.__ts2
+        elif opt =="start":
+            self.__tobs = self.__ts1
+        elif opt =="mean":
+            self.__tobs = 0.5*(self.__ts1+self.__ts2)
+        elif opt =="interp":
+            self.__tobs = self.__ts2
+        else:
+            self.__tobs=0*(self.__ts1.unit)
 
     #------------------------------------------------------------
     def get_flux(self,grb,t):
@@ -189,10 +277,12 @@ class Slice():
         t = t.to(grb.tval[0].unit).value
         self.__f_id = np.argmin(np.abs(t - grb.tval.value))
 
-        return
-
     #--------------------------------------------------------------------------
-    def get_perf(self,grb,irf_dir="./",arrays=None,zenith=None,debug=False):
+    def get_perf(self, grb,
+                       irf_dir=Path("./"),
+                       arrays=None,
+                       zenith=None,
+                       debug=False):
         """
         Obtain the best performance for a given slice, indpendently of
         the observation point that was chosen.
@@ -217,38 +307,35 @@ class Slice():
         # Observation window duration
         obstime = self.__ts2 - self.__ts1 # Duration (not cumulated !)
 
-        (self.__altaz , self.__perf, self.__Emin, self.__Emax) = ([],[],[],[])
-
         site_list = []
-        if (self.__site == "North") or (self.__site == "South"):
+        if self.__site in ("North", "South"):
             site_list=[self.__site]
-        elif (self.__site == "Both"):
+        elif self.__site == "Both":
             site_list = ["North","South"]
 
         for site in site_list:
             # Altitude at slice start where the flux is expected larger
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
-            
+
             # Zenith is obtained from altaz except if fixed beforehand
-            if zenith == None: zenith   = 90*u.degree-altaz.alt
-            else: zenith = u.Quantity(zenith) # Was string so far
-            
+            if zenith is None:
+                zenith   = 90*u.degree-altaz.alt
+            else:
+                zenith = u.Quantity(zenith) # Was string so far
+
             irf = IRF.from_observation(zenith   = zenith,
                                        azimuth  = altaz.az,
                                        obstime  = obstime,
                                        loc      = site,
                                        irf_dir  = irf_dir,
                                        subarray = arrays[site])
-            if (debug>1):
+            if debug>1:
                 print(self.__idt,"/",site,"-->",irf)
 
             self.__irf.append(irf)
 
-        if (debug):
-            print("                       ===> {} IRF found"
-              .format(len(self.__irf)),end="\n")
-
-        return
+        if debug:
+            print(f"                       ===> {len(self.__irf)} IRF found")
 
     #--------------------------------------------------------------------------
     def print(self,header=False):
@@ -261,7 +348,7 @@ class Slice():
             Slice information
 
         """
-        if (header):
+        if header:
             print("  {:>2s} {:>10s} {:>10s} {:>10s} {:>3s} {:5s} {:4s}"
                   .format("#",
                           "Start ("+str(self.__ts1.unit)+")",
@@ -289,4 +376,3 @@ class Slice():
         for perf in self.__irf:
             print(" ",perf.filename.parts[-2],end="")
         print()
-        return
