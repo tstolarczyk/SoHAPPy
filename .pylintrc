@@ -1,0 +1,3 @@
+[MESSAGES CONTROL]
+disable=invalid-name, import-error, missing-function-docstring, redefined-outer-name
+ignored-modules=astropy.units, numpy.random, matplotlib
