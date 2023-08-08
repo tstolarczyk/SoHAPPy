@@ -7,97 +7,111 @@ Created on Thu Dec 12 09:01:41 2019
 
 """
 import sys
-import numpy as np
+import itertools
 from pathlib import Path
+
+import numpy as np
+
 import astropy.units as u
 from astropy.visualization import quantity_support
+import matplotlib.pyplot as plt
 
 from gammapy.maps import MapAxis
 from gammapy.irf import load_cta_irfs
 
-# Keyword lists and true values, also in log for time
-zenith_list =  {"20deg": 20*u.deg,
-                "40deg": 40*u.deg,
-                "60deg": 60*u.deg }
-
-dt_list     =  {"prod3":
-                    {"100s" : (100*u.s),
-                     "30m"  : (30*u.min).to(u.s),
-                     "5h"   : (5*u.h).to(u.s),
-                     "50h"  : (50*u.h).to(u.s) },
-                 "prod5":
-                     {"1800s"  : (1800*u.s),   # 30 min
-                      "18000s" : (18000*u.s),  # 5h
-                      "180000s": (180000*u.s)} # 50h
-                }
-
-dtl         =  {"prod3":
-                    {"100s" : np.log10((100*u.s).value),
-                     "30m"  : np.log10((30*u.min).to(u.s).value),
-                     "5h"  : np.log10((5*u.h).to(u.s).value),
-                     "50h"  : np.log10((50*u.h).to(u.s).value) },
-                "prod5":
-                    {"1800s"   : np.log10((1800*u.s).value),    # 30 min
-                     "18000s"  : np.log10((18000*u.s).value),   # 5h
-                     "180000s" : np.log10((180000*u.s).value) } # 50h
-                }
-
-# Validity range of IRF in zenith (see documentation of this module).
-# The 60deg IRF is allowed to be used down to alitude zero for tests
-# Its use is foreseen to be limited by the altmin variable
-zenith_valid = {"20deg": [0*u.deg, 33*u.deg],
-                "40deg": [33*u.deg, 54*u.deg],
-                "60deg": [54*u.deg, 90*u.deg] # Will be limited by altmin
-                }
-
-# Validity range of IRF in time, taking into account that the validity
-# intervals are somehow in logarithmic scale.
-# The edge values are the following :
-# 0, 424.26 s, 5692.01 s (94.9'), 56921.0 s (15.8h)
-
-dt_log_valid = \
-{"prod3":
-    {"100s": [0,
-             10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )) ],
-    "30m" : [10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )),
-             10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )) ],
-    "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )),
-             10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )) ],
-    "50h" : [10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )),
-             np.Inf]
-    },
- "prod5":
-    {"1800s" : [0,
-                10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] ))],
-    "18000s" : [10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] )),
-                10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"] ))],
-    "180000s": [10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"])),
-                 np.inf]
-    }
-}
-
-# Minimal acceptable energies depending on the IRF
-# (resp. generated and reconstructed energies)
-#
-# The masking later will remove the bin containing the E value.
-# If the E value is an edge, the subsequent bin is lost.
-# The minimal and maximal energies need therefore to be slighlty
-# before, resp. after the first, resp last edge of interest.
-
-egen_min  = {"20deg": 12.6*u.GeV,  "40deg": 26.4*u.GeV, "60deg": 105.3*u.GeV}
-etrue_max = {"20deg": 17*u.TeV,    "40deg": 17*u.TeV,   "60deg": 17*u.TeV}
-
-nbin_per_decade = 4 # Bins per decade for the true energy axis
+import mcsim_config as mcf
+from niceplot import single_legend
 
 __all__=['IRF']
 
 ###############################################################################
 class IRF():
     """
-    This class handles the Instrument response function information and
+    This class handles the Instrument Response FFunction information and
     utilities
     """
 
+    zenith_list =  {"20deg": 20*u.deg,
+                    "40deg": 40*u.deg,
+                    "60deg": 60*u.deg }
+    """ List of available zenith angles in the IRF file names and associated
+    values."""
+
+    dt_list     =  {"prod3":
+                        {"100s" : (100*u.s),
+                         "30m"  : (30*u.min).to(u.s),
+                         "5h"   : (5*u.h).to(u.s),
+                         "50h"  : (50*u.h).to(u.s) },
+                     "prod5":
+                         {"1800s"  : (1800*u.s),   # 30 min
+                          "18000s" : (18000*u.s),  # 5h
+                          "180000s": (180000*u.s)} # 50h
+                    }
+    """ List of available time durations in the IRF file names and
+    associated values."""
+
+    dtl         =  {"prod3":
+                        {"100s" : np.log10((100*u.s).value),
+                         "30m"  : np.log10((30*u.min).to(u.s).value),
+                         "5h"  : np.log10((5*u.h).to(u.s).value),
+                         "50h"  : np.log10((50*u.h).to(u.s).value) },
+                    "prod5":
+                        {"1800s"   : np.log10((1800*u.s).value),    # 30 min
+                         "18000s"  : np.log10((18000*u.s).value),   # 5h
+                         "180000s" : np.log10((180000*u.s).value) } # 50h
+                    }
+    """ List of time intervals in logarithm corresponding to the durations in
+    the IRF file names."""
+
+    zenith_valid = {"20deg": [0*u.deg, 33*u.deg],
+                    "40deg": [33*u.deg, 54*u.deg],
+                    "60deg": [54*u.deg, 90*u.deg] # Will be limited by altmin
+                    }
+    """Validity range in zenith of the IRFs (see documentation of this module).
+    The `60deg` IRF is allowed to be used down to alitude zero for tests
+    Its use is foreseen to be limited by the `altmin` variable."""
+
+    dt_log_valid = \
+    {"prod3":
+        {"100s": [0,
+                 10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )) ],
+        "30m" : [10**(0.5*( dtl["prod3"]["100s"] + dtl["prod3"]["30m"] )),
+                 10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )) ],
+        "5h"  : [10**(0.5*( dtl["prod3"]["30m"]  + dtl["prod3"]["5h"] )),
+                 10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )) ],
+        "50h" : [10**(0.5*( dtl["prod3"]["5h"]   + dtl["prod3"]["50h"] )),
+                 np.Inf]
+        },
+     "prod5":
+        {"1800s" : [0,
+                    10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] ))],
+        "18000s" : [10**(0.5*( dtl["prod5"]["1800s"]  + dtl["prod5"]["18000s"] )),
+                    10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"] ))],
+        "180000s": [10**(0.5*( dtl["prod5"]["18000s"] + dtl["prod5"]["180000s"])),
+                     np.inf]
+        }
+    }
+    """ Validity range of IRF in time, taking into account that the validity
+    intervals are somehow in logarithmic scale.
+    The edge values are the following :
+    0, 424.26 s, 5692.01 s (94.9'), 56921.0 s (15.8h) """
+
+    egen_min  = {"20deg": 12.6*u.GeV,  "40deg": 26.4*u.GeV, "60deg": 105.3*u.GeV}
+    """ Minimal acceptable True (i.e. generated) energies depending on the IRF zenith angle.
+    Note: The masking later will remove the bin containing a given E value.
+    If the E value is an edge, the subsequent bin is lost.
+    The minimal and maximal energies need therefore to be slighlty
+    before, resp. after the first, resp last edge of interest."""
+
+    etrue_max = {"20deg": 17*u.TeV,    "40deg": 17*u.TeV,   "60deg": 17*u.TeV}
+    """ Minimal acceptable reconstructed energies depending on the IRF zenith angle.
+    Note: The masking later will remove the bin containing the E value.
+    If the E value is an edge, the subsequent bin is lost.
+    The minimal and maximal energies need therefore to be slighlty
+    before, resp. after the first, resp last edge of interest."""
+
+    nbin_per_decade = 4
+    """Bins per decade for the true energy axis"""
     ###------------------------------------------------------------------------
     def __init__(self,filename  = None,
                       irf       = None,
@@ -133,80 +147,6 @@ class IRF():
         self.kzen      = kzen
         self.kaz       = kaz
         self.kdt       = kdt
-  
-        return
-
-    ###------------------------------------------------------------------------
-    def find_best_keys(zenith, azimuth, obstime,
-                       closest=False, fixed_zenith=None, prod=None):
-        """
-        Find the best keys to later identify the IRF data file.
-
-        Parameters
-        ----------
-        zenith : Quantity, angle
-            zenith angle.
-        azimuth : Quantity, angle
-            Azimuth angle.
-        obstime : Quantity, time
-            Observation duration.
-        closest : Boolean, optional
-            If True, obtain zenith and observation time from the closest
-            available sampling, instead of using the predefined validity value.
-            The default is False.
-        fixed_zenith : Quantity angle, optional
-            If defined, the zenith is fixed at the given value, wathever the
-            observation (for tests). The default is None.
-        prod: String
-            Monte Carlo production identifier. Default is None.
-
-        Returns
-        -------
-        String, String, String
-            The three strings defining the IRF file and/or folder.
-
-        """
-        ###--------------------------
-        def find_closest_key(mydict,x):
-            dict_values = np.asarray([x.value for k, x in mydict.items() ])
-            closest_val = dict_values [(np.abs(dict_values - x.value)).argmin() ]
-            closest_key = [k for k, x in mydict.items() if x.value == closest_val]
-            return closest_key[0]
-        ###--------------------------
-
-        # Zenith
-
-        if (closest):
-            kzen = find_closest_key(zenith_list, zenith)
-        else:
-            found = False
-            for k,v in zenith_valid.items():
-                if (zenith >=v[0] and zenith < v[1] ):
-                    kzen = k
-                    found = True
-                    continue
-            if (not found):
-                sys.exit("get_irf_file: zenith= {} => range not found"
-                         .format(zenith))
-
-        # Azimuth - implement here N, S choice
-        kaz = "average"
-
-        # Observation time
-        if (closest):
-            kdt =find_closest_key(dt_list[prod], obstime.to(u.s))
-        else:
-            found = False
-            for k,v in dt_log_valid[prod].items():
-                if obstime.to(u.s).value >= v[0] \
-                   and obstime.to(u.s).value < v[1] :
-                    kdt = k
-                    found = True
-                    continue
-            if (not found):
-                sys.exit("get_irf_file: obstime range not found")
-
-        return kzen, kaz, kdt
 
     ###------------------------------------------------------------------------
     @classmethod
@@ -218,12 +158,24 @@ class IRF():
                          loc      = None,
                          nsb      = None,
                          irf_dir  = None,
-                         closest  = False,
-                         debug    = False):
+                         closest  = False):
         """
-        Get the IRF data from the chaarcteristics of an observation.
-        Note that MapAxis accepts ony a normalised list of axis type as
-        described `here <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
+        Get the IRF data from the characteristics of an observation.
+
+        Notes:
+            * `MapAxis` accepts ony a normalised list of axis type as
+              described `here
+              <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
+            * The true Energy Axis can be defined on-the-fly, but it is not
+              optimal for masking except if the number of bins is very large:
+
+        ..  code-block:: python
+
+            erec_axis  = MapAxis.from_energy_bounds(min(erec_min.values()),
+                                                    max(erec_max.values()),
+                                                    nbin = nbin_per_decade,
+                                                    per_decade=True,
+                                                    name="Rec. energy")
 
         Parameters
         ----------
@@ -245,8 +197,6 @@ class IRF():
             IRF folder. The default is None.
         closest : Boolean, optional
             Choose IRF closes to IRF range bounds. The default is False.
-        debug : Boolean, optional
-            If True, verbose mode. The default is False.
 
         Returns
         -------
@@ -255,77 +205,134 @@ class IRF():
 
         """
 
-        if (loc == None):
+        inst = cls()
+
+        if loc is None:
             sys.exit("from_observation : location should be defined")
 
         # Find best keys (IRF interpolation)
         # Assumes irf_dir is a Path ending with the correct keyword
-        prod = irf_dir.name[:5] 
-        # In case irf_dir is a string:
-        # idx = irf_dir.find("prod")
-        # prod = irf_dir[idx:idx+5]
-        
-        kzen, kaz, kdt = cls.find_best_keys(zenith, azimuth, obstime,
-                                                closest = closest,
-                                                prod=prod)
-            
+        prod = irf_dir.name[:5]
+
+        kzen, kaz, kdt = inst.find_best_keys(zenith, azimuth, obstime,
+                                            closest = closest,
+                                            prod = prod)
+
         # Find base folder from the keys
-        if prod=="prod3":
+        if prod =="prod3":
             folder = Path(irf_dir,subarray,loc,kzen)
                     # Build the filename, get the IRF
-            if (subarray != "FullArray"):
+            if subarray != "FullArray":
                 kaz = kaz+"_"+subarray
             subfolder = loc+"_z"+kzen[:2]+"_"+kaz+"_"+kdt
-            irf_file = Path(folder,subfolder,"irf_file.fits.gz")
+            inst.filename = Path(folder,subfolder,"irf_file.fits.gz")
 
-        elif prod=="prod5":
+        elif prod =="prod5":
             folder = Path(irf_dir,subarray)
             if kaz=="average":
                 filename = "Prod5-"+loc+"-"+kzen+"-AverageAz-"\
                     +subarray+"."+kdt+"-v0.1.fits.gz"
             else:
                 sys.exit("Azimuth, only average is implemented")
-                
-            irf_file = Path(folder,filename)
-            
+
+            inst.filename = Path(folder,filename)
+
         else:
-            sys;exit("Not implemented")
+            sys.exit("Not implemented")
 
-        irf = load_cta_irfs(irf_file)
+        if inst.filename.exists() is False:
+            sys.exit(" This file does not exist :",inst.filename)
 
-        eirf_min = min(irf["aeff"].data.axes["energy_true"].edges)
-                
-        etrue_axis  = MapAxis.from_energy_bounds(eirf_min,
-                                                 etrue_max[kzen],
-                                                 nbin = nbin_per_decade,
+        inst.irf = load_cta_irfs(inst.filename)
+
+        eirf_min = min(inst.irf["aeff"].data.axes["energy_true"].edges)
+        inst.etrue  = MapAxis.from_energy_bounds(eirf_min,
+                                                 inst.etrue_max[kzen],
+                                                 nbin = inst.nbin_per_decade,
                                                  per_decade=True,
                                                  name="energy_true")
 
+        inst.subarray  = subarray
+        inst.kzen      = kzen
+        inst.kaz       = kaz
+        inst.kdt       = kdt
 
-        # Alternatively, this is not optimal for masking except if the
-        # number of bins is very large:
-        # erec_axis  = MapAxis.from_energy_bounds(min(erec_min.values()),
-        #                                         max(erec_max.values()),
-        #                                         nbin = nbin_per_decade,
-        #                                         per_decade=True,
-        #                                         name="Rec. energy")
+        return inst
 
-        if (irf_file.exists() != True):
-            sys.exit(" This file does not exist :",irf_file)
+    ###------------------------------------------------------------------------
+    def find_best_keys(self, zenith, azimuth, obstime,
+                             closest = False,
+                             prod = None):
+        """
+        Find the best keys to later identify the IRF data file.
 
-        return cls(filename  = irf_file,
-                   irf       = irf,
-                   subarray  = subarray,
-                   etrue     = etrue_axis,
-                   kzen      = kzen,
-                   kaz       = kaz,
-                   kdt       = kdt
-                   )
-    
+        Parameters
+        ----------
+        zenith : Quantity, angle
+            zenith angle.
+        azimuth : Quantity, angle
+            Azimuth angle.
+        obstime : Quantity, time
+            Observation duration.
+        closest : Boolean, optional
+            If True, obtain zenith and observation time from the closest
+            available sampling, instead of using the predefined validity value.
+            The default is False.
+        prod: String
+            Monte Carlo production identifier. Default is None.
+
+        Returns
+        -------
+        String, String, String
+            The three strings defining the IRF file and/or folder.
+
+        """
+        ###--------------------------
+        def find_closest_key(mydict,x):
+            dict_values = np.asarray([x.value for k, x in mydict.items() ])
+            closest_val = dict_values [(np.abs(dict_values - x.value)).argmin() ]
+            closest_key = [k for k, x in mydict.items() if x.value == closest_val]
+            return closest_key[0]
+        ###--------------------------
+
+        # Zenith
+
+        if closest:
+            kzen = find_closest_key(self.zenith_list, zenith)
+        else:
+            found = False
+            for key,val in self.zenith_valid.items():
+                if val[0] <= zenith < val[1] :
+                    kzen = key
+                    found = True
+                    continue
+            if not found:
+                sys.exit(f"get_irf_file: zenith= {zenith} => range not found")
+
+        # Azimuth - implement here N, S choice
+        kaz = "average"
+
+        # Observation time
+        if closest:
+            kdt = find_closest_key(self.dt_list[prod], obstime.to(u.s))
+        else:
+            found = False
+            for key, val in self.dt_log_valid[prod].items():
+                if obstime.to(u.s).value >= val[0] \
+                   and obstime.to(u.s).value < val[1] :
+                    kdt = key
+                    found = True
+                    continue
+            if not found:
+                sys.exit("get_irf_file: obstime range not found")
+
+        return kzen, kaz, kdt
+
+
     ###------------------------------------------------------------------------
     def print(self):
         """
-        Print out some IRF class contents
+        Print out some IRF class contents.
 
         Returns
         -------
@@ -333,26 +340,22 @@ class IRF():
 
         """
         print("IRF             : ",self.filename)
-        print(" Etrue          : ",self.etrue) 
+        print(" Etrue          : ",self.etrue)
         print("          edges : ",self.etrue.edges)
-        print(" Sub-array      : ",self.subarray) 
-        print(" Zenith         : ",self.kzen) 
-        print(" Azimuth        : ",self.kaz) 
-        print(" Duration       : ",self.kdt) 
-        return
+        print(" Sub-array      : ",self.subarray)
+        print(" Zenith         : ",self.kzen)
+        print(" Azimuth        : ",self.kaz)
+        print(" Duration       : ",self.kdt)
 
 ###############################################################################
 ### Utilities and check plots
 ###############################################################################
 ###------------------------------------------------------------------------
-import mcsim_config as mcf
-from niceplot import single_legend
-
 def containment_plot(irf,
                      eunit="GeV",erec_min =10*u.GeV, erec_max = 100*u.TeV,
-                     subarray=None,tag=None, ax=None):
+                     subarray=None, tag=None, ax=None):
     """
-    
+    Display containment plots.
 
     Parameters
     ----------
@@ -376,18 +379,14 @@ def containment_plot(irf,
     None.
 
     """
-    
 
-    import matplotlib.pyplot as plt
-    plt.style.use('seaborn-poster') # Bug with normal x marker !!!
-
-    if (ax == None):
+    if ax is None:
         ax = plt.subplots()[1]
     # irfname =  self.filename.parts[-2]
 
     # Add lower bin to exisiting array
     unit = "GeV"
-    e_edges = np.append(np.array([10.,20.]), 
+    e_edges = np.append(np.array([10.,20.]),
                         mcf.erec_edges[subarray].to(unit).value)
     e2plot = MapAxis.from_edges(e_edges,unit=unit,name="energy",interp="log")
     radii = irf.irf['psf'].containment_radius(energy = e2plot.edges,
@@ -403,20 +402,20 @@ def containment_plot(irf,
     ax.set_xscale("log")
     ax.legend()
 
-    return
-
 ###------------------------------------------------------------------------
-def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
-                      nmaxcol=4, debug=False):
+def onoff_sketch_plot(irf, emin = 30*u.GeV, subarray=None, tag=None,
+                      nmaxcol=4,
+                      alpha=0.2, fov=2.5*u.deg,
+                      debug=False):
     """
     On-off geometry skeches as a function of reconstructed energy edges
-    for the current IRF   
+    for the current IRF.
 
     Parameters
     ----------
     irf : IRF instance
         Current IRF.
-    Emin : astropy.Quantity, optional
+    emin : astropy.Quantity, optional
         Minimal energy. The default is 30*u.GeV.
     subarray : String, optional
         Subarray. The default is None.
@@ -424,6 +423,10 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
         Legend text. The default is None.
     nmaxcol : integer, optional
         Maximum number of columns in the plot. The default is 4.
+    alpha : float
+        One over the number of on/off regions. The default is 0.2.
+    fov: Astropy Quantity
+        Field-of-view. The default is 2.5 degrees.
     debug : Boolean, optional
         If True, let's talk a bit. The default is False.
 
@@ -438,18 +441,19 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
     radii = irf.irf['psf'].containment_radius(energy    = mcf.erec_edges[subarray],
                                                theta    = mcf.offset[subarray],
                                                fraction = mcf.containment)[0]
-    if (debug):
+    if debug:
         print(72*"=")
         print(radii.value)
 
     ###-----------------------------
-    def onoffsketch(radius,energy,ax=None):
+    def onoffsketch(radius,energy, ax=None):
         """
         Plot the on-off sketch n the field of view from a containment
         radius at a given energy (used for labelling only)
         """
 
-        if (ax == None): ax = plt.subplots()
+        if ax is None:
+            ax = plt.subplots()
 
         # On region
         x_on = mcf.offset[subarray].value
@@ -464,7 +468,7 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
         # ax.text(x_on,y_on,s="on")
 
         # Build label
-        txt = str(round( energy.value,1) ) + " " + str(Emin.unit)
+        txt = str(round( energy.value,1) ) + " " + str(emin.unit)
         # txt+= " - "+ str(round(100*mcf.containment,0)) + "%"
         # ax.set_title('Field of view -'+txt )
         ax.add_artist( on_reg )
@@ -479,9 +483,9 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
         # Off regions
         for i in range(1, noff_reg):
             theta = i*dtheta
-            x = x_on*np.cos(theta)
-            y = x_on*np.sin(theta)
-            off_reg = plt.Circle( (x,y ), radius.value ,
+            x0 = x_on*np.cos(theta)
+            y0 = x_on*np.sin(theta)
+            off_reg = plt.Circle( (x0,y0 ), radius.value ,
                                  fill = True, color="red",alpha = 0.5)
             ax.add_artist( off_reg )
 
@@ -490,23 +494,22 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
         ax.axhline(y=0,ls=":")
 
         # Set field of view, and aspect ratio
-        view = mcf.fov.value/2
+        view = fov.value/2
         ax.set_xlim([-view,view])
         ax.set_ylim([-view,view])
 
         ax.set_aspect( 1 ) # Nice but conflicts with grid spacing
 
-        return
     ###-----------------------------
 
-    noff_reg = int(1/mcf.alpha)+1
+    noff_reg = int(1/alpha)+1
     dtheta   = 360*u.degree/noff_reg
     #print(noff_reg," regions separated by ", dtheta)
 
     xsize    = 3
     ysize    = 3
     erec = mcf.erec_edges[subarray]
-    mask = mcf.erec_edges[subarray]>=Emin
+    mask = mcf.erec_edges[subarray] >= emin
     nplots   = len(erec[mask]) -1 #
     ifirst   = np.where(mask)[0][0]
     ncols    = min(nmaxcol,nplots) # If nplots < nmaxcol, take nplots
@@ -518,7 +521,6 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
                            sharex=True, sharey=True)
 
     iplot = 0
-    import itertools
 
     for jrow, icol in itertools.product(range(nrows), range(ncols)):
 
@@ -526,15 +528,17 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
 
         if iplot < nplots:
             radius = radii[iplot+ifirst]
-            energy = mcf.erec_edges[subarray][iplot+ifirst].to(Emin.unit)
+            energy = mcf.erec_edges[subarray][iplot+ifirst].to(emin.unit)
             onoffsketch(radius,energy,ax=ax0)
         else:
             ax0.axis('off')
             continue # Next plot
 
         # Compactify
-        if (jrow+1 != nrows): ax0.set_xlabel(None)
-        if (icol !=0): ax0.set_ylabel(None)
+        if jrow+1 != nrows:
+            ax0.set_xlabel(None)
+        if icol !=0:
+            ax0.set_ylabel(None)
         ax0.tick_params(which='major', length=10, width=2, direction='in')
         ax0.tick_params(which='minor', length=5, width=2, direction='in')
 
@@ -542,7 +546,7 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
 
     # Figure title
     fig.suptitle(irf.filename.parts[-2]+tag,fontsize=18, y = 1.02)
-    
+
     # know feature/bug : does not take supttile into account !
     # fig.suptitle("Title centered above all subplots", fontsize=14)
     fig.tight_layout(h_pad=0,w_pad=0)
@@ -551,15 +555,13 @@ def onoff_sketch_plot(irf,Emin=30*u.GeV,subarray=None, tag=None,
     #plt.subplots_adjust(top=0.4,hspace=None,wspace=None)
     plt.subplots_adjust(hspace=0,wspace=0,top=0.95)
 
-    return
-
 ###------------------------------------------------------------------------
-def  aeff_plot(irf, ethreshold = 100*u.GeV, 
-               min_fraction = 0.05, 
+def  aeff_plot(irf, ethreshold = 100*u.GeV,
+               min_fraction = 0.05,
                unit="GeV",
                tag=""):
     """
-    Display effective area 
+    Display effective areas.
 
     Parameters
     ----------
@@ -568,7 +570,7 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
     ethreshold : astropy.Quantity, optional
         Energy threshold to be displayed. The default is 100*u.GeV.
     min_fraction : float, optional
-        A fraction of the max. effective area to be displayed. 
+        A fraction of the max. effective area to be displayed.
         The default is 0.05.
     unit : astropy.unit, optional
         The plot energy unit. The default is "GeV".
@@ -580,7 +582,7 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
     None.
 
     """
-        
+
     # Effective area
     effarea = irf.irf["aeff"].data
     e_edges = effarea.axes[0].center
@@ -589,12 +591,12 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
         effoff = irf.irf["aeff"].to_effective_area_table(off)
         effmax = effoff.max_area # or max( effarea.evaluate(energy_true=e_edges,offset=off) )
         emin    = effoff.find_energy(effmax*min_fraction)
-        print(" {:5.1f} ".format(emin[0].to(unit).value),end="")
+        print(f" {emin[0].to(unit).value:5.1f} ",end="")
         with quantity_support():
-            
-            
-            label = tag + "\n"+str(off.value)+"° " 
-            
+
+
+            label = tag + "\n"+str(off.value)+"° "
+
             # effarea.evaluate(energy_true = e_edges,offset =off))
             p = axij.plot(e_edges,
                           effoff.data.evaluate(energy_true = e_edges)/1e6,
@@ -612,38 +614,41 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
             axij.set_xscale("log")
             axij.set_yscale("log")
             axij.legend()
-            if j>0 : axij.set_ylabel(None)
-            if i>1 : axij.set_xlabel(None)
+            if j>0 :
+                axij.set_ylabel(None)
+            if i>1 :
+                axij.set_xlabel(None)
             axij.grid("both",which="major",alpha=0.5)
             axij.grid("both",which="minor",alpha=0.3)
             single_legend(axij)
 
     print()
     plt.tight_layout(h_pad=0, w_pad=0)
-    
-    return
 
 ###############################################################################
 if __name__ == "__main__":
-    """
-    Code example to use the IRF class
-    """
-    
+
+    # Code example to use the IRF class
+
+    from niceprint import t_str
+    import gammapy
+
+    # Bigger texts and labels
+    import seaborn as sns
+    sns.set_context("talk") # poster, talk, notebook, paper
+
+    print(" Running with gammapy ",gammapy.__version__)
+
     # Suppress invalid unit warning when reading IRF files
     import logging
     logging.basicConfig()
     log = logging.getLogger("gammapy.irf")
     log.setLevel(logging.ERROR)
 
-    from utilities import t_str
-    import matplotlib.pyplot as plt
-    # plt.style.use('seaborn-talk') # Make the labels readable
-    plt.style.use('seaborn-poster') # Bigger - bug with normal x marker !!!
-    
-    import gammapy
-    print(" Running with gammapy ",gammapy.__version__)
+    infolder = "D:/CTA/SoHAPPy/input/"
+    irf_dir  = "irf/Full/prod3-v2"
 
-    irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod3-v2"
+    irf_dir = Path(infolder, irf_dir)
     array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
     # array   = {"North":"LST", "South":"LST"} # "FullArray", "LST",...
     # array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
@@ -652,19 +657,18 @@ if __name__ == "__main__":
     # array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
     # array   = {"North":"4LSTs09MSTs", "South":"4LSTs14MSTs40SSTs"}
 
-    idx = irf_dir.find("prod")
-    prod = irf_dir[idx:idx+5]
+    prod = irf_dir.name[:5]
     print(" Processing ",prod," files")
-    show = []
+    # show = []
     # show = ["containment", "onoff", "effearea","generic"]
     # show = ["effarea", "containment"]
-    show = ["containment"]
-    show = ["edisp"]
-    show = ["effarea"]
-    
-    print(dt_log_valid)
+    # show = ["edisp"]
+    # show = ["effarea"]
+    show = ["containment", "onoff"]
+
+    print(IRF.dt_log_valid)
     ###-------------------------
-    ### E dispersion    
+    ### E dispersion
     ###-------------------------
     if "edisp" in show:
         npoints = 25
@@ -674,14 +678,14 @@ if __name__ == "__main__":
         dtlist  = [100*u.s, 1*u.h, 10*u.h, 100*u.h]
         # dtlist = [100*u.s]
         # zenlist = [21*u.deg]
-        
+
         for loc in ["North","South"]:
             offset = mcf.offset[array[loc]]
-            print(loc," -> Offset = ",offset) 
-            
+            print(loc," -> Offset = ",offset)
+
             for dt in dtlist:
-                fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(17,6),sharey=True) 
-                iplot = 0    
+                fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(17,6),sharey=True)
+                iplot = 0
                 # Display the 3 zenith plots
                 for ax0, zenith in zip(ax, zenlist):
                     irf = IRF.from_observation(loc=loc,
@@ -697,8 +701,8 @@ if __name__ == "__main__":
                                                     migra = ratio,
                                                     energy_true = etrue,
                                                     alpha=0.5,
-                                                    marker =".")    
-                    
+                                                    marker =".")
+
                     # Superimpose the dispersion for the threshold energy
                     ethreshold = [mcf.erec_min[array[loc]][irf.kzen]+mcf.safe_margin]
                     # print(ethreshold)
@@ -707,8 +711,8 @@ if __name__ == "__main__":
                                                     migra=ratio,
                                                     energy_true = ethreshold,
                                                     alpha=1.0,
-                                                    marker="o")                    
-                    
+                                                    marker="o")
+
                     # Change color of threshold and simplify labels
                     lines, labels = ax0.get_legend_handles_labels()
                     iline=0
@@ -723,27 +727,29 @@ if __name__ == "__main__":
                         line.set_label(txt)
                         # print("***",iline," ->", txt)
                         iline+=1
-                    
-                    
+
+
                     # Display acceptable +/- 25% area
                     ax0.axvspan(xmin=0.75,xmax=1.25,alpha=0.2,color="grey")
                     ax0.axvline(x=1.0,alpha=0.5,color="grey")
-                    
+
                     # Titles
-                    ax0.set_title(loc+ " - "+irf.kzen+" -  "+irf.kdt+" - "+str(offset.value)+"°")                
-                
+                    ax0.set_title(loc+ " - "+irf.kzen+" -  "+irf.kdt+" - "+str(offset.value)+"°")
+
                     # Decoration
                     # ax0.set_yscale("log")
-                    if iplot<2: ax0.get_legend().remove()
-                    if iplot != 0 : ax0.set_ylabel(None)
+                    if iplot<2:
+                        ax0.get_legend().remove()
+                    if iplot != 0 :
+                        ax0.set_ylabel(None)
                     iplot+=1
-                    
-                ax0.legend(bbox_to_anchor=[1,0.5],fontsize=12)
+
+                ax.legend(bbox_to_anchor=[1,0.5],fontsize=12)
                 # Rearrange the plots
                 plt.tight_layout(w_pad=0)
-            
+
     ###-------------------------
-    ### Generic    
+    ### Generic
     ###-------------------------
     if "generic" in show:
         for loc in ["North","South"]:
@@ -756,83 +762,80 @@ if __name__ == "__main__":
             irf.print()
             irf.irf["psf"].peek()
             irf.irf["edisp"].peek()
-        print(dt_log_valid)
-    
+        print(irf.dt_log_valid)
+
     ###-------------------------
-    ### Show containment radii    
+    ### Show containment radii
     ###-------------------------
     if "containment" in show:
         for loc in ["North","South"]:
-            fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(15,5), 
+            fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(15,5),
                                    sharex=True, sharey=True)
             iplot=0
-            for ztag, axi in zip(zenith_list,ax):
-                for dt in dt_list[prod].values():           
+            for ztag, axi in zip(IRF.zenith_list,ax):
+                for dt in IRF.dt_list[prod].values():
                     irf = IRF.from_observation(loc       = loc,
                                                subarray = array[loc],
-                                               zenith   = zenith_list[ztag],
+                                               zenith   = IRF.zenith_list[ztag],
                                                azimuth  = 123*u.deg,
                                                obstime  = dt,
-                                               irf_dir  = irf_dir )    
+                                               irf_dir  = irf_dir )
                     print("---->",irf.filename,dt)
                     containment_plot(irf, subarray=array[loc],
                                      erec_min = mcf.erec_min[array[loc]][ztag],
                                      erec_max = mcf.erec_max[ztag],
                                      ax=axi,
                                      tag=ztag[:2]+"° - "+t_str(dt))
-                    
+
                     axi.grid("both",which="major",alpha=0.8)
                     axi.grid("both",which="minor",alpha=0.5)
                     axi.set_ylim(ymax=0.5)
-                    
-                    if (iplot>0): axi.set_ylabel(None)
+
+                    if iplot>0:
+                        axi.set_ylabel(None)
                     iplot +=1
-            
+
             fig.suptitle(array[loc]+" "+loc,fontsize=18,y=0.95)
             plt.tight_layout(w_pad=0)
             # plt.subplots_adjust(top=0.95)
-            
+
     ###-------------------------
     ### Show on-off sketch / containment radii
-    ###-------------------------   
+    ###-------------------------
     nmaxcol = 6
-    if "onoff" in show: 
+    if "onoff" in show:
         for loc in ["North","South"]:
-            for ztag in zenith_list:
-                for dt in dt_list[prod].values():
-    
+            for ztag in IRF.zenith_list.keys():
+                for dt in IRF.dt_list[prod].values():
+
                     irf = IRF.from_observation(loc       = loc,
                                                subarray = array[loc],
-                                               zenith   = zenith_list[ztag],
+                                               zenith   = IRF.zenith_list[ztag],
                                                azimuth  = 123*u.deg,
                                                obstime  = dt,
                                                irf_dir  = irf_dir )
-                    print("---->",irf.filename)
-                    Emin = mcf.erec_min[array[loc]][ztag]
-                    onoff_sketch_plot(irf,Emin=Emin,nmaxcol=nmaxcol,
+                    print(f"---->{irf.filename}")
+                    emin = mcf.erec_min[array[loc]][ztag]
+                    onoff_sketch_plot(irf,emin=emin,nmaxcol=nmaxcol,
                                       subarray=array[loc],
                                       tag=" - "+ztag[:2]+"° - "+t_str(dt))
-                                       
-                    plt.show()
 
     ###-------------------------
-    ### Effectiva area plots    
+    ### Effectiva area plots
     ###-------------------------
-    if "effarea" in show: 
+    if "effarea" in show:
         unit = "GeV"
         min_fraction = 0.05 # 0.05, 0.1
-    
-        print(" *** Threshold for {:2.0f}% eff.max ({:3s})  *** "
-              .format(100*min_fraction,unit))
-    
+
+        print(f" *** Threshold for {100*min_fraction:2.0f}% eff.max ({unit:3s})  *** ")
+
         for loc in ["North","South"]:
             fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(15,12),
                                         sharex=True, sharey=True)
             fig.suptitle(array[loc] + "-" + loc,fontsize=24)
-    
-            print("{:5s} {:10s} {:7s} {:7s} {:7s}"
-                  .format(loc,array[loc],"0°","0.5°","1.0°"))
-    
+
+            print(f"{loc:5s} {array[loc]:10s} {'0°':7s} {'0.5°':7s} {'1°':7s}")
+
             i=0
             for z, axi in zip([20, 40,57],ax):
         #       print(axi)
@@ -844,13 +847,11 @@ if __name__ == "__main__":
                                                obstime  = dt,
                                                irf_dir  = irf_dir )
                     #print(" Found : ",irf.filename)
-                    print("{:13s} :"
-                          .format(str(z)+"° "+str(dt.value)+" "+str(dt.unit)),end="")
-    
+                    print(f"{str(z)+'° '+str(dt.value)+' '+str(dt.unit):13s} :",end="")
+
                     aeff_plot(irf,unit=unit,
                               min_fraction=min_fraction,
                               ethreshold = mcf.erec_min[irf.subarray][irf.kzen],
                               tag = irf.kzen + "\n" +irf.kdt)
                     i+=1
             plt.subplots_adjust(top=0.95)
-
