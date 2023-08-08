@@ -2,34 +2,30 @@
 """
 Created on Fri Jan 11 14:41:11 2019
 
+A bucnh of utility functions used in `SoHAPPy`.
+
 @author: Stolar
 """
+
+import tarfile
+from pathlib import Path
+
 import sys
+import math
+import os
+import shutil
+import datetime
 
-###----------------------------------------------------------------------------
-def pause():
-    """
-    Used to pause plot display in interactive mode on a shell script. In the
-    abscence of a call to that function figures wil stack on the screen during
-    the run and all disappear at the end of the run.
-    Using this, figures will be stacked on screen and displayed for each event
-    until they are closed by the user.
+from   astropy.time import Time
 
-    Returns
-    -------
-    None.
-
-    """
-    import matplotlib.pyplot as plt
-
-    plt.show(block=True)
-    return
+__all__ = ["subset_ids","get_filename","file_from_tar","backup_file",
+           "Df", "Dp"]
 
 ###----------------------------------------------------------------------------
 def subset_ids(nmax, nsets, debug=False):
     """
     This is a simple code defining nsets interval for a list of integer
-    starting at 1 up to nmax. If nmax is not divisible by nsets, the rest 
+    starting at 1 up to nmax. If nmax is not divisible by nsets, the rest
     gives and extra set.
 
     Parameters
@@ -49,41 +45,68 @@ def subset_ids(nmax, nsets, debug=False):
     """
     if nsets >= nmax:
         return [1,nmax]
-    
+
     delta = int(nmax/nsets) # regular set size
     rest  = nmax%nsets # Last set size
 
-    # Define low and high values of the intervals       
-    ids_low  = [i for i in range(1,nmax,delta)]
-    ids_high = [i for i in range(delta,min(nmax+delta,nmax),delta)]
+    # Define low and high values of the intervals
+    ids_low  = list(range(1,nmax,delta))
+    ids_high = list(range(delta,min(nmax+delta,nmax),delta))
     if len(ids_high) < len(ids_low):
         ids_high += [nmax]
     elif ids_high[-1]<nmax:
         ids_high[-1] = nmax
-        
+
     if debug:
         print("steps = ",delta, " uncovered = ",rest)
-        print([id for id in ids_low], " -> ",len(ids_low)," items")
-        print([id for id in ids_high], " -> ",len(ids_high)," items") 
-        
+        print(ids_low, " -> ",len(ids_low)," items")
+        print(ids_high, " -> ",len(ids_high)," items")
+
     # Create interval list
     dsets = [[idl, idh] for (idl, idh) in zip(ids_low, ids_high)]
-    
+
     # Check counts
     icount=0
     for ds in dsets:
-        for item in range(ds[0],ds[1]+1):
-            icount+=1
-    if icount != nmax: 
+        icount += len(range(ds[0],ds[1]+1))
+    if icount != nmax:
         print(dsets)
         sys.exit(f"Total entries = {icount:}")
-    
+
     return dsets
+
+###----------------------------------------------------------------------------
+def get_filename(filename):
+    """
+    Check if file was compressed and/or if it exists.
+    Returns exiting file.
+
+    Parameters
+    ----------
+    filename : Path
+        The current assumed file name.
+
+    Returns
+    -------
+    The name of the existing file
+
+    """
+
+    # Strangely path.is_file() does not give False but an error
+    if not filename.is_file(): # Current file does not exist
+        if filename.suffix == ".gz": # If a gz file, try the non gz file
+            filename = filename.with_suffix("")
+        else: # If this not a gz file, try the gz file
+            filename = filename.with_suffix(filename.suffix+".gz")
+    if not filename.is_file(): # Check that the new file exist
+        sys.exit("utilities.get_filename : {filename} not found")
+
+    return filename
 
 ###----------------------------------------------------------------------------
 def file_from_tar(folder=None, tarname=None, target=None):
     """
-
+    Extract a given file from a tar file.
 
     Parameters
     ----------
@@ -102,30 +125,26 @@ def file_from_tar(folder=None, tarname=None, target=None):
 
     """
 
-    import tarfile
-    from pathlib import Path
-
     tag = "file_from_tar: "
 
     ### ------------------------
     ### Get archive file name
     ### ------------------------
     if not Path(folder).is_dir():
-        sys.exit("{} Folder not found".format(tag))
+        sys.exit(f"{tag} Folder not found")
 
-    if target == None:
-        sys.exit("{} Specify a target in the archive".format(tag))
+    if target is None:
+        sys.exit("f{tag} Specify a target in the archive")
 
-    if tarname == None:
+    if tarname is None:
         # Find the archive in the folder
         p = Path(folder).glob('*.tar.gz')
         files = [x for x in p if x.is_file()]
-        if len(files)>1:
-            sys.exit("{} More than one .tar.gz file, specify a name"
-                     .format(tag))
+        if len(files) > 1:
+            sys.exit(f"{tag} More than one .tar.gz file, specify a name")
         else:
             tarname = files[0]
-    print("{} found {}".format(tag,tarname))
+    print(f"{tag} found {tarname}")
 
     ### ------------------------
     ### Open tar file, get members, check data.txt exists
@@ -135,8 +154,7 @@ def file_from_tar(folder=None, tarname=None, target=None):
     # If the target is not found explicitely, tires a file with same extension
     if not target in [member.name for member in tar.getmembers()]:
 
-        print("{} No {} in archive. Tries with extension"
-              .format(tag, target))
+        print(f"{tag} No {target} in archive. Tries with extension")
 
         # find members with correct extension
         extmatch = \
@@ -144,25 +162,23 @@ def file_from_tar(folder=None, tarname=None, target=None):
              for m in tar.getmembers()]
         extmatch = list(filter(None,extmatch)) # Remove None
 
-        if len(extmatch)>1:
-            sys.exit("{} More than one file matching in archive (try largest?)"
-                     .format(tag))
-        elif len(extmatch)==0:
-            sys.exit("{} No file matching extension in the archive"
-                     .format(tag))
+        if len(extmatch) > 1:
+            sys.exit(f"{tag} More than one file matching in archive (try largest?)")
+        elif len(extmatch) == 0:
+            sys.exit(f"{tag} No file matching extension in the archive")
         else:
-            print("{} {} matches {}".format(tag, extmatch[0],target))
+            print(f"{tag} {extmatch[0]} matches {target}")
             target = extmatch[0]
 
     # At this stage, ether the target was found or deduced from the extension
-    print("{} A file matching {} was found".format(tag,target))
+    print(f"{tag} A file matching {target} was found")
     datafile = tar.extractfile(target)
 
     return datafile
 
-
 ###----------------------------------------------------------------------------
 def backup_file(filename,folder=None, dbg=False):
+
     """
     Copy a file to a result folder.
     If it already exists, make a backup with the date.
@@ -181,17 +197,12 @@ def backup_file(filename,folder=None, dbg=False):
     None.
 
     """
-    """
-
-    """
-    import os
-    import shutil
-    import datetime
 
     # Create result folder if not exisitng
-    if (not os.path.exists(folder)):
-            if (dbg): print(" *** Creating output folder ",folder)
-            os.makedirs(folder)
+    if not os.path.exists(folder):
+        if dbg:
+            print(" *** Creating output folder ",folder)
+        os.makedirs(folder)
 
     output_file = folder+"/"+filename
 
@@ -203,8 +214,25 @@ def backup_file(filename,folder=None, dbg=False):
                                   + str(nw.second)
 
     shutil.copy(filename, output_file)
-    if (dbg): print("   ----",filename," copied to ",output_file())
+    if dbg:
+        print("   ----",filename," copied to ",output_file())
 
-    return
+###------------------------------------------------------------------------
+def Df(x):
+    """
+    Returns a time in Julian day format if the argument is finite
+    """
 
+    if math.isfinite(x):
+        return Time(x,format="mjd")
+    return x
 
+###------------------------------------------------------------------------
+def Dp(x):
+    """
+    Returns a time in ISO format if the argument is an astropy
+    :class:`Time`, and if not returns the argument (unchanged).
+    """
+    if isinstance(x,Time):
+        return x.iso
+    return x
