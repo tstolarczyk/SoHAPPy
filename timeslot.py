@@ -1,129 +1,113 @@
 # -*- coding: utf-8 -*-
 """
-This code handle the observation windows in CTA North and South sites and
-combine observation of both site and/or on several days
+This code handles the observation windows in CTA North and South sites and
+combine the observations common to both sites.
 
 Created on Mon Mar 30 10:36:09 2020
 
 @author: Stolar
 """
+import warnings
+from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
+
 import matplotlib.pyplot as plt
 import astropy.units as u
-from copy import deepcopy
-import warnings
-from niceprint import failure
+
+from niceprint import failure, heading, Log
 
 from obs_slice import Slice
 
-vis_keys = ["North","South","Both"]
+__all__ = ["Slot"]
 
 ###----------------------------------------------------------------------------
 class Slot():
     """
-    A set of time slices, called "slot" is related to a GRB
+    A set of time slices, called `slot` is related to a GRB
     lightcurve given as a set of measurement points, and a visibility,
     namely an observation site.
-    Slots are essentially a list of Slices (see the Slice class).
-    The slice number starts at zero, and a a slice "i" covers the GRB
-    from measurement i to measurement i+1.
+    Slots are essentially a list of Slices (see the :class:`obs_slice.Slice`
+    class).
 
-    Time slots can be the results of merging initial slots, allowing for
+    The slice number `i` starts at zero, and a slice `i` covers the observation
+    from the sampled flux at `i` to the flux at `i+1`.
+
+    Time slots can result from the merging of initial slots, allowing for
     managing overlapping or consecutive observations.
 
     Slots get a name for clarity, and can be associated to a site, or
-    a combination of sites explcitely. They follow the site naming convention
+    a combination of sites explicitely. They follow the site naming convention
     of slices, which is mandatory for slot merging.
 
-    The normal process for building time slots is the following:
-        1. Create a Slot with 'naked' slices,
-        with only the time information from the GRB. This requires
-        deciding how the observation point is fixed.
-
-        2. Apply a visibility constraint from a given site,
-        change the slice collection, tag the slices with the site.
-
-        3. If requested, create more slots for more visibilities
-        (e.g. the following days for a given site)
-
-        4. Merge all above cases in a single Slot.
-
-        5. In the end, "dress" the slot with the physical information
-        (flux, energy and sky position boundaries).
-
-    The slot is then ready to be sent to the simulation and analysis Classes.
-
     """
-    #------------------------------------------------------------
-    def __init__(self,grb, name="naked",
-                 loc="?",delay=-1*u.s,opt="end",debug=False):
+
+    #--------------------------------------------------------------------------
+    def __init__(self, grb, name="naked", loc="?",
+                       delay= -1*u.s, opt="end", debug=False):
         """
-        
-        Create a naked observation slot consisting of a GRB, a visibility
-        window, naked slices, and a flag mentionning if the slot was dressed
-        with physics information.
-        The time reference is the GRB trigger.
+
+        Create a naked observation slot consisting of a GRB, naked slices,
+        and a flag mentionning if the slot was dressed with physics information.
+        The time reference is the GRB trigger time.
 
         Parameters
         ----------
-        grb :  GRB class
+        grb :  GammaRayBurst instance
             a GRB class instantiation
         name : String, optional
             The slot name. The default is "naked".
-        site : string, optional
-            The site to which this slot is associated.
-            Can be 'North', 'South' or 'Both'.
-            The default is '?'.
+        loc : string, optional
+            The site to which this slot is associated.Can be 'North', 'South'
+            or 'Both'. The default is '?'.
         delay : astropy.time, optional
             The observation delay of the slot. The default is -1*u.s.
         opt : string, optional
             Defines how the observation points are chosen.
             The default is "end".
         debug : Boolean, optional
-            If True, verbosy. The default is False.        Returns
+            If True, will be verbosy. The default is False.
+
+        Returns
         -------
         None.
         """
 
         self.grb   = grb
-        self.name  = grb.id
-        self.loc  = loc
+        self.name  = name
+        self.loc   = loc
         self.delay = delay # Has so far no sense if merged sites
         self.opt   = opt
         self.tstart= np.NINF*u.h # Negative infinite
         self.tstop = np.Inf*u.h  # Positive infinite
         self.phys  = False       # Initially not associated to flux values
         self.dbg   = debug
+
         slices = []
         for i in range(1,len(grb.tval)): # Starts at 1, but uses i-1
-            t1 = grb.tval[i-1]
-            t2 = grb.tval[i]
-            s  = Slice(i-1,t1,t2)
-            slices.append(s)
+            time1 = grb.tval[i-1]
+            time2 = grb.tval[i]
+            slc  = Slice(i-1,time1,time2)
+            slices.append(slc)
 
         self.slices   = np.asarray(slices) # Works also it the list is already an array
-        
-        return
 
-    #------------------------------------------------------------
-    def dress(self, irf_dir= "./",
+    #--------------------------------------------------------------------------
+    def dress(self, irf_dir= Path("./"),
                     arrays = None,
-                    zenith = None,
-                    debug  = False):
+                    zenith = None):
         """
-        Dress the slot slices with physics information
+        Dress the slot slices with physics information.
 
         Parameters
         ----------
-        irf_dir : String, optional
-            The IRF folder name. The default is "./".
+        irf_dir : Path, optional
+            The IRF folder path name. The default is Path("./").
         arrays : String, optional
             The subarray to which belong the slot. The default is None.
-        zenith : astropy.coordinates import Angle, optional
+        zenith : astropy.coordinates.Angle, optional
             Observation zenith angle. The default is None.
-        debug : Boolean, optional
-            If True, becomes talkative. The default is False.
 
         Returns
         -------
@@ -132,29 +116,27 @@ class Slot():
         """
 
         self.phys = True
-        for s in self.slices: s.dress(self.grb,
-                                      irf_dir = irf_dir,
-                                      arrays  = arrays,
-                                      opt     = self.opt,
-                                      zenith  = zenith)
+
+        for sls in self.slices:
+            sls.dress(self.grb,
+                      irf_dir = irf_dir,  arrays  = arrays,
+                       opt    = self.opt, zenith  = zenith)
 
         # After dressing, two consecutives slices can be associated to the
         # same spectrum id and should be merged
         to_be_compacted = True
-        while (to_be_compacted):
 
-            fidlist = [s.fid() for s in self.slices]
-            if (len(fidlist) != len(set(fidlist))):
-                #print(" Go to compacting\n", self)
+        while to_be_compacted:
+
+            fidlist = [slc.fid() for slc in self.slices]
+            if len(fidlist) != len(set(fidlist)):
                 self.compact()
-                #print("compacted!!!")
             else:
                 to_be_compacted = False
 
-        return
-
-    #------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def compact(self):
+
         """
         Scan the slot slices and merge those attached to the same
         physical flux.
@@ -164,52 +146,54 @@ class Slot():
         None.
 
         """
-        
 
         prev_fid = -999
         newslices = []
         idt = 0
-        for i, s in enumerate(self.slices):
-            fid = s.fid()
-            if (fid == prev_fid):
+
+        for i, slc in enumerate(self.slices):
+
+            fid = slc.fid()
+
+            if fid == prev_fid:
                 # Change end-time of prev-spec to this spec
                 # print(" Slice ",i," merged with slice ",i-1)
-                self.slices[i-1].merge(s)
+                self.slices[i-1].merge(slc)
             else:
-                s.set_id(idt)
-                newslices.append(s)
+                slc.set_id(idt)
+                newslices.append(slc)
                 idt+=1
             prev_fid = fid
 
         self.slices = newslices
 
-        return
+    #--------------------------------------------------------------------------
+    def copy(self,name=None):
 
-    #------------------------------------------------------------
-    def copy(self,name="a_copy"):
         """
         Copy a slot, change the initial name.
 
         Parameters
         ----------
         name : Sring, optional
-            The name of the slot copy. The default is "a_copy".
+            The name of the slot copy. The default is None.
 
         Returns
         -------
-        slot_copy : TimeSlot
-            The slor copy.
+        slot_copy : Slot
+            The slot copy.
 
         """
 
-        # Could change name and site here
-        self.name = name
+        if name is not None:
+            self.name = name
         slot_copy = deepcopy(self)
 
         return slot_copy
 
-    #------------------------------------------------------------
-    def apply_visibility(self, site="?",delay = 0*u.s,debug=False):
+    #--------------------------------------------------------------------------
+    def apply_visibility(self, site="?",delay = 0*u.s):
+
         """
 
         Apply visibility window and delay to the slot, i.e. change time
@@ -221,8 +205,6 @@ class Slot():
             The site identifier. The default is "?".
         delay : Quantity, optional
             The delay before detection can start. The default is 0*u.s.
-        debug : Boolean, optional
-            Verbose mode if True. The default is False.
 
         Returns
         -------
@@ -235,21 +217,21 @@ class Slot():
 
         #------------------------------------------
         ### Check if t is within a visibility window
-        def visible(t):
-            ok = False
-            for t1, t2 in zip(tstart,tstop):
-                if t >= t1 and t <= t2:
-                    ok = True
+        def visible(time):
+            is_ok = False
+            for time1, time2 in zip(tstart,tstop):
+                if time1 <= time <= time2:
+                    is_ok = True
                     continue
-            return ok
+            return is_ok
         #------------------------------------------
 
         # Get the list of all slices edges
         ticks = []
 
-        for s in self.slices: # Original slices
-            ticks.append(s.ts1().value)
-            ticks.append(s.ts2().value)
+        for slc in self.slices: # Original slices
+            ticks.append(slc.ts1().value)
+            ticks.append(slc.ts2().value)
 
         # Create visibility start and stop time and store
         shift = True
@@ -260,16 +242,17 @@ class Slot():
                 continue
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                t0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
-                t1 = (tvis[1] - self.grb.t_trig).sec
-            if (t1 < t0):
-                print(" Delay made this slice vanished, duration =",t1-t0)
+                time0 = (tvis[0] - self.grb.t_trig).sec + delay.to(unit).value*shift
+                time1 = (tvis[1] - self.grb.t_trig).sec
+            if time1 < time0:
+                print(f" Delay made this slice vanished, duration ={time1-time0}")
             else:
-                tstart.append(t0)
-                tstop.append(t1)
-                ticks.append(t0)
-                ticks.append(t1)
-                if shift : shift=False
+                tstart.append(time0)
+                tstop.append(time1)
+                ticks.append(time0)
+                ticks.append(time1)
+                if shift :
+                    shift=False
 
         if len(tstart) == 0:
             # If delays are such that all slices disappear, then
@@ -282,13 +265,13 @@ class Slot():
         # Now loop over all intervals and add to slot
         newslices = []
         idx = 0
-        for i in range(len(ticks)-1):
-            t1 = ticks[i]
-            t2 = ticks[i+1]
-            if visible(0.5*(t1+t2)):
-                s  = Slice(idx,t1*unit,t2*unit,site=self.loc)
+        for inb in range(len(ticks)-1):
+            time1 = ticks[inb]
+            time2 = ticks[inb+1]
+            if visible(0.5*(time1 + time2)):
+                slc  = Slice(idx,time1*unit,time2*unit,site=self.loc)
                 idx+=1
-                newslices.append(s)
+                newslices.append(slc)
 
         # Create a slot from existing and replace content
         self.slices = newslices
@@ -297,21 +280,19 @@ class Slot():
         self.tstop  = self.slices[-1].ts2()
         self.delay  = delay # Loose the delay information after merging
         #self.dress(name = self.name)
+
         return True
-    #------------------------------------------------------------
-    def merge(self,slot,name="Merged",debug=False):
+
+    #--------------------------------------------------------------------------
+    def merge(self,slot):
 
         """
-        Merge current slot (self) with another slot.
+        Merge current slot (`self`) with another slot.
 
         Parameters
         ----------
         slot : Slot instance
             The slot to be merged with the current slot
-        name : TYPE, optional
-            DESCRIPTION. The default is "Merged".
-        debug : TYPE, optional
-            DESCRIPTION. The default is False.
 
         Returns
         -------
@@ -319,55 +300,51 @@ class Slot():
 
         """
 
-       # Check that the slots are attributed to an authorised site keyword
-        # if not (self.loc in self.grb.site_keys and
-        #         slot.site in self.grb.site_keys) :
-        #     print("merge : site required -> ",self.grb.site_keys)
-        #     print("Slot unchanged")
-        #     return
-
         # Get the list of all slices edges
         ticks = []
         unit = self.slices[0].ts1().unit
 
         for obj in [self,slot]:
-            for s in obj.slices:
-                ticks.append(s.ts1().value)
-                ticks.append(s.ts2().value)
+            for slc in obj.slices:
+                ticks.append(slc.ts1().value)
+                ticks.append(slc.ts2().value)
         ticks=list(set(ticks)) # FIRST remove duplicated entries
         ticks.sort() # THEN Sort (because 'set' change the order)
 
         newslices = []
         icount=0
         for i in range(len(ticks)-1):
-            t1 = ticks[i]
-            t2 = ticks[i+1]
-            tmid = 0.5*(t1+t2)
+            time1 = ticks[i]
+            time2 = ticks[i+1]
+            tmid = 0.5*(time1 + time2)
             idxa = self.find(tmid*unit)
             idxb = slot.find(tmid*unit)
-            if (idxa >=0):
-                if (idxb >=0): loc = "Both"
-                else:          loc = self.loc
+            if idxa >=0:
+                if idxb >=0:
+                    loc = "Both"
+                else:
+                    loc = self.loc
             else:
-                if (idxb >=0): loc = slot.loc
-                else:          loc = None
+                if idxb >=0:
+                    loc = slot.loc
+                else:
+                    loc = None
+
             # Append only if associated to one or two sites
-            if (loc != None):
-                s  = Slice(icount,t1*unit,t2*unit,site=loc)
-                s.set_id(icount)
+            if loc is not None:
+                slc  = Slice(icount, time1*unit, time2*unit, site=loc)
+                slc.set_id(icount)
                 icount+=1
-                newslices.append(s)
+                newslices.append(slc)
 
         # Create a slot from existing and replace content
         self.slices = newslices
-        #self.dress(name="Merged")
         self.tstart = min(ticks)*unit
         self.tstop  = max(ticks)*unit
-        self.loc   = "Both"
+        self.loc    = "Both"
         self.delay  = -1*u.s # Loose the delay information after merging
-        return
 
-    #------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def find(self,time):
         """
         Find the slice containing the given time.
@@ -379,43 +356,48 @@ class Slot():
 
         Returns
         -------
-        Index of the slice or -1, -2 if not within the slices
+        Index or error code:
+            Index of the slice or -1, -2 if not within the slices
 
         """
+
         time = time.to(self.slices[0].ts1().unit)
-        for s in self.slices:
-            if (time >= s.ts1() and time <= s.ts2()):
-                return s.idt()
+        for slc in self.slices:
+            if slc.ts1() <= time <= slc.ts2():
+                return slc.idt()
+
         return -1
 
-    #------------------------------------------------------------
-    def plot(self,ax=None,Eref= 100*u.GeV, **kwargs):
+    #--------------------------------------------------------------------------
+    def plot(self, axa=None, eref= 100*u.GeV, **kwargs):
+
         """
-        Shows the slices of the time slot, displaying the measurement
-        points (if the slot was dressed).
+        Displays the slices of the time slot, including the measurement
+        points if the slot was dressed.
 
         Parameters
         ----------
-        ax : matplotlib.axes
+        axa : matplotlib.axes
             Axes on which the plots are shown. The default is None.
-        Eref : Quantity (energy), optional
-            The reference energy used to display the lightcurve
-        **kwargs : TYPE
-            DESCRIPTION.
+        eref : Quantity (energy), optional
+            The reference energy used to display the lightcurve.
+        **kwargs : keyword arguments
+            Extra arguents from matplotlib.
 
         Returns
         -------
-        None.
+        matplotlib figure
+            Current Matplotlib figure
         """
 
-        if (ax==None):         
-            fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
+        if axa is None:
+            fig, axa = plt.subplots(nrows=1,ncols=1,figsize=(10,6))
         else:
-            fig = ax.get_figure()
+            fig = axa.get_figure()
 
-        ### GRB lightcurve near Eref ---
-        iref = np.argmin(np.abs(Eref-self.grb.Eval))
-        ax.plot(self.grb.tval,self.grb.fluxval[:,iref],
+        ### GRB lightcurve neareEref ---
+        iref = np.argmin(np.abs(eref - self.grb.Eval))
+        axa.plot(self.grb.tval, self.grb.fluxval[:,iref],
                 marker="o", ls=":", lw=0,color="grey",
                 markeredgecolor = "black",
                 markeredgewidth = 1.,
@@ -427,24 +409,24 @@ class Slot():
         # Because a log scale does not accept zero
         tmin = max(1.0,self.slices[0].ts1().value - self.delay.to(u.s).value)
         tmax = self.slices[-1].ts2().value
-        ax.set_xlim(0.9*tmin,1.10*tmax)
+        axa.set_xlim(0.9*tmin, 1.10*tmax)
 
         ### Show delay window
-        if(self.delay.value >= 0):
-            label = "Delay {}".format(self.delay)
-            ax.axvspan( tmin, tmin + self.delay.to(u.s).value,
+        if self.delay.value >= 0:
+            label = f"Delay {self.delay}"
+            axa.axvspan( tmin, tmin + self.delay.to(u.s).value,
                             alpha=0.5,color="grey",label=label)
 
         ### Slices and flux points
         if self.phys: # If dressed
             color = {"North":"blue", "South":"red", "Both":"purple"}
-            for s in self.slices:
-                tobs = s.tobs().value
-                flux = self.grb.fluxval[s.fid(),iref].value # Not absorbed
-                ts1  = s.ts1().value
-                ts2  = s.ts2().value
-                site = s.site()
-                ax.plot(tobs,flux,
+            for slc in self.slices:
+                tobs = slc.tobs().value
+                flux = self.grb.fluxval[slc.fid(),iref].value # Not absorbed
+                ts1  = slc.ts1().value
+                ts2  = slc.ts2().value
+                site = slc.site()
+                axa.plot(tobs,flux,
                         marker="o",
                         markerfacecolor = color[site],
                         markeredgecolor = color[site],
@@ -452,56 +434,67 @@ class Slot():
                         ls="",
                         label=site, **kwargs,)
 
-                ax.hlines(xmin=ts1,xmax=ts2,y=flux,ls="-",color="green",**kwargs)
+                axa.hlines(xmin = ts1, xmax = ts2,
+                           y=flux, ls="-", color="green", **kwargs)
 
-        ax.set_xlabel("Time since trigger ("+ str(self.grb.tval[0].unit)+")")
-        ax.set_ylabel("Flux at " + str(Eref) + " - "
+        axa.set_xlabel("Time since trigger ("+ str(self.grb.tval[0].unit)+")")
+        axa.set_ylabel("Flux at " + str(eref) + " - "
                       + str(self.grb.fluxval[0][0].unit) )
-        ax.set_xscale("log")
-        ax.set_yscale("log")
+        axa.set_xscale("log")
+        axa.set_yscale("log")
 
         ### Visibility windows
         tref = self.grb.t_trig
 
-        if (self.loc == "North" or self.loc == "Both"):
+        if self.loc in ("North", "Both"):
             for elt in self.grb.vis["North"].t_true:
-                ax.axvspan( (elt[0]- tref).sec,
+                axa.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
                             alpha=0.2,color="tab:blue",label="vis. North")
 
-        if (self.loc == "South" or self.loc=="Both"):
+        if self.loc in ("South", "Both"):
             for elt in self.grb.vis["South"].t_true:
-                ax.axvspan( (elt[0]- tref).sec,
+                axa.axvspan( (elt[0]- tref).sec,
                             (elt[1]- tref).sec,
                             alpha=0.2,color="tab:red",label="vis. South")
 
 
-        ax.grid("both",linestyle=':')
-        handles, labels = ax.get_legend_handles_labels()
+        axa.grid("both",linestyle=':')
+        handles, labels = axa.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys())
-        ax.set_title(self.grb.id + " - " + self.loc + " - " + self.name)
+        axa.legend(by_label.values(), by_label.keys())
+        axa.set_title(self.grb.id + " - " + self.loc + " - " + self.name)
 
         return fig
 
-    #------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def __str__(self):
         """
-        Print our the content of a slice set.
+        Print out the content of a slice set.
         """
 
-        print(" Observation set : ",self.name," site=",self.loc)
-        print("   Visibility : ",self.tstart," to ",self.tstop)
-        print("    including : ",self.delay, "of delay")
+        title = "Slot "+self.name
+        if self.loc not in ("North","South","Both"):
+            heading(title+" Original")
+        else:
+            heading(title+" "+self.loc)
+
+        print(f" Observation set {self.name:15s} - site={self.loc:5s}")
+        print(f"   Visibility : {self.tstart:8.2f} to {self.tstop:8.2f}")
+        print(f"    including : {self.delay:8.2f} of delay")
+
         show_header = True
-        for s in self.slices:
-            s.print(header=show_header)
-            if (show_header):
+
+        for slc in self.slices:
+            slc.print(header = show_header)
+            if show_header:
                 show_header = False
+
         return " "
 
-    #------------------------------------------------------------
-    def both_sites(self,delay = {"North":0*u.s, "South":0*u.s},debug = False):
+    #--------------------------------------------------------------------------
+    def both_sites(self,delay = None, debug = False):
+
         """
         Find the vibilities in N and S be given the delays for observation.
         In particular in many case the delay will be applied to the first
@@ -517,25 +510,33 @@ class Slot():
 
         Returns
         -------
-        None.
+        A slot instance or None.
+            Resulting Slot or `None`  if no time slices left
 
         """
+        if delay is None:
+            delay = {"North":0*u.s, "South":0*u.s}
 
         # Compute the delays to be applied to the sites
         delta = (self.grb.vis["North"].t_true[0][0]
                  -  self.grb.vis["South"].t_true[0][0] ).sec*u.s
 
         # Add delay to the first one plus the difference to the second
-        if (delta.value < 0):
-            if debug: print("North is before South by ",-delta)
+        if delta.value < 0:
+            if debug:
+                print("North is before South by ",-delta)
             delay_n = delay["North"]
             delay_s = max(0*u.s,delay["South"]-abs(delta))
-        elif (delta.value > 0):
-            if debug: print("South is before North by ",delta)
+
+        elif delta.value > 0:
+            if debug:
+                print("South is before North by ",delta)
             delay_n = max(0*u.s,delay["North"]-delta)
             delay_s = delay["South"]
-        elif (delta.value == 0):
-            if debug: print("North and South are simultaneaous ",delta)
+
+        elif delta.value == 0:
+            if debug:
+                print("North and South are simultaneaous ",delta)
             delay_n = delay["North"]
             delay_s = delay["South"]
 
@@ -560,9 +561,20 @@ class Slot():
 def test_visibility(slotet):
     """
     Test visibility
+
+    Parameters
+    ----------
+    slotet : Slot instance
+        Current time Slot.
+
+    Returns
+    -------
+    None.
+
     """
+
     tvis =[[18*u.h,40*u.h],
-            [3*u.h,60*u.h],
+           [ 3*u.h,60*u.h],
             [3*u.h,44*u.h],
             [3*u.h,39*u.h],
             [16*u.h,60*u.h] ,
@@ -574,111 +586,141 @@ def test_visibility(slotet):
               "After",
               "Within"]
 
-    for t, label in zip(tvis,title):
-        print(" Apply visibility {} - {}".format(t[0],t[1]))
-        fig, ax = plt.subplots(nrows=1,ncols=1)
+    for time, label in zip(tvis,title):
+        print(f" Apply visibility {time[0]} - {time[1]}")
+
+        _ , axa = plt.subplots(nrows=1,ncols=1)
+
         myset = slotet.copy(name=label)
-        myset.mask(t[0],t[1])
+        myset.mask(time[0],time[1])
+
         print(myset)
-        myset.plot(ax,name=label)
-        ax.axvline(t[0].value,ls=":",color="tab:green")
-        ax.axvline(t[1].value,ls=":",color="tab:red")
+
+        myset.plot(axa,name=label)
+        axa.axvline(time[0].value,ls=":",color="tab:green")
+        axa.axvline(time[1].value,ls=":",color="tab:red")
+
         plt.show()
 
-    return
-
 ###----------------------------------------------------------------------------
-def test_flux(slotet):
-    t = 23*u.h
-    flux = slotet.get_flux(t)
-    print(" flux at {:8.2f} is {:8.3f}".format(t,flux))
+def test_flux(slotet, time = 23*u.h):
+    """
+    Test flux retrieval
 
-    return
+    Parameters
+    ----------
+    slotet : Slot instance
+        Current time Slot.
+    time: Astropy Quantity
+        Time of evaluation
+
+    Returns
+    -------
+    None.
+
+    """
+    flux = slotet.get_flux(time)
+    print(f" flux at {time:8.2f} is {flux:8.3f}")
 
 ###----------------------------------------------------------------------------
 ### MAIN
 ###----------------------------------------------------------------------------
 if __name__ == "__main__":
 
-    """
-    Create time slices collection for a series of GRB.
-    Print them, plot them, test visibility application, merging etc.
-    """
+
+    # Create time slices collection for a series of GRB.
+    # Print them, plot them, test visibility application, merging etc.
 
     import os
-    os.environ['GAMMAPY_DATA'] =r'../input/gammapy-extra-master/datasets'
+    from grb import GammaRayBurst
+    from configuration import Configuration
 
-    from SoHAPPy import get_grb_fromfile, configuration
+    # This is required to have the EBL models read from gammapy
+    os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
+                                          "data"))
 
-    from utilities import Log
+    log = Log(talk=True)
 
-    logfilename = "timeslot.log"  # Log file
-    log = Log(name  = logfilename,talk=True)
+    ### -------------------
+    ### Configuration
+    ### -------------------
+    cf = Configuration.command_line()
 
-    cf = configuration.read()
+    # Supersede some parameters
+    # 85 : not visible at all
     cf.dbg_level = 2
-    cf.newvis    = True
-    cf.altmin    = 10*u.deg # Minimum altitude (original default is 10 degrees)
+    cf.ifirst    = 343 # 1, 85, 204
+    cf.nsrc      = 1
 
-    delay  = 0*u.s
-    ifirst = [85] # 1, 85, 204
-    ngrb   = 1
+    cf.print(log)
 
-    # GRB list to be analysed
-    if type(ifirst)!=list:
-        grblist = list(range(ifirst,ifirst+ngrb))
-    else:
-        grblist = ifirst
+    # Input data
+    grblist   = cf.source_ids()
+    data_path = Path(cf.infolder,cf.data_dir) # Input data
+    visinfo   = cf.decode_visibility_keyword(cf.create_output_folder())
 
-    # Loop over GRB list
-    for i in grblist:
 
-        grb = get_grb_fromfile(i) # Get GRBs
+    ###---------------------------
+    ### Loop over sources
+    ###---------------------------
+    for i, item in enumerate(grblist):
 
-        # Recompute visbility windows
-        if (cf.newvis):
-            grb.vis["North"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
-            grb.vis["South"].compute(altmin  = cf.altmin,
-                                     altmoon = cf.altmoon,
-                                     depth   = cf.depth,
-                                     skip    = cf.skip,
-                                     debug   = False)
+        fname = cf.prefix+str(item)+cf.suffix
+
+        grb = GammaRayBurst.from_fits(Path(data_path,fname),
+                                      prompt  = cf.prompt_dir,
+                                      ebl     = cf.ebl_model)
+
+        for loc in ["North","South"]:
+            grb.set_visibility(item, loc, info = visinfo)
 
         # Printout grb and visibility windows
         if cf.niter<=1 or cf.dbg>0 or cf.ngrb==1 :
+            heading(grb.id)
             log.prt(grb)
-            grb.vis["North"].print(log=log)
-            grb.vis["South"].print(log=log)
+            grb.vis["North"].print()
+            grb.vis["South"].print()
 
-        # Create the GRB  slot
-        origin = Slot(grb,opt="end")
-        #print(origin)
-        origin.plot(ax=plt.subplots()[1])
+        # Create the original GRB slot
+        origin = Slot(grb,
+                      opt   = cf.obs_point,
+                      name  = grb.id,
+                      debug = bool(cf.dbg>1))
 
+        print(origin)
+        origin.plot(axa = plt.subplots()[1]) # Empty dots (not dressed)
 
-        for loc in ["North","South"]:
-            if grb.vis[loc].vis_tonight:
-                slot = origin.copy(name="loc")
-                still_vis = slot.apply_visibility(delay = delay,
-                                                  site  = loc)
-                #print(slot)
-                if (still_vis):
-                    slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
-                else:
-                    print(" Slot vanished after aplying delays")
+        ### Compute slots
+        delay = cf.get_delay()
+
+        for loc in ["North","South","Both"]:
+
+            name = grb.id + "-" + loc
+            still_vis = False # Assumed not visible
+
+            ### Both sites - create a slot
+            if loc=="Both":
+                if grb.vis["North"].vis_night and grb.vis["South"].vis_night:
+                    slot = origin.both_sites(delay = delay, debug = (cf.dbg>1))
+                    if slot is not None:
+                        still_vis = True
+
+            ### North or South, create a slot
+            else:
+                if grb.vis[loc].vis_night: # Apply delays to original slot
+                    slot = origin.copy(name="loc")
+                    still_vis = slot.apply_visibility(delay = delay[loc],
+                                                      site  = loc)
+
+            if still_vis:
+                # Add IRF feature and run - Note that this can
+                # modify the number of slices (merging)
+                slot.dress(irf_dir = Path(cf.infolder,cf.irf_dir),
+                            arrays  = cf.arrays,
+                            zenith  = cf.fixed_zenith)
+
                 print(slot)
-
-        if grb.vis["North"].vis_tonight and grb.vis["South"].vis_tonight:
-            slot = origin.both_sites(delay   = delay,
-                                       debug =(cf.dbg>1))
-            slot.dress(irf_dir = cf.irf_dir,arrays=cf.arrays)
-
-            print(slot)
+                slot.plot()
 
     log.close()
     print("c'est fini")
-
