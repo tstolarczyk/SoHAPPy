@@ -1,0 +1,48 @@
+# FERMI LAT
+# Using LAT events with E>100 MeV between T0+200 s and T0+800 s,
+# we find a LAT localization of
+
+# RA = 288.282, Dec = 19.495,
+
+# with a 90% containment radius of 0.027 degrees (statistical only).
+
+# The LAT lightcurve shows a bright structured emission episode
+# which is temporally coincident with the GBM main emission episode
+# starting at T0+200s.
+# The 100 MeV - 1 GeV photon flux in the time interval 200-800 s after
+# the GBM trigger is (6.2 +/- 0.4)E-03 ph/cm2/s.
+# The estimated photon index above 100 MeV is -1.87 +/- 0.04.
+
+ # From a preliminary analysis, the LAT emission
+# is extending for about 25ks post GBM trigger.
+# The highest-energy photon is 99.3 GeV (with a probability of 99.2%)
+# which is observed 240 seconds after the GBM trigger.
+# This represents the highest GRB photon energy
+# ever detected by Fermi-LAT (the previous record holder being
+# a 95 GeV event from GRB 130427A).
+---
+name  : 221009A
+E0    : 1 TeV # Unknown
+t0    : 1.5e4 s # Unknown
+gamma : 1.87 # 1.87 +/- 0.04 FERMI/LAT/ GCN 32658
+beta  : 1.5 # Unknown
+K     : 1.29e-10 1/(TeV s cm2) # To be computed
+z     : 0.1505 # GCN 32686
+t_trig: 2022-10-09T13:16:59.0 # GBM : 09/10/2022  13:16:59 # GCN 32636
+ra    : 288.26452 deg
+dec   : 19.7735 deg
+Eiso  : 2E+50 erg # Unknown
+Epeak : 10 keV # Unknown
+t90   : 63 s # Unknown
+G0H   : 0
+G0W   : 0
+Fluxpeak : 0 erg
+gamma_le : 0
+gamma_he : 0
+tmin  : 0 h
+tmax  : 96 h # Observed until 55.9 h
+ntbin : 100
+Emin  : 1 GeV
+Emax  : 100 TeV
+ref   : "none"
+gcn   : "https://gcn.gsfc.nasa.gov/gcn/gcn3/32636.gcn3"

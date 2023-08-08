@@ -1,0 +1,34 @@
+# HESS
+# The H.E.S.S. observations were on three consecutive nights:
+# ... the first night starting at T0+4.3 hrs for a total of 3.6 hrs,
+# ... the second night at T0+27.2 hrs for 4.7 hrs,
+# ... and the third night at T0+51.2 hrs for 4.7 hrs (16).
+# Our analysis detected a VHE gamma-ray signal on each of the three
+# nights, spatially coincident with the GRB position, with
+# statistical significances of 21.7 sigma, 5.5 sigma and 2.4 sigma."
+---
+name  : 190829A
+E0    : 1 TeV
+t0    : 1.5e4 s
+gamma : 2.07 # 2.07 +/- 0.09
+beta  : 1.09
+K     : 1.29e-10 1/(TeV s cm2)
+z     : 0.0785
+t_trig: 2019-08-29T19:55:53.0 # GBM : 29 Aug. 2019, 19:55:53 (UT)
+ra    : 44.536 deg
+dec   : -8.977 deg
+Eiso  : 2E+50 erg
+Epeak : 10 keV
+t90   : 63 s # Fermi GBM (50-300 keV)
+G0H   : 0
+G0W   : 0
+Fluxpeak : 0 erg
+gamma_le : 0
+gamma_he : 0
+tmin  : 4.3 h
+tmax  : 96 h # Observed until 55.9 h
+ntbin : 100
+Emin  : 0.18 TeV
+Emax  : 3.3 TeV
+ref   : "Ackerman et al., Science 343, 2014"
+gcn   : "https://gcn.gsfc.nasa.gov/other/130427A.gcn3"
