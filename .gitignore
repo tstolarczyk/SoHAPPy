@@ -18,3 +18,29 @@ docs/api/*
 *.stats
 timeslot.log
 config.yaml
+*.ipynb
+analysis/prompt/.ipynb_checkpoints/{BE53AA19-9EB6-43A2-84A4-8028E3688282}.tmp
+analysis/prompt/.ipynb_checkpoints/look_at_prompt-checkpoint.ipynb~RF14d8fe8.TMP
+desktop.ini
+oldies tbd/config_bck.yaml
+oldies tbd/config_feynman.yaml
+oldies tbd/config_prod.yaml
+oldies tbd/config_visibility.yaml
+oldies tbd/configuration - withTriggerDates.py
+oldies tbd/configuration-keep.py
+oldies tbd/irf_onaxis.rst_deprecated
+oldies tbd/limit_nights.py_tbd.py
+oldies tbd/myConfigs/config-LongFinalTest-omega.yaml
+oldies tbd/myConfigs/config_Long1000_strictmoonveto.yaml
+oldies tbd/myConfigs/config_Long1000_strictmoonveto_1.yaml
+oldies tbd/myConfigs/long/config_prod3_omega_prompt.yaml
+oldies tbd/myConfigs/long/DC/config_DC_prod3_omega.yaml
+oldies tbd/myConfigs/long/DC/config_DC_prod5_alpha-selected.yaml
+oldies tbd/myConfigs/long/DC/config_DC_prod5_alpha.yaml
+oldies tbd/myConfigs/long/promptOnly/config_prod3_omega_MG_promptOnly-nodelay.yaml
+oldies tbd/myConfigs/long/promptOnly/config_prod3_omega_MG_promptOnly-nodelay_tev_22.yaml
+oldies tbd/myConfigs/long/promptOnly/config_prod3_omega_promptOnly-nodelay.yaml
+oldies tbd/myConfigs/long/promptOnly/config_prod3_omega_promptOnly-nodelay_tev_22.yaml
+oldies tbd/generator_old.py
+oldies tbd/SoHAPPy - withTrigger_dates.py
+oldies tbd/trigger_date-obsoletes.py
