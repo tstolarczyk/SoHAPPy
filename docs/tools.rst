@@ -1,13 +1,24 @@
+=====
+Tools
+=====
 
-Dataset tools
-=============
+Print utilities
+====================
 
-.. comment automodapi:: dataset_tools
+.. automodapi:: niceprint
    :no-inheritance-diagram:
-   
-   
-Utilities
-=========
+   :include-all-objects:
 
-.. comment automodapi:: utilities
+Plot utilities
+===================
+
+.. automodapi:: niceplot
    :no-inheritance-diagram:
+   :include-all-objects:
+
+General Utilities
+=================
+
+.. automodapi:: utilities
+   :no-inheritance-diagram:
+   :include-all-objects:

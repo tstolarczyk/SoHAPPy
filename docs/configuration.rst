@@ -1,116 +1,138 @@
 Configuration file
 ==================
-A simulation and analysis parameter file can be passed to the main script with the `-c` options (some of these options can be superseded on the command line, use  `-h` to get the list of parameters).
-If not file is given, the parameters are read from the *config.yaml* in the `SoHAPPy` repository.
-The excecution of `SoHAPPy` automatically create a copy (backup) of the chosen confugration file to the output folder. This copy can be used to reproduce the results later. It is also necessary to run the provided Jupyter notebooks (`analysis sub folder).
-Modifications of SoHAPPy may lead to new parameters that have to be added "by hand" in the former backup configura`tion, either to run a simulation/analysis or use the Jupyter Notebooks.
-  
-The following parameters are defined and mandatory in the configuration file.
+A simulation and analysis parameter file can be passed to the main script with
+the `-c` options (some of these parameters can be superseded on the command
+line, use  `-h` to get the list). If no file name is given, the parameters
+are read from the *config.yaml* in the `SoHAPPy` repository.
+The execution of `SoHAPPy` automatically creates a copy (backup) of the chosen
+configuration file to the output folder, with the initial parameters
+overwritten by the ones on the command line, so that this backuped
+configuration can be used to reprocess the data in the exact same conditions.
 
-Input and output
-----------------
+The configuration data are stored and processed in the
+:class:`configuration.Configuration` in :obj:`configuration.py`.
+
+The following parameters are defined and mandatory in the configuration file.
+Extra parameters can be added and are notified as ignored at run time.
+
+Physics parameters
+------------------
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
 +------------------+-------------------+--------------------------------------------------+
 | variable         | Default/Suggested | What is it ?                                     |
 +==================+===================+==================================================+
-| ifirst           | 1                 | the first GRB file to be processed               |
+| ``ifirst``       | 1                 | | The first GRB identifier to be processed       |
+|                  |                   | | or a list of identifiers. The identifier can   |
+|                  |                   | | include a string referring to a `yaml` file    |
+|                  |                   | | with parameters to generate spectra from an    |
+|                  |                   | | analytical function.                           |
+|                  |                   | | (See the `data/historical` folder)             |
 +------------------+-------------------+--------------------------------------------------+
-| ngrb             | None              | | Number of GRB to be processed                  |
-|                  |                   | | If 1, special actions are taken                |
+| ``nsrc``         | None              | | Number of GRB to be processed if ``ifirst`` is |
+|                  |                   | | an integer. If 1, special actions are taken.   |
+|                  |                   | | Not used if ``ifirst`` is a list.              |
 +------------------+-------------------+--------------------------------------------------+
-| trigger          | 0                 | | Time shift in days applied to the original     |
-|                  |                   | | trigger dates.                                 |
-|                  |                   | | If a float, is added to the existing dates.    |
-|                  |                   | | Can be any duration and/or a number of Julian  |
-|                  |                   | | days to have absolute dates from relative ones.|
-|                  |                   | | If a file, read and overwrite the dates from   |
-|                  |                   | | the file, starting from line 3 (First and      |
-|                  |                   | | second lines are reserved). The number of dates|
-|                  |                   | | should match the number of sources (ngrb).     |
+| ``visibility``   | None              | | Can be:                                        |
+|                  |                   | | * `built-in` (read from the data file if it    |
+|                  |                   | | exists),                                       |
+|                  |                   | | * a keyword pointing to a folder containing    |
+|                  |                   | | `json` files with a colection of visibilities; |
+|                  |                   | | * a keyword corresponding to a dictionnay entry|
+|                  |                   | | in `visibility.yaml` to compute the visibility |
+|                  |                   | | on the fly                                     |
+|                  |                   | | * `forced` to force a single infinite night    |
+|                  |                   | | * `permanent` to force a permanent visibility  |
 +------------------+-------------------+--------------------------------------------------+
-| in_folder        | ../input          | | Input main folder                              |
-|                  |                   | | Contains the `visibility`, `irf`, Swift        |
-|                  |                   | | latency data                                   |
-+------------------+-------------------+--------------------------------------------------+
-| res_dir          | ../output         | Output folder                                    |
-+------------------+-------------------+--------------------------------------------------+
-| data_dir         | None              | Data (GRB files) subfolder                       |
-+------------------+-------------------+--------------------------------------------------+
-| irf_dir          | None              | IRF subfolder (specific organisation)            |
+| ``EBLmodel``     | "dominguez"       | | Extragalactic Background Light model as        |
+|                  |                   | | defined in gammapy or `built-in` if provided   |
+|                  |                   | | or `None` if ignored (no absortpion)           |
 +------------------+-------------------+--------------------------------------------------+
 
-(1): e.g. `Time('1800-01-01T00:00:00', format='isot', scale='utc').jd = 2378496.5` 
-    
+Input / Output
+--------------
+
+.. tabularcolumns:: |l|c|p{5cm}|
+
++------------------+-------------------+--------------------------------------------------+
+| variable         | Default           | What is it ?                                     |
++==================+===================+==================================================+
+| ``infolder``     | ../input          | Base input folder                                |
++------------------+-------------------+--------------------------------------------------+
+| ``resfolder``    | ../output         | Base output main folder                          |
++------------------+-------------------+--------------------------------------------------+
+| ``out_dir``      | None              | | Specific output subfolder, with a name         |
+|                  |                   | | related to tests or IRF                        |
++------------------+-------------------+--------------------------------------------------+
+| ``data_dir``     | None              | Data subfolder                                   |
++------------------+-------------------+--------------------------------------------------+
+| ``prompt_dir``   | None              | | if not Null, read time-integrated              |
+|                  |                   | | prompt from this subfolder                     |
++------------------+-------------------+--------------------------------------------------+
+| ``irf_dir``      | None              | | IRF subfolder - should contain a tag           |
+|                  |                   | | for the production used                        |
++------------------+-------------------+--------------------------------------------------+
+| ``prefix``       | None              | | The prefix before the source identifier        |
+|                  |                   | | to create the full file name                   |
++------------------+-------------------+--------------------------------------------------+
+| ``suffix``       | None              | | The suffix after the source identifier to      |
+|                  |                   | | create the file name (including the extension) |
++------------------+-------------------+--------------------------------------------------+
+
 Simulation parameters
 ---------------------
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
++-----------------------+----------------+-------------------------------------------------+
+| variable              | Default        | What is it ?                                    |
++=======================+================+=================================================+
+| ``niter``             | 1              | Number of Monte Carlo trials                    |
++-----------------------+----------------+-------------------------------------------------+
+| ``seed``              | 2021           | Choose 'random-seed' to randomize               |
++-----------------------+----------------+-------------------------------------------------+
+| ``do_fluctuate``      | False          | Statistical fluctuations are enabled            |
++-----------------------+----------------+-------------------------------------------------+
+| ``do_accelerate``     | True           | | When True, the simulation is stopped if       |
+|                       |                | | none of the first trials in the limit         |
+|                       |                | | of ``1 - det_level`` have reached the minimal |
+|                       |                | | significance. In a simulation with 100        |
+|                       |                | | trials requesting a 3 sigma detection in      |
+|                       |                | | 90% of the iterations, the simulation will    |
+|                       |                | | be stopped after 10 iterations*               |
++-----------------------+----------------+-------------------------------------------------+
 
-+-----------------------+------------------------+---------------------------------------------+
-| variable              | Default                | What is it ?                                |
-+=======================+========================+=============================================+
-| niter                 | 1                      | Number of Monte Carlo trials                |
-+-----------------------+------------------------+---------------------------------------------+
-| seed                  | 2021                   | Choose 'random-seed' to randomize           |
-+-----------------------+------------------------+---------------------------------------------+
-| do_fluctuate          | False                  | Statistical fluctuations are enabled        |
-+-----------------------+------------------------+---------------------------------------------+
-| do_accelerate         | True                   | | When True, the simulation is stopped if   |
-|                       |                        | | none of the first trials in the limit     |
-|                       |                        | | of 1 - det_level have reached the minimal |
-|                       |                        | | significance. In a simulation with 100    |
-|                       |                        | | trials requesting a 3 sigma detection in  |
-|                       |                        | | 90% of the iterations, the simulation will|
-|                       |                        | | be stopped after 10 iterations*           |
-+-----------------------+------------------------+---------------------------------------------+
+(*) Note that this bias the resulting population since it artificially depletes the maximal significance population below the minimum required (e.g. 3 sigma).
 
-
-Simulation physics
-------------------
+Detection parameters
+--------------------
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
-| EBLmodel              | "dominguez"            | | Extragalactic Background Light model as   |
-|                       |                        | | defined in gammapy or 'built-in'          |
+| ``array_North``       | "FullArray"            | IRF North array                             |
 +-----------------------+------------------------+---------------------------------------------+
-| prompt                | False                  | | If True read prompt model from disk       |
-|                       |                        | | (see doc. for accepted data)              |
+| ``array_South``       | "FullArray"            | IRF South array                             |
 +-----------------------+------------------------+---------------------------------------------+
-| array_North           | "FullArray"            | IRF North array                             |
+| ``dtslew_North``      | "30 s"                 | Maximum slewing time delay in North         |
 +-----------------------+------------------------+---------------------------------------------+
-| array_South           | "FullArray"            | IRF South array                             |
+| ``dtslew_South``      | "30 s"                 | Maximum slewing time delay in South         |
 +-----------------------+------------------------+---------------------------------------------+
-| dtslew_North          | "30 s"                 | Maximum slewing time delay in North         |
+| ``fixslew``           | True                   | If False generate a random delay less       |
+|                       |                        |   than ``dtslew``. If True use ``dtswift``  |
 +-----------------------+------------------------+---------------------------------------------+
-| dtslew_South          | "30 s"                 | Maximum slewing time delay in South         |
+| ``dtswift``           | 77*u.s                 | | Alert latency Fixed SWIFT latency         |
+|                       |                        | | (e.g. SWIFT latency, with                 |
+|                       |                        | | a mean value of 77 s)                     |
 +-----------------------+------------------------+---------------------------------------------+
-| fixslew               | True                   | If False generate a random delay < dtslew   |
-+-----------------------+------------------------+---------------------------------------------+
-| dtswift               | 77*u.s                 | | Fixed SWIFT latency**:                    |
-|                       |                        | | - minimum : 12 s;                         |
-|                       |                        | | - mean value : 77 s;                      |
-|                       |                        | | - median : 34 s;                          |
-|                       |                        | | - 65% of GRBs have delays < 52 s;         |
-|                       |                        | | - 90% of GRBs have delays < 130 s.        |
-+-----------------------+------------------------+---------------------------------------------+
-| fixswift              | True                   | | If False, the latency is generated from   |
+| ``fixswift``          | True                   | | If False, the latency is generated from   |
 |                       |                        | | real data file (see below)                |
 +-----------------------+------------------------+---------------------------------------------+
-| swiftfile             | | swift/               | Swift latency file                          |
+| ``swiftfile``         | | data/swift/          | Swift latency file                          |
 |                       | | Swift_delay_times.txt|                                             |
-+-----------------------+------------------------+---------------------------------------------+
-| visibility            | strictmoonveto         | | Can be "Null" (read from the data files if|
-|                       |                        | | it exists), a subfolder where to find the |
-|                       |                        | | pre-computed visibility files, a keyword  |
-|                       |                        | | corresponding to a dictionnary entry in   |
-|                       |                        | | `visibility.yaml` to compute the          | 
-|                       |                        | | visibility on the fly.                    |
 +-----------------------+------------------------+---------------------------------------------+
 
 Debugging and bookkeeping
@@ -121,17 +143,19 @@ Debugging and bookkeeping
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
-| dbg                   | 0                      | From 0 to 3, increasingly verbosy           |
+| ``dbg``               | 0                      | From 0 to 3, increasingly verbosy           |
 +-----------------------+------------------------+---------------------------------------------+
-| save_simu             | False                  | Simulation saved to file for offline use    |
+| ``silent``            | False                  | If True, nothing on screen (output to log)  |
 +-----------------------+------------------------+---------------------------------------------+
-| save_grb              | False                  | GRB class saved to disk -> use grb.py main  |
+| ``save_simu``         | False                  | Simulation saved to file for offline use    |
 +-----------------------+------------------------+---------------------------------------------+
-| datafile              | "data.txt"             | Population study main output file           |
+| ``save_grb``          | False                  | GRB class saved to disk -> use grb.py main  |
 +-----------------------+------------------------+---------------------------------------------+
-| logfile               | "analysis.log"         | Text file with results, status and warning  |
+| ``datafile``          | "data.txt"             | Population study main output file           |
 +-----------------------+------------------------+---------------------------------------------+
-| remove_tar            | False                  | | Remove tarred files, otherwise keep for   |
+| ``logfile``           | "analysis.log"         | Text file with results, status and warning  |
++-----------------------+------------------------+---------------------------------------------+
+| ``remove_tar``        | False                  | | Remove tarred files, otherwise keep for   |
 |                       |                        | | faster access                             |
 +-----------------------+------------------------+---------------------------------------------+
 
@@ -141,40 +165,40 @@ Experts and developpers only
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
-
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
-| method                | 0                      | Not used (detection method)                 |
+| ``det_level``         | 0.9                    | Confidence level for detection              |
 +-----------------------+------------------------+---------------------------------------------+
-| obs_point             | "end"                  | Observation position in the time slice      |
+| ``alpha``             | 0.2                    | One over the number of on/off regions       |
 +-----------------------+------------------------+---------------------------------------------+
-| test_prompt           | False                  | If True test prompt alone (experimental)    |
+| ``obs_point``         | "end"                  | Observation position in the time slice      |
 +-----------------------+------------------------+---------------------------------------------+
-| use_afterglow         | False                  | | Prompt characteritics from the afterglow  |
+| ``test_prompt``       | False                  | If True test prompt alone (experimental)    |
++-----------------------+------------------------+---------------------------------------------+
+| ``use_afterglow``     | False                  | | Prompt characteritics from the afterglow  |
 |                       |                        | | with same id.                             |
 +-----------------------+------------------------+---------------------------------------------+
-| signal_to_zero        | False                  | Keep only background, set signal to zero    |
+| ``tshift``            | 0                      | Shift in days applied to all trigger dates  |
 +-----------------------+------------------------+---------------------------------------------+
-| fixed_zenith          | None                   | If a value ("20*u.deg") freeze zenith in IRF|
+| ``signal_to_zero``    | False                  | Keep only background, set signal to zero    |
 +-----------------------+------------------------+---------------------------------------------+
-| magnify               | 1                      | Multiplicative factor of the flux, for tests|
+| ``fixed_zenith``      | None                   | If a value (`20*u.deg`) freeze zenith in IRF|
 +-----------------------+------------------------+---------------------------------------------+
-| silent                | False                  | If True, nothing on screen (output to log)  |
+| ``magnify``           | 1                      | Multiplicative factor of the flux, for tests|
 +-----------------------+------------------------+---------------------------------------------+
-| write_slices          | False                  | Store detailed information on slices if True|
+| ``write_slices``      | False                  | Store detailed information on slices if True|
 +-----------------------+------------------------+---------------------------------------------+
-| save_dataset          | False                  | Not implemented (save datasets)             |
+| ``save_dataset``      | False                  | Not implemented (save datasets)             |
 +-----------------------+------------------------+---------------------------------------------+
-| forced_visible        | False                  | | If True, the GRB is always visible        |
-|                       |                        | | (infinite nights)                         |
+| ``n_night``           | Null                   |  Limit data to a maximal number of nights   |
 +-----------------------+------------------------+---------------------------------------------+
-| n_night               | Null                   |  Limit data to a maximal number of nights   |
+| ``skip``              | Null                   |  Skip the firts nights                      |
 +-----------------------+------------------------+---------------------------------------------+
-| Emax                  | Null                   |  Limit data energy bins to Emax             |
+| ``Emax``              | Null                   |  Limit data energy bins to Emax             |
 +-----------------------+------------------------+---------------------------------------------+
 
+.. automodapi:: configuration
+   :include-all-objects:
+   :no-inheritance-diagram:
 
-(*) Note that this bias the resulting population since it articiially deplete the max significance population below the minimum required (e.g. 3 sigma).
-
-(**) M. Grazia Bernardini, private communication, February 28th, 2020

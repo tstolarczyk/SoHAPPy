@@ -5,7 +5,8 @@ export SPHINX_APIDOC_OPTIONS='members,special-members,private-members,undoc-memb
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
-SOURCEDIR     = source
+SOURCEDIR     = .
+#SOURCEDIR     = source
 BUILDDIR      = build
 
 # Put it first so that "make" without argument is like "make help".

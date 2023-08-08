@@ -1,67 +1,63 @@
 Instrument response functions
 #############################
+This should be revised and cleaned-up.
 
-The instrument response fucntion class and methods are in irf.py.
-This module hosts the functionnalities to choose the best IRF from the available
-files and the recipes on their validity domains in observation duration and
-angles.
+
+The instrument response function class :class:`irf.IRF` and methods are in :code:`irf.py`. This module hosts the functionnalities to choose the best IRF from the available files and the recipes on their validity domains in observation duration and angles.
 
 
 IRF data file organisation
 ==========================
 
 prod5 v0.1
---------
+----------
 This corresponds to the alpha configuration, with 4 LST and 9 MST in North, and 14 MST and 37 SST in South (no LST). The instrument response function (IRF) files are expected to be found in a
-dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF).  
+dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF).
 
-..  code-block::
+.. code-block:: python
 
-+ 4LSTs09MSTs 
-	+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.1800s-v0.1.fits.gz
-	+-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.18000s-v0.1.fits.gz
-	+-- ...
-+ 14MSTs37SSTs
-	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.1800s-v0.1.fits.gz
-	+-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.18000s-v0.1.fits.gz
-	+-- ...
-
-+ MST
-
-+ SST
+ | + 4LSTs09MSTs
+ |	   +-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.1800s-v0.1.fits.gz
+ |	   +-- Prod5-North-20deg-AverageAz-4LSTs09MSTs.18000s-v0.1.fits.gz
+ |	   +-- ...
+ | + 14MSTs37SSTs
+ |	   +-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.1800s-v0.1.fits.gz
+ |	   +-- Prod5-South-20deg-AverageAz-14MSTs37SSTs.18000s-v0.1.fits.gz
+ |	   +-- ...
+ | + MST
+ | + SST
 
 
 prod3 v2
 --------
 The instrument response function (IRF) files are expected to be found in a
-dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF). The IRF data are in gzip files named irf_file.fits.gz. Here is an excerpt of the organisation :
+dedicated folder, with files organised as follows (the structure is defined for the code to find the best IRF). The IRF data are in gzip files named :code:`irf_file.fits.gz`. Here is an excerpt of the organisation :
 
-..  code-block::
+..  code-block:: python
 
-+ FullArray 
-	+-- North
-		+-- 20deg
-			+-- North_z20_average_5h
-				+-- irf_file.fits.gz
-
-			+-- North_z20_average_30m
-			+-- North_z20_average_50h
-			+-- North_z20_average_100s
-
-    	+-- 40deg
-    	+-- 60deg
-    	
-    +-- South
-    	+-- 20deg
-    	+-- 40deg
-    	+-- 60deg
+ | + FullArray
+ | 	+-- North
+ | 		+-- 20deg
+ | 			+-- North_z20_average_5h
+ | 				+-- irf_file.fits.gz
+ |
+ | 			+-- North_z20_average_30m
+ | 			+-- North_z20_average_50h
+ | 			+-- North_z20_average_100s
+ |
+ |  	+-- 40deg
+ |  	+-- 60deg
+ |
+ |  +-- South
+ |  	+-- 20deg
+ |   	+-- 40deg
+ |  	+-- 60deg
 
 
 IRF validity ranges
 ===================
 
-The recommendations for prod3v2 IRF are the following (Information from
-G. Maier obtained by I. Sadeh on January 30th, 2020), and later private
+The recommendations for `prod3v2` IRF are the following (Information from G. Maier obtained by I. Sadeh on January 30:sup:`th`, 2020), and later private
 discussion on March 31st, 2021.
 
 Angular "interpolation"
@@ -71,9 +67,12 @@ Angular "interpolation"
 
 The zenith windows should be defined following a 1/cos(theta) law, which means that depending on the zenith angle the following IRF should be
 used :
-- zen < 33        : "20deg"
-- 33 <= zen < 54  : "40deg"
-- zen >= 54       : "60deg"
+
+.. code-block:: python
+
+    zen < 33        : "20deg"
+    33 <= zen < 54  : "40deg"
+    zen >= 54       : "60deg"
 
 On top of this, it is foreseen that the instrument performance will not be
 reliable above 66 degrees as implicitly mentionned in A-PERF-0720
@@ -87,23 +86,25 @@ It is recommended to use the average azimuth (not a step function due to the Nor
 Energy thresholds
 -----------------
 
-Although events should be generated from the minimum allowed value for a given
-IRF, the analysis should restrict to a higher threshold, in order to avoid
-cutoff effects.
+Although events should be generated from the minimum allowed value for a given IRF, the analysis should restrict to a higher threshold, in order to avoid cutoff effects.
 
 Minimum *generated* energies are the following:
-- 20deg —> E_gen >= 12.6 GeV
-- 40deg —> E_gen >= 26.4 GeV
-- 60deg —> E_gen >= 105.3 GeV
+
+.. code-block:: python
+
+    20deg: E_gen >= 12.6 GeV
+    40deg: E_gen >= 26.4 GeV
+    60deg: E_gen >= 105.3 GeV
 
 Minimum *reconstructed* energies are the following (suggested values):
-- 20deg —> E_grb >= 30 GeV
-- 40deg —> E_grb >= 40 GeV
-- 60deg —> E_grb >= 110 GeV
 
-This corresponds approximately to the generated energies to which one standard
-deviation has been added (the expected energy resolution at low energies is
-deltaE/E (68%) = 0.25.
+.. code-block:: python
+
+    20deg: E_grb >= 30 GeV
+    40deg: E_grb >= 40 GeV
+    60deg:> E_grb >= 110 GeV
+
+This corresponds approximately to the generated energies to which one standard deviation has been added (the expected energy resolution at low energies is deltaE/E (68%) = 0.25.
 
 Note that the CTA performance plots have a cutoff of E>20 GeV.
 Requirements expect the IRF to be reliable above 30 GeV.
@@ -115,11 +116,11 @@ Official public files
 ---------------------
 
 The officla IRF, for the full array, can be found from here  :
-    prod3b-v2 :
+    * prod3b-v2 :
         https://www.cta-observatory.org/science/cta-performance/
         They have IRF for 20, 40 and 60 degrees, average azimuth
 
-    prod3b-v1, computed in 2017 :
+    * prod3b-v1, computed in 2017 :
         https://www.cta-observatory.org/science/cta-performance/cta-prod3b-v1/
         They have only IRF for 20 deg and 40 deg, average azimuth
 
@@ -133,7 +134,7 @@ Direct download (20181203): https://forge.in2p3.fr/attachments/download/62074
 
 All IRF available for : 100s, 30m, 5h, 50h
 
-..  code-block::
+.. code-block:: python
 
 	- North:
 		- FullArray, LST, MST, TS, TS_MST :
@@ -144,7 +145,7 @@ All IRF available for : 100s, 30m, 5h, 50h
 		- FullArray, LST, MST, MSTSST, SST, TS, TS_MST, TS_SST
 			-  20deg, 40 deg, 60 deg
 			- N, S, average
-        
+
 
 CTA consortium older files
 --------------------------

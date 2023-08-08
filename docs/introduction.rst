@@ -1,52 +1,217 @@
 Introduction
 ############
 
-Dependencies
-============
-It is suggested to install the code inside a dedicated environment based on gammapy.
-This version is compatible with the following dependencies:
+This paragraph gives the first indications to install and run `SoHAPPy`.
+
+
+Installation, dependencies
+==========================
+
+It is suggested to install the code inside a dedicated environment based on
+`gammapy`. This version is compatible with the following dependencies:
 
     * `gammapy <https://gammapy.org/>`_: 0.18.2
-		Use conda env create -f '..\gammapy-0.18.2-environment.yml' to create a dedicated environement (the yaml file is found from the gammapy site). 
-		Activate the environment, conda activate gpy0.18.2, pursue with further installations. 
-    * `astroplan <https://pypi.org/project/astroplan/>`_ : version 0.8 (use pip install)
-At this stage, check that python SoHAPPy.py -h gives the list of possible options.
-Note that this version is compatible with spyder 5.2.2 with spyder-kernels 2.2.1
+	   Use :code:`conda env create -f '..\gammapy-0.18.2-environment.yml'` to
+	   create a dedicated environement (the `yaml` file is found from the
+	   `gammapy` site).
+	   Activate the environment, :code:`conda activate gpy0.18.2`, pursue with
+	   further installations.
+    * `astroplan <https://pypi.org/project/astroplan/>`_ : version 0.8
+      (use :code:`pip install astroplan`).
+    * `seaborn <https://seaborn.pydata.org/>`_ : version 0.12.2
 
-    * `Official CTA Intrument response function <https://www.cta-observatory.org/cta-performance-prod3b-v2/>`_ (IRF) files, organised in a particular subfolder structure (see `IRF <irf.rst>`_)
-    * input object files with a `dedicated format <file_format.rst>`_.
-    
-Developers require `sphinx` to produce this documentation. Version 4.5.0 was used for this document.
-The code has been checked to work with `matplotlib 3.4.1` (`3.2.1` requested by `gammapy`), a version that helps solving inconsistencies in the installation.
+At this stage, check that the line command :code:`python SoHAPPy.py -h` gives
+the list of possible options. Note that this version is compatible with
+`spyder 5.2.2` with `spyder-kernels 2.2.1`. During the code analysis,
+`pylint` is used, and a `.pylintrc` file is provided.
+
+In order to get results two inputs are required:
+    * **Instrument response functions** (IRFs) for CTA (or alternative
+      instruments if they are implemented). For CTA, the official response
+      functions for the alpha configuration ar stored on
+      `Zenodo for prod5 <https://zenodo.org/record/5499840#.YUya5WYzbUI>`_.
+      In `SoHAPPy` the IRF files are in folders with a fixed specific
+      organisation (see `IRF <irf.rst>`_)
+    * **Input object files** with a `dedicated format <file_format.rst>`_.
+
+The code has been checked to work with `matplotlib 3.4.1`
+(`3.2.1` requested by `gammapy`), a version that helps solving inconsistencies
+in the installation.
+Note that the `analysis/population/universe.py` module requires `matplotlib 3.5`
+or higher to be used.
 
 Repository structure
 ====================
-The SoHAPPy repository has 2 subfolders:
-    - *analysis*: contains notebooks and scripts to analyse the SoHAPPy outputs.
-    - *docs*: contains the Sphinx information to generate the present documentation.
+The `SoHAPPy` repository has 3 subfolders:
+    * ``analysis`` : contains the notebooks and scripts to analyse the
+      `SoHAPPy` outputs.
+    * ``docs``: contains the `Sphinx` information to generate the present
+      documentation (Version 4.5.0 was used for this document).
+    * ``data``, contains the following subfolders:
+        * ``historical``: a list of `yaml` files containig parameters to
+          generate GRB light curves from an analytical function;
+        * ``swift``: contains information on the Swift satellit latency time
+          and in particular a distribution to generate realistic delays;
+        * ``ebl``: this is a copy of the ebl subfolder of the
+          `gammapy extras <https://github.com/gammapy/gammapy-extra>`_ and is
+          necessary to have the `gammapy` models used in SoHAPPy. It also
+          contains some additionnal EBL models for tests.
 
-| The IRF and source files are expected to be obtained from specific folders.
-| The output consists in a few files packed together into a `tar.gz` archive. They are written in a specific output folder.
+Input and output
+================
+`SoHAPPy` requires to have an input base folder and an output base folder
+defined in a `configuration <configuration.html>`_ file where some other
+default parameters are defined. Some of the parameters can be superseded on
+the command line (see `configuration <configuration.rst>`_ for the parameters).
+
+Input folder
+------------
+
+The input folder name is free to be chosen. It has to contains the following
+subfolders:
+
+    * a folder handling the light curves and some subfolders with various
+      subpopulation, e.g. `lightcurves/pop_name`. The name of the population
+      folder `pop_name` is used in the output folder hierarchy (the last name
+      in the path is used, see below).
+    * a folder with the IRFs. The IRF file repository is expected to be
+      organised in a strict way as the folder structure is used internally
+      by `SoHAPPy` to get the suitable IRFs file (see
+      `Instrument response functions <irf.rst>`_ for details)
+
+The graph below illustrate this organisation. For the light curves, none of
+the names nor the organisation are mandatory (They will be passed by the user
+in the configuration file or on the command line).
+
+.. code-block:: python
+
+ |  +input
+ |    +-- lightcurves
+ |           +-- long_grb
+ |           +-- special_grbs
+ |           +-- other_grbs
+ |    +-- irf
+
+Output folder
+-------------
+
+A `SoHAPPy` run output consists in 3 files:
+
+* a log file, **analysis.log**, that keeps track of the processing;
+* a result text file, **data.txt**, which contains the results of the
+  simulation and analysis.
+* a copy of the **configuration file** initially given (or the default) with
+  some parameters changed through the command line (so that reusing this
+  configuration file allows reproducing exactly the simulation/analysis).
+
+These three files are stored into a `tar.gz` archive. If the code is run more
+than once, then  the archive is copied and its name contains an information
+on the date at which it was duplicated (results are never automatically
+overwritten). The user can decide if both the files and the archive are kept,
+or only the archive. The output files(s) are stored in a subfolder created
+on-the-fly by `SoHAPPy`. The output folder position is free but its internal
+structure is generated by SoHAPPy.
+
+
+The output folder file structure follows this organisation.
+
+.. code-block:: python
+
+ | + output
+ |         +-- pop_name_1
+ |         |            +--  vis_name
+ |         |                        +-- data_dir
+ |         |                                    +--- vis_name_id1_id2
+ |         |                                    +--- vis_name_id2_id3
+ |         |                                    +--- vis_name_id3_id4
+ |         |                                    +...
+ |         +-- pop_name_2
+
+
+`output` is the output base folder, `pop_name` is the population input
+folder stored in the input base folder, and `vis_name` refers to the assumption
+on the observation, including the minimal altitude for observation, the Moon
+light veto etc. A collection of possible names is found in the `SoHAPPy`
+`visibility.yaml` file (see `Visibility <visibility.html>`_) where more
+visibility configurations can be added.
+
+The next folder name,`data_dir`, is chosen by the user and refer to his
+analysis (e.g. can be `test_omega` for results testing the omega configuration).
+The last folders use again the visibility keyword `vis_name` and add the first
+and last source identifiers of the run. In case only one source is analysed
+the names has only the first identifier (`vis_name_id0`).
+
+Required data
+-------------
+The path to get access to these data are given in the configuration file or
+on the command line. The necessary data files are the following:
+
+    * **astrophysical object data files**, one per source, containing the
+      energy spectra along time slices.
+    * for each of these files, the **position in ra-dec** and the
+      **explosion time** (referred often as the trigger time), generated
+      independently from the :obj:`skygen <../../skygen.py>` application and
+      stored in a `yaml` file (or a collection of `yaml` files). In some
+      cases, this information can be inside the input astrophysical source
+      data files.
+    * a **visibility** file giving the rise and set time for the Sun, the Moon
+      and the source itself. This information can be generated  from the
+      :obj:`skygen` application. In some cases this visibility is encoded
+      in the astrophysical source files or is computed on-the-fly from a
+      given keyword referenced in the `visibility.yaml` file.
+    * The **instrument response function** set used (e.g. `prod3`, `omega`)
+      and extra information on the array or subarry used, or specific flags
+      used during the simulation and analysis (e.g. the slewing time)
 
 Launching the code
 ==================
-The steering parametres are obtained from the `yaml` configuration file (`conf.yaml` is used by default if it is present). 
-Two examples are given by default:
 
-* config_population.yaml, for a large population study, with minimal debugging output
-* config_singlesource.yaml, with the all processing messages and the individual simulation saved on disk for further use. 
+The steering parametres are obtained from the `yaml` configuration file.
+`conf.yaml` is used by default if it is present in the local directory;
+A default file is provided with the release.
 
-The most important parametres can be passed on the command line, in particular the configuration file name 
-(they supersede parameters of the configuration fle).
-Type:
-``python SoHAPPy.py -h``
-to have the list explicited.
+    * :code:`python SoHAPPy.py` would simply run the code from the code folder
+      with the `config.yaml` parameters.
+    * Some of the paramters in the configuration file can be superseded on
+      the command line. :code:`python SoHAPPy.py -h` gives the list of
+      accessible parameters. Here is the output:
 
-The processing of 1000 GRB files with one iteration per trial and a classical 
-logarithmic spacing of time slices (ca. 40 slices in total) takes roughly 2 
-hours on a I5 -16GB laptop, including the visibility computation.
-With 100 iterations the computing time is only slightly increased.
+.. code-block:: python
 
-Producing the visibility alone and writing it to disk takes 2 hours.
-Running SoHAPPy with pre-computed visibilities takes 35 minutes to one hour 
-(when no Moon veto) with one trial and 50 minutes with 100 trials.
+ | usage: SoHAPPy.py [-h] [-f FIRST] [-N NSRC] [-n NITER] [-o OUTPUT]
+ |                   [-i INPUT] [-c CONFIG] [-V VISIBILITY] [-d DEBUG]
+ |
+ | SoHAPPy optional arguments:
+ |  -h, --help            show this help message and exit
+ |  -f FIRST, --first FIRST
+ |                       First source id
+ |  -N NSRC, --nsrc NSRC  Number of source files
+ |  -n NITER, --niter NITER
+ |                       Number of Monte Carlo iteration
+ |  -o OUTPUT, --output OUTPUT
+ |                       Output base folder (path)
+ |  -i INPUT, --input INPUT
+ |                       Input base folder (path)
+ |  -c CONFIG, --config CONFIG
+ |                        Configuration file name
+ |  -m MAXNIGHT, --maxnight MAXNIGHT
+ |                       Maximal number of nights
+ |  -s SKIP, --skip SKIP
+ |                       Number of nights to skip
+ |  -V VISIBILITY, --visibility VISIBILITY
+ |                       Visibility keyword
+ |  -d DEBUG, --debug DEBUG
+ |                       Debugging flag
+
+
+
+In particular the default configuration file name can be superseded :
+:code:`python SoHAPPy.py -c myconfig.yaml` and parameters in `myconfig.yaml`
+can at their turn be superseded :code:`python SoHAPPy.py -c myconfig.yaml -N 1`
+
+For large productions, it is useful to run `SoHAPPy` on subsets.
+The parametesr accessible on the command line are intended for this purpose.
+The base input and output base folders are considered installation dependent
+whereas the subfolders can be changed to differentiate the runs.
+See more on `productions and batch submissions <production.html>`_
+

@@ -1,21 +1,27 @@
-Building the documentation 
-Install Sphinx and the extensions. 
-Extensions should be installed separately. As an example the automodapi, that create an output superior to the autodoc standard package, has to be installed (see here): 
-conda install -c conda-forge sphinx
-conda install -c conda-forge sphinx-automodapi
-conda install –c conda-forge nbsphinx
-conda install -c conda-forge recommonmark
-conda install -c conda-forge numpydoc
-conda install -c conda-forge sphinx_rtd_theme
+Building the documentation
+==========================
+Install Sphinx and the extensions.
+Extensions should be installed separately. As an example the `automodapi`,
+that creates an output superior to the autodoc standard package, has to be
+installed (see here):
 
-make html
+.. code-block::
+
+    conda install -c conda-forge sphinx
+    conda install -c conda-forge sphinx-automodapi
+    conda install –c conda-forge nbsphinx
+    conda install -c conda-forge recommonmark
+    conda install -c conda-forge numpydoc
+    conda install -c conda-forge sphinx_rtd_theme
+
+    make html
 
 
 Todo list
-#########
+=========
 
 Various
-=======
+-------
 
 - Stack the prompt with the afterglow
 - Can we suppress simulation for large S and B. yes, but how well ?
@@ -26,11 +32,11 @@ Various
 
 
 Masking the first dataset in a stacked Datasets
-===============================================
+-----------------------------------------------
 
 *From a Gammapy Slack conversation with @adonath, Jan. 2021*
 
-By default the :obj:`mask_safe` is not applied to a dataset so that it can be changed for different analysis with the same data. 
+By default the :obj:`mask_safe` is not applied to a dataset so that it can be changed for different analysis with the same data.
 
 When stacking a set of Dataset, all datasets except the first one are masked.
 Up to gammapy 0.17 at least, in order to have the mask applied it had to be done "by hand" with the following function:

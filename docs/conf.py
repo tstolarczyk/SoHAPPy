@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.abspath('../analysis'))
 sys.path.insert(0, os.path.abspath('../analysis/population'))
 sys.path.insert(0, os.path.abspath('../analysis/prompt'))
 sys.path.insert(0, os.path.abspath('../analysis/single_object'))
-sys.path.insert(0, os.path.abspath('../analysis/EBL'))
 print("SYS PATH :",sys.path)
 
 # -- Project information -----------------------------------------------------
@@ -29,10 +28,9 @@ copyright = '2021, Th. Stolarczyk'
 author = 'Th. Stolarczyk'
 
 # The short X.Y version
-version = 'dev'
+version = '0.9'
 # The full version, including alpha/beta/rc tags
-release = '0.0'
-
+release = '0.9 beta'
 
 # -- General configuration ---------------------------------------------------
 
@@ -66,14 +64,14 @@ extensions = [
     "nbsphinx",
     "matplotlib.sphinxext.plot_directive",
     "numpydoc",
-	'recommonmark'
+	 'recommonmark'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 numpydoc_show_class_members = False
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.6', None),
+    'python': ('https://docs.python.org/3.7', None),
     'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
     'astropy': ('http://docs.astropy.org/en/latest/', None),
@@ -82,7 +80,7 @@ intersphinx_mapping = {
     'matplotlib': ('http://matplotlib.org/', None),
     'cython': ('http://docs.cython.org/en/latest/', None),
     'iminuit': ('https://iminuit.readthedocs.io/en/latest/', None),
-	'gammapy': ('https://docs.gammapy.org/0.12/',None),
+	 'gammapy': ('https://docs.gammapy.org/0.18.2/',None),
 }
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
