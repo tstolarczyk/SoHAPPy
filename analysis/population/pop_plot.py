@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from niceplot import MyLabel, single_legend, stamp, projected_scatter, col_size, vals_legend
 from historical import plot_historical, historical
 
+__all__ = ["distri","coverage"]
+
 ###-----------------------------------------------------------------------------
 def distri(pop, grbs,
             var="z", varmin=0, varmax=4, varlog = False,
@@ -19,7 +21,7 @@ def distri(pop, grbs,
             nbin=20, color="tab:blue", color2="red",
             **kwargs):
     """
-    
+
 
     Parameters
     ----------
@@ -62,7 +64,7 @@ def distri(pop, grbs,
         DESCRIPTION.
 
     """
-    
+
 
     ax = plt.gca() if ax is None else ax
 
@@ -119,7 +121,7 @@ def coverage(varx, vary,
              title  = "dummy",
              nbin=25, alpha=0.5):
     """
-    
+
 
     Parameters
     ----------
@@ -197,7 +199,7 @@ def coverage(varx, vary,
     ax.grid("both",ls="--")
 
     patches = vals_legend(ax, alpha = alpha)
-    fig.legend(title="$\sigma_{max}$",handles=patches, bbox_to_anchor=[1.04, 1.01],ncol=2)
+    fig.legend(title="$\sigma_{max}$",handles=patches, bbox_to_anchor=[0.98, 1.01],ncol=2)
 
     single_legend(ax)
 
@@ -247,6 +249,10 @@ if __name__ == "__main__":
     from pop_io import create_csv
 
     import sys
+
+    #plt.style.use('seaborn-talk') # Make the labels readable
+    plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!
+
     codefolder = "../../"
     sys.path.append(codefolder)
 

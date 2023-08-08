@@ -17,7 +17,6 @@ from yaml.loader import SafeLoader
 from utilities import file_from_tar
 
 __all__ = ["get_config_data", "create_csv"]
-
 ###-------------------------------------------------------------
 def get_config_data(filename, debug=False):
     """
@@ -61,7 +60,7 @@ def get_config_data(filename, debug=False):
 def create_csv(file     = "parameter.yaml",
                dataname = "data.txt",
                debug=False):
-    
+
     """
     From the current parameter file containing the folder to be analysed,
     create the csv file from default txt file.
@@ -95,7 +94,7 @@ def create_csv(file     = "parameter.yaml",
         folders = xdict["outfolders"]
         base    = xdict["base_folder"]
         nyears  = xdict["duration"]
-        
+
         # Tags are optionall
         if "tags" not in xdict.keys():
             tags = len(folders)*[""]
@@ -124,18 +123,18 @@ def create_csv(file     = "parameter.yaml",
             print("csvfile not found - should be created")
             if txtfilename.is_file():
                 print("Text file found")
-                datafile = txtfilename.as_posix()        
+                datafile = txtfilename.as_posix()
             else: ### Extract data from the archive
                 print(" Text file not found, try to extract from tar.gz")
-                datafile = file_from_tar(folder=Path(base,folder), target="data.txt")      
+                datafile = file_from_tar(folder=Path(base,folder), target="data.txt")
             # At this stage, data are in hands and can be converted
             print("Converting data...")
             data = Table.read(datafile,format="ascii",guess=False)
             data.write(csvfilename.as_posix(), format="ascii.csv",overwrite=True)
             print(csvfilename," Created")
             csvfilenames.append(csvfilename)
-        
+
     if len(csvfilenames) > 1:
         return nyears, csvfilenames, tags
     else:
-        return nyears[0], csvfilenames[0], tags[0] 
+        return nyears[0], csvfilenames[0], tags[0]

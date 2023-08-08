@@ -5,12 +5,16 @@
 ### ------------------------------------------------------
 ### Strict moon veto : i.e. moon has to be below horizon
 ### ------------------------------------------------------
-base_folder: "D:/CTA/CTAA/SoHAPPy/output/"
+base_folder: "D:/CTA/SoHAPPy/output/"
 duration: 
-    - 44
+     - 44
+#     - 1.32
 outfolders:
-    - "long/omega_prod3/strictmoonveto/pop_vis24_strictmoonveto-100iter-noacc"
-
+#     - "long/omega_prod3/strictmoonveto/pop_vis24_strictmoonveto-100iter-noacc"
+#       - "test_feynman/single"
+#       - "long_ISM_finaltest/strictmoonveto/test_omega_trigrand/strictmoonveto_1_46"
+      - "long/alpha_prod5/pop_vis24_strictmoonveto-100iter-noacc-prod5"
+      
 # outfolder : "test_1_5"
 # outfolder : "test"
 # outfolder : "testnaples"

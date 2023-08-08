@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Read a set of Fits files to access the source information in the form of a 
-GammaRayBusrt SoHAPPy class. As this is time consuming, the classes can be 
+Read a set of Fits files to access the source information in the form of a
+GammaRayBusrt SoHAPPy class. As this is time consuming, the classes can be
 stored on disk for further use.
 
 Created on Mon Jan  9 14:33:09 2023
@@ -22,6 +22,8 @@ from grb import GammaRayBurst
 import configuration
 from niceplot import MyLabel, single_legend
 
+__all__ = ["get_population","check_binning","flux_peak_time",
+           "flux_peak_time_all","check_spectra"]
 ###----------------------------------------------------------------------------
 def get_population(ifirst=1, ilast=10, folder="."):
     """
@@ -46,8 +48,8 @@ def get_population(ifirst=1, ilast=10, folder="."):
     cf = configuration.Configuration()
     cf.ifirst     = ifirst
     cf.nsrc       = ilast
-    grblist    = cf.source_ids()    
-    
+    grblist    = cf.source_ids()
+
     grbpop=[]
     for i, item in enumerate(grblist):
         if ((cf.nsrc <= 10) or (np.mod(i,40) == 0)): print("#",i+1," ",end="")
@@ -73,25 +75,25 @@ def check_binning(grbpop):
     ax2.set_xlabel("Time array length")
     ax2.legend()
     plt.show()
-    
+
 ###----------------------------------------------------------------------------
 def flux_peak_time(grb,Eref=100*u.GeV):
-    
+
     idxref  = np.abs(grb.Eval-Eref).argmin() # Get flux close to Eref
     fluxref = grb.fluxval[:,idxref] # Obtain time spectrum for that energy
-    idmax   = fluxref.argmax() # Get time index of max value  
-    
+    idmax   = fluxref.argmax() # Get time index of max value
+
     return idmax, idxref
 
 ###----------------------------------------------------------------------------
 def flux_peak_time_all(energies, nbin=25):
-    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=len(energies), 
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=len(energies),
                                    figsize=(5*len(energies),10),
                                    sharey=True)
 
     for Eref, ax01, ax02 in zip(energies, ax1, ax2):
         tpeak = []
-        Fpeak = []        
+        Fpeak = []
         for grb in grbpop:
             t_id, E_id = flux_peak_time(grb,Eref=Eref)
             tmax = grb.tval[t_id]
@@ -102,56 +104,56 @@ def flux_peak_time_all(energies, nbin=25):
             Fpeak.append(flux.value)
         Fpeak = np.array(Fpeak)*flux.unit
         tpeak = np.array(tpeak)*tmax.unit
-        
+
         with quantity_support():
             ax01.hist(tpeak, bins=nbin,label=MyLabel(tpeak))
             ax01.set_title(f"{Emax.value:5.2f} {Emax.unit:s}")
             ax01.set_xlabel("$t_{peak}$ (" + ax01.get_xlabel()+")")
             ax01.legend()
-            
+
             ax02.hist(Fpeak,bins=nbin)
             ax02.set_xlabel("$F_{peak}$ (" + ax02.get_xlabel()+")")
-        
+
         plt.tight_layout()
-            
+
 ###----------------------------------------------------------------------------
 def check_spectra(ifirst=0, ilast=3, Eref=100*u.GeV):
-    
+
     ngrb = ilast - ifirst
     t_unit = u.d
     fig, axall = plt.subplots(nrows=ngrb,ncols=1,figsize=(15,3.5*ngrb),
                               sharex=True)
     for grb, ax in zip(grbpop[ifirst:ilast+1],axall):
-        
+
         times = grb.tval[1:].to(t_unit)
         dts   = (grb.tval[1:]-grb.tval[:-1]).to(t_unit)
-        
+
         idxref  = np.abs(grb.Eval-Eref).argmin() # Get flux close to Eref
-        fluxref = grb.fluxval[:,idxref] # Obtain time spectrum for that energy       
+        fluxref = grb.fluxval[:,idxref] # Obtain time spectrum for that energy
         idtfmax, _ = flux_peak_time(grb,Eref=Eref)
         fluxmax   = grb.fluxval[idtfmax][idxref]
-        
+
         with quantity_support():
             ax.plot(times,dts,marker=".",alpha=0.5)
             ax.grid(ls="--",lw=1)
             ax.set_ylabel("$\Delta t$ (" + ax.get_ylabel()+")")
             ax.set_xscale("log")
-            ax.set_xlabel(None)        
-    
+            ax.set_xlabel(None)
+
         axx = ax.twinx()
-        
+
         label = f"{grb.id:s} \n {grb.Eval[idxref].value:5.2f} {Eref.unit:s}"
         with quantity_support():
             axx.plot(times,fluxref[1:],color="red",
                      ls="-",label=label,marker=".",alpha=0.5)
-        
+
         axx.axhline(y=fluxmax/10,color="tab:green",label="10%",alpha=0.5)
         axx.axhline(y=fluxmax/100,color="tab:orange",label="1%",alpha=0.5)
         axx.axvline(x=1*u.d,label="Day 1",color="black",ls=":")
         axx.axvline(x=2*u.d,label="Day 2",color="darkgrey",ls=":")
         axx.axvline(x=3*u.d,label="Day 3",color="lightgrey",ls=":")
         axx.set_yscale("log")
-        single_legend(axx, bbox_to_anchor=[1.15,1])    
+        single_legend(axx, bbox_to_anchor=[1.15,1])
         plt.tight_layout()
 
 ###############################################################################
@@ -161,7 +163,7 @@ if __name__ == "__main__":
     import sys
     CODE = "../../"
     sys.path.append(CODE)
-    
+
     # Generic output file name and folders
     infolder    = "D:/CTA/CTAA/SoHAPPy/input/"
     outfolder   = "D:/CTA/CTAA/SoHAPPy/output/pop_tests/"
@@ -169,13 +171,13 @@ if __name__ == "__main__":
     os.environ['GAMMAPY_DATA'] =infolder+r'gammapy-extra-master/datasets'
 
     outfilename = "grbpop.bin"
-    
-    
+
+
     # This flags allows creating and storing the GRB classes and/or
     # reading them
     store = True # Store and process immediately
-    store = False # Read a previously stored population 
-    
+    store = False # Read a previously stored population
+
     ### Read data from exisiting population binary or create it beforehand
     popname = Path(outfolder, "grbpop.bin")
     if store:## Store population
@@ -188,15 +190,15 @@ if __name__ == "__main__":
         outfile  = open(popname,"rb")
         grbpop= pickle.load(outfile)
         outfile.close()
-        print(" Population of ",len(grbpop)," GRBs read from : {}".format(popname))   
-        
+        print(" Population of ",len(grbpop)," GRBs read from : {}".format(popname))
+
     # Check binning
     check_binning(grbpop)
-    
+
     # Time at which the flux is maximal
     energies = [50*u.GeV, 100*u.GeV, 200*u.GeV, 500*u.GeV]
     flux_peak_time_all(energies)
-    
+
     # Check time intervals and spectral shape for some grbs
     check_spectra(ifirst=0, ilast=8, Eref=100*u.GeV)
-    
+

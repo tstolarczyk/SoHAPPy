@@ -20,6 +20,7 @@ from niceplot import MyLabel, stamp
 
 plt.style.use('seaborn-talk') # Make the labels readable
 
+__all__ = ["Pop"]
 ###############################################################################
 class Pop():
     """
@@ -27,7 +28,7 @@ class Pop():
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self, filename="data.csv", nyrs=1., nmaxsrc=100000, 
+    def __init__(self, filename="data.csv", nyrs=1., nmaxsrc=100000,
                  debug=False):
         """
         Get data from a csv SoHAPPy output file
@@ -78,7 +79,7 @@ class Pop():
                 self.grb = self.grb.rename(columns={'vis': 'prpt'})
                 warning(" Deprecated column name 'vis' changed to 'prpt'")
             else:
-                sys.exit(f"{__name__}.py: Missing column for prompt")            
+                sys.exit(f"{__name__}.py: Missing column for prompt")
 
         # If "loca" column does not exist, this is an old file using "site"
         if "t_trig" not in self.grb.columns:
@@ -86,7 +87,7 @@ class Pop():
                 self.grb = self.grb.rename(columns={'ttrig': 't_trig'})
                 warning(" Deprecated column name 'ttrig' changed to 't_trig'")
             else:
-                sys.exit(f"{__name__}.py: Missing column for prompt")           
+                sys.exit(f"{__name__}.py: Missing column for prompt")
         # Site populations - even if not analysed
         g_s = self.grb[self.grb.loca=="South"][:nmaxsrc]
         g_n = self.grb[self.grb.loca=="North"][:nmaxsrc]
@@ -126,14 +127,14 @@ class Pop():
 
         # Get configuration file data and some parameters
         conf = get_config_data(self.filename, debug=False)
-        
+
         if conf["niter"] != self.niter:
             sys.exit(f"{__name__:}.py: niter mismatch wrt configuration")
-        
+
         if "det_level" not in conf.keys():
             warning(f"{__name__}.py: old config. file, 'det_level' set to 0.9")
             conf["det_level"] = 0.9
-            
+
         self.eff_lvl = conf["det_level"]*conf["niter"]
         self.dtswift = u.Quantity(conf["dtswift"])
         self.dtslew  = {"North":u.Quantity(conf["dtslew_North"]),
@@ -222,7 +223,7 @@ class Pop():
     ###-------------------------------------------------------------------
     def slice_stat(self, gname,ax=None, **kwargs):
         """
-        
+
         Slice number distribution
 
         Parameters
@@ -286,7 +287,7 @@ class Pop():
 
         print(" Err code < 0          = ",len(pop[pop.err<0]))
         nSL   = sum(pop.nt)
-        
+
         if sigma == 3:
             nok = sum(pop.d3s)
             var = pop.d3s

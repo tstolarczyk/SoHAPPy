@@ -6,6 +6,8 @@ Created on Tue Nov 15 12:26:59 2022
 """
 import numpy as np
 
+__all__ = ["compute","separator","stat_mean","prt_mean",
+           "stat_line"]
 ###----------------------------------------------------------------------------
 def compute(pop, summary=False):
     """
@@ -103,7 +105,7 @@ def prt_mean(pop, nyrs=1, sig=None, tag=None):
     """
     Mean detection above a certain significance
     """
-    
+
     if nyrs!=1 :
         print(f" {'yr-1':>9s} :",end="") ### !!!
     else:
