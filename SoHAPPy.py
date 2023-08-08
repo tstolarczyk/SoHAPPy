@@ -3,44 +3,52 @@ Create a source list to be simulated and analysed using the parameters given
 in a configuration file and the command line, and files on disks.
 
 Notes for experts:
-* Change `warnings.filterwarnings('ignore')` into
-`warnings.filterwarnings('error')` to have the code stopped in case of warning,
-and be able to identify its origin.
-* The 'ignore' option is motivated by warnings issued by astropy for
-deprecation or too distant dates with respect to the running date.
-* IERS data are not refreshed as it can take long in case of bad Internet
-or no connections at all.
-To refresh these data use:
 
-..  code-block:: python
+* Change :code:`warnings.filterwarnings('ignore')` into
+  :code:`warnings.filterwarnings('error')` to have the code stopped in case of
+  warning, and be able to identify its origin.
 
-    # For refreshing
-    print(" Refreshing IERS")
-    from astroplan import download_IERS_A
-    download_IERS_A
-    print(" ->Done")
+* The 'ignore' option is motivated by warnings issued by `astropy` for
+  deprecation or too distant dates with respect to the running date.
+
+* IERS data are not refreshed as it can take long in case of bad Internetor no
+  connections at all. To refresh these data use:
+
+    ..  code-block:: python
+
+        # For refreshing
+        print(" Refreshing IERS")
+        from astroplan import download_IERS_A
+        download_IERS_A
+        print(" ->Done")
 
 """
+__all__ = ["main"]
 
-import sys, os
+import sys
+import os
+import warnings
+import tarfile
 
 import time
 from   datetime import datetime
 from   pathlib  import Path
+from astropy.utils import iers
+
+import gammapy
+from __init__ import __version__
 
 from configuration  import Configuration
 from niceprint      import Log, failure, heading
 
 from grb import GammaRayBurst
 from timeslot import Slot
-from mcsim  import mc_welcome, MonteCarlo
+from mcsim  import MonteCarlo
 from analyze import Analysis
 
 # Do not refresh IERS data
-from astropy.utils import iers
 iers.conf.auto_download = False
 
-import warnings
 warnings.filterwarnings('ignore')
 # warnings.filterwarnings('error')
 
@@ -55,9 +63,6 @@ def welcome(log):
         See :class:`Log` for details.
 
     """
-    import gammapy
-    from __init__ import __version__
-
     log.prt(datetime.now())
 
     log.prt(f"+{78*'-':78s}+")
@@ -75,7 +80,7 @@ def main():
 
     1. Manage input/output
         - Source data identifier list
-        - open output simulation and log files
+        - Open output simulation and log files
         - load configuration parameters
 
     2. Loop over input object list
@@ -115,6 +120,9 @@ def main():
 
     data_path = Path(cf.infolder,cf.data_dir) # Input data folder
 
+    if cf.prompt_dir is not None:
+        cf.prompt_dir = Path(cf.infolder, cf.prompt_dir)
+
     # Create output folder
     # The subfolder name Follows the convention:
     # "population name"/"user keyword"/"visibility keyword and identifiers"
@@ -134,7 +142,7 @@ def main():
     log_filename = Path(res_dir, cf.logfile)  # Log file
 
     # Open log file - If Silent is True, only in file, otherwise on Screen too
-    log = Log(name = log_filename, talk = not cf.silent)
+    log = Log(log_name = log_filename, talk = not cf.silent)
 
     # Print welcome message and configuration summary
     welcome(log)
@@ -166,7 +174,7 @@ def main():
         #################################
         # Loop over source population   #
         #################################
-        mc_welcome(cf.arrays,log=log) # Say hello, remind simulation parameters
+        MonteCarlo.welcome(cf.arrays,log=log) # Say hello, remind simulation parameters
 
         first = True # Actions for first GRB only
         # for i, item in enumerate(srclist):
@@ -177,34 +185,46 @@ def main():
                 print("#",item)
 
             ### Get GRB
-            if isinstance(item, int):
-
+            if isinstance(item, int): # from a number as an indentifier
                 fname = Path(data_path,cf.prefix+str(item)+cf.suffix)
-                if not fname.is_file():
-                    failure(f" SKIPPING - File not found {fname:}")
-                    continue
 
-                grb = GammaRayBurst.from_fits(fname,
+                if not cf.test_prompt: # Afterglow + time integrated prompt
+                    if not fname.is_file():
+                        failure(f" SKIPPING - File not found {fname:}")
+                        continue
+                    grb = GammaRayBurst.from_fits(fname,
                                               prompt  = cf.prompt_dir,
-                                              ebl     = cf.EBLmodel,
-                                              Emax    = cf.Emax,
+                                              ebl     = cf.ebl_model,
+                                              Emax    = cf.emax,
                                               dt      = cf.tshift,
                                               magnify = cf.magnify)
-                # if cfg.test_prompt:
-                #     return get_time_resolved_prompt_fromfile()
+                else: # Prompt component alone
 
+                    pname = Path(Path(cf.infolder, cf.prompt_dir,
+                                      "events_"+str(item)+".fits"))
+                    if not cf.use_afterglow:
+                        fname = None
+
+                    grb = GammaRayBurst.prompt(pname, fname,
+                                               ebl     = cf.ebl_model,
+                                               magnify = cf.magnify)
 
             elif isinstance(item, str): # this is a GRB name string
+                if cf.visibility == "built-in":
+                    sys.exit(" Error: yaml GRB file with `built-in` visibility")
                 grb = GammaRayBurst.historical_from_yaml(item,
-                                                         ebl = cf.EBLmodel)
+                                                         ebl = cf.ebl_model)
 
             # Assign visibilities
             for loc in ["North","South"]:
-                grb.set_visibility(item, loc,info=visinfo)
+                grb.set_visibility(item, loc,
+                                   info    = visinfo,
+                                   n_night = cf.maxnight,
+                                   n_skip  = cf.skip)
                 # grb.limit_time_range(cf.n_night, tmin, tmax)
 
             # Printout grb, visibility windows, display plots
-            if (cf.niter<=1 and cf.do_fluctuate==True) \
+            if (cf.niter<=1 and cf.do_fluctuate is True) \
                 or cf.dbg>0 or cf.nsrc==1 :
                 heading(grb.id)
                 log.prt(grb)
@@ -216,8 +236,10 @@ def main():
                 pdf_out = PdfPages(Path(grb.id+"_booklet.pdf"))
             else: pdf_out = None
 
-            if cf.show > 0 : grb.plot(pdf_out)
-            if cf.save_grb : grb.write_to_bin(res_dir)
+            if cf.show > 0 :
+                grb.plot(pdf_out)
+            if cf.save_grb :
+                grb.write_to_bin(res_dir)
 
             ###--------------------------------------------###
             #  Loop over locations
@@ -234,7 +256,7 @@ def main():
 
                 name = grb.id + "-" + loc
                 if not cf.silent: # For large production, be silent
-                    log.banner(" SIMULATION  : {:<50s} ".format(name))
+                    log.banner(f" SIMULATION  : {name:<50s} ")
 
                 # Create a MC object
                 # It has dummy values that will be dumped to the output
@@ -243,8 +265,8 @@ def main():
                                 fluctuate = cf.do_fluctuate,
                                 nosignal  = (cf.magnify==0),
                                 seed      = cf.seed,
-                                debug     = cf.dbg,
-                                name      = name)
+                                name      = name,
+                                dbg       = cf.dbg)
 
                 still_vis = False # Assumed not visible
 
@@ -256,7 +278,8 @@ def main():
                     and grb.vis["South"].vis_night:
                         slot = origin.both_sites(delay = delay,
                                                  debug = (cf.dbg>1))
-                        if slot != None: still_vis = True
+                        if slot is not None:
+                            still_vis = True
 
                 ### ------------
                 ### North or South, create a slot
@@ -293,23 +316,28 @@ def main():
                     ana = Analysis(origin, nstat = mc.niter, loc = loc)
 
                 # If requested save simulation to disk
-                if cf.save_simu: mc.write(Path(res_dir,name + "_sim.bin"))
+                if cf.save_simu:
+                    mc.write(Path(res_dir,name + "_sim.bin"))
 
                 # Display status - even if simulation failed (not visible)
-                if cf.dbg : mc.status(log=log)
+                if cf.dbg :
+                    mc.status(log=log)
 
                 ### ------------
                 ### Analyze simulated data
                 ### ------------
                 if ana.err == mc.niter:  # Simulation is a success
                     ana.run()
-                    if cf.dbg  : ana.print(log = log)
-                    if cf.show : ana.show(pdf = pdf_out)
+                    if cf.dbg  :
+                        ana.print(log = log)
+                    if cf.show :
+                        ana.show(pdf = pdf_out)
 
                 # # Even if not detected nor visibile, dump to file
                 first = ana.dump_to_file(grb, pop, header=first)
 
-            if cf.save_fig and cf.show>0: pdf_out.close()
+            if cf.save_fig and cf.show>0:
+                pdf_out.close()
 
             # End of loop over sites
         # END of Loop over GRB
@@ -320,13 +348,13 @@ def main():
     end_pop = time.time()
     elapsed = end_pop-start_pop
 
-    log.prt("\n""-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
-    log.prt(" Duration   = {:8.2f} (s)".format(elapsed))
-    log.prt("  per GRB   = {:8.2f} (s)".format( (elapsed)/cf.nsrc))
-    log.prt("  per trial = {:8.3f} (s)".format( (elapsed)/cf.nsrc/cf.niter))
+    log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+    log.prt(f" Duration   = {elapsed:8.2f} (s)")
+    log.prt(f"  per GRB   = {elapsed/cf.nsrc:8.2f} (s)")
+    log.prt(f"  per trial = {elapsed/cf.nsrc/cf.niter:8.3f} (s)")
     log.prt("-*-*-*-*-*-*-*-*- End of population simulation -*-*-*-*-*-*-*-*-*\n")
-    log.prt(" ******* End of job - Total time = {:8.2f} min *****"
-                 .format((end_pop-start_pop)/60))
+    log.prt(f" ******* End of job - Total time = {(end_pop-start_pop)/60:8.2f} min *****")
+
     log.prt("")
     log.prt(datetime.now())
 
@@ -339,7 +367,6 @@ def main():
     filename  = outprefix + "_" + nw.strftime("%Y%m%d_%H%M%S") \
                                 +".tar.gz"
 
-    import tarfile
     tar = tarfile.open(Path(res_dir,filename), "w:gz")
     tar.add(sim_filename,  arcname=os.path.basename(sim_filename))
     tar.add(log_filename,  arcname=os.path.basename(log_filename))
@@ -353,11 +380,13 @@ def main():
         # After CTRL-C in Spyder, or when the code crashes, the log file
         # cannot be removed (although it was possible to overwrite it)
         # It seems to be Windows specific
-        if not log.log_file.closed: log.log_file.close()
+        if not log.log_file.closed:
+            log.log_file.close()
+
         try:
             os.remove(log_filename)
         except IOError:
-            print("{} removal failed: locked".format(log_filename))
+            print(f"{log_filename} removal failed: locked")
 
     tar.close()
     print("... completed")
