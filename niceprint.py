@@ -2,13 +2,22 @@
 """
 Created on Mon Oct 17 09:55:35 2022
 
+A bunch of functions to manipulate text information.
+
 @author: Stolar
 """
+import os
+from pathlib import Path
+import astropy.units as u
+
+__all__ = ["t_str", "t_fmt","heading","textcol",
+           "warning","failure","success","highlight","banner", "Log"]
 
 #------------------------------------------------------------------------------
 def t_str(t, digit=2):
+
     """
-    Transform a time quantity into a string (used for plot labels)
+    Transform a time quantity into a string (used for plot labels).
 
     Parameters
     ----------
@@ -16,6 +25,7 @@ def t_str(t, digit=2):
         Input time.
     digit : integer
         Significant digits to be printed.
+
     Returns
     -------
     String
@@ -25,6 +35,7 @@ def t_str(t, digit=2):
 
     t = t_fmt(t)
     return str( round(t.value,digit)) +" "+ str(t.unit)
+
 #------------------------------------------------------------------------------
 def t_fmt(t, digit=None):
     """
@@ -41,26 +52,33 @@ def t_fmt(t, digit=None):
         A time with an adapted unit and rounding for plotting
 
     """
-    import astropy.units as u
 
     # Get and format livetimes
     t = t.to(u.s)
-    if   t.value > 1.5*3600*24: t = t.to(u.d)
-    elif t.value > 1.5*3600:    t = t.to(u.h)
-    elif t.value > 2*60:        t = t.to(u.min)
+    if   t.value > 1.5*3600*24:
+        t = t.to(u.d)
+    elif t.value > 1.5*3600:
+        t = t.to(u.h)
+    elif t.value > 2*60:
+        t = t.to(u.min)
 
-    if digit != None: return round(t.value,digit)*t.unit
-    else:             return t
+    if digit is not None:
+        return round(t.value,digit)*t.unit
+
+    return t
 
 ###----------------------------------------------------------------------------
 def heading(title, deco="-"):
+
     """
     Display a centered heading with 2 decorated lines above and below a title
 
     Parameters
     ----------
-    title : TYPE
-        DESCRIPTION.
+    title : String
+        Text to be displayed.
+    deco : String
+        Character to be repeated for decoration.
 
     Returns
     -------
@@ -73,29 +91,28 @@ def heading(title, deco="-"):
 
 ###----------------------------------------------------------------------------
 def textcol(text,t="black",b="white",s=None):
+
     """
     Change text color.
     See:
-    https://www.instructables.com/id/Printing-Colored-Text-in-Python-Without-Any-Module/
-    Add color to text in python : https://ozzmaker.com/add-colour-to-text-in-python/
+
+    * https://www.instructables.com/id/Printing-Colored-Text-in-Python-Without-Any-Module/
+    * Add color to text in python :
+      https://ozzmaker.com/add-colour-to-text-in-python/
 
     To make some of your text more readable, you can use ANSI escape codes to
     change the colour of the text output in your python program. A good use
     case for this is to highlight errors.
     The escape codes are entered right into the print statement.
 
-    print("\033[1;32;40m Bright Green \n")
+    This table shows some of the available formats:
 
-    The above ANSI escape code will set the text colour to bright green.
-    The format is; \033[ Escape code, this is always the same 1 = Style,
-    1 for normal. 32 = Text colour, 32 for bright green.
-    40m = Background colour, 40 is for black.
+    .. code-block::
 
-    This table shows some of the available formats;
-    TEXT COLOR CODE TEXT STYLE CODE BACKGROUND COLOR CODE
-    Black 30 No effect 0 Black 40 Red 31 Bold 1 Red 41 Green 32 Underline
-    2 Green 42 Yellow 33 Negative1 3 Yellow 43 Blue 34 Negative2 5 Blue
-    44 Purple 35 Purple 45 Cyan 36 Cyan 46 White 37 White 47
+        TEXT COLOR CODE TEXT STYLE CODE BACKGROUND COLOR CODE
+        Black 30 No effect 0 Black 40 Red 31 Bold 1 Red 41 Green 32 Underline
+        2 Green 42 Yellow 33 Negative1 3 Yellow 43 Blue 34 Negative2 5 Blue
+        44 Purple 35 Purple 45 Cyan 36 Cyan 46 White 37 White 47
 
     Parameters
     ----------
@@ -110,8 +127,8 @@ def textcol(text,t="black",b="white",s=None):
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
+    String
+        Colored text.
 
     """
 
@@ -130,9 +147,12 @@ def textcol(text,t="black",b="white",s=None):
              "negative2":"5"}
 
     code = "\033["
-    if (s != None): code = code + style[s] + ";"
-    if (t != None): code = code + "3"+color[t] + ";"
-    if (b != None): code = code + "4"+color[b] + ";"
+    if s is not None:
+        code = code + style[s] + ";"
+    if t is not None:
+        code = code + "3"+color[t] + ";"
+    if b is not None:
+        code = code + "4"+color[b] + ";"
     code = code[:-1] + "m"
     endcode = "\033[m"
 
@@ -140,92 +160,205 @@ def textcol(text,t="black",b="white",s=None):
 
 ###----------------------------------------------------------------------------
 def warning(text, **kwarg):
+    """
+    Display a warning message
+
+    Parameters
+    ----------
+    text : String
+        A text to be displayed.
+    **kwarg :
+        Extra arguments.
+
+    Returns
+    -------
+    None.
+
+    """
     print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
-    return
+
+###----------------------------------------------------------------------------
 def failure(text, **kwarg):
+    """
+    Display a failure message
+
+    Parameters
+    ----------
+    text : String
+        A text to be displayed.
+    **kwarg :
+        Extra arguments.
+
+    Returns
+    -------
+    None.
+
+    """
     print(textcol(text,t="red",s="bold"),**kwarg)
-    return
+
+###----------------------------------------------------------------------------
 def success(text,**kwarg):
+    """
+    Display a success message.
+
+    Parameters
+    ----------
+    text : String
+        A text to be displayed.
+    **kwarg :
+        Extra arguments.
+
+    Returns
+    -------
+    None.
+
+    """
     print(textcol(text,t="green", b="black",s="bold"),**kwarg)
-    return
+
+###----------------------------------------------------------------------------
 def highlight(text,**kwarg):
+    """
+    Display a failure message
+
+    Parameters
+    ----------
+    text : String
+        A text to be displayed.
+    **kwarg :
+        Extra arguments.
+
+    Returns
+    -------
+    None.
+
+    """
     print(textcol(text,s="bold"),**kwarg)
+
+###----------------------------------------------------------------------------
 def banner(text,**kwarg):
+    """
+    Display a banner message
+
+    Parameters
+    ----------
+    text : String
+        A text to be displayed.
+    **kwarg :
+        Extra arguments.
+
+    Returns
+    -------
+    None.
+
+    """
     print(textcol(text,t="black",b="yellow",s="bold"),**kwarg)
-    return
 
 ###----------------------------------------------------------------------------
 class Log():
-    """
-    A class to manage a logbook information
 
     """
-    import sys
-    ###------------------------------------------------------------------------
-    def __init__(self, name="default.log",talk=True):
+    A class to manage a logbook information.
 
-        from pathlib import Path
-        name = Path(name) # In case this would not be a path
-
-        if not name.absolute().parent.exists(): # Check folder exists
-            name.absolute().parent.mkdir(parents=True, exist_ok=True)
-
-        try:
-            self.log_file = open(name,'w')
-        except IOError:
-            print("Failure opening {}: locked".format(name))
-
-        self.name     = name
-        self.talk     = talk
-        return
+    """
 
     ###------------------------------------------------------------------------
-    def prt(self, text,**kwarg):
-        if (self.talk):
-            print(text,**kwarg)
-        if (self.log_file != None): print(text,**kwarg,file=self.log_file)
+    def __init__(self, log_name = None, talk = True):
 
+        """
+        Initialize the log book, with display either on Screen or in a log
+        file, or both
+
+        Parameters
+        ----------
+        log_name : Path, optional
+            Log file path or name (String). The default is None.
+        talk : boolean, optional
+            If True, display on screen. The default is True.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        self.write = False # Disable print out to file
+        self.talk  = talk  # Enbale/disable print out on screen
+        self.log_file = None
+
+
+        if log_name is not None:
+
+            log_name = Path(log_name) # In case this would not be a Path
+
+            try:
+                self.log_file = open(log_name,'w')
+            except IOError:
+                print(f"Failure opening {log_name}: locked?")
+
+            self.filename = log_name
+            self.write = True
+            print(f"log information to file {self.filename}")
+        else:
+            if talk is None:
+                print(" Minimal information displayed")
+            else:
+                print(" Information displayed on Screen")
+
+        # if not name.absolute().parent.exists(): # Check folder exists
+        #     name.absolute().parent.mkdir(parents=True, exist_ok=True)
+
+    ###------------------------------------------------------------------------
     def close(self, delete=False):
-        self.log_file.close()
-        if delete:
-            import os
-            os.remove(self.name)
-        return
+
+        if self.write:
+            self.log_file.close()
+            if delete:
+                os.remove(self.filename)
+        else:
+            warning("No log file opened - cannot close")
+
+    ###------------------------------------------------------------------------
+    def prt(self, text, func=print, **kwarg):
+
+        if self.talk:
+            func(text,**kwarg)
+        if self.write is not None:
+            func(text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
     def warning(self,text,**kwarg):
-        if (self.talk):
+        if self.talk:
             warning(text)
             # print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
-        if (self.log_file != None):
+        if self.write is not  None:
             print("*** WARNING *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
-    def failure(self,text,out=sys.stdout,**kwarg):
-        if (self.talk):
+    def failure(self,text,**kwarg):
+        if self.talk:
             failure(text, **kwarg)
-        if (self.log_file != None):
+        if self.write is not  None:
             print("*** FAILURE *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
-    def success(self,text,out=sys.stdout,**kwarg):
-        if (self.talk):
+    def success(self,text,**kwarg):
+        if self.talk:
             print(textcol(text,t="green", b="black",s="bold"),**kwarg)
-        if (self.log_file != None):
+        if self.write is not  None:
             print("*** SUCCESS *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
-    def highlight(self,text,out=sys.stdout,**kwarg):
-        if (self.talk):
+    def highlight(self,text,**kwarg):
+        if self.talk:
             print(textcol(text,s="bold"),**kwarg)
-        if (self.log_file != None):
+        if self.write is not  None:
             print("*** LOOK ! *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
-    def banner(self,text,out=sys.stdout,**kwarg):
-        if (self.talk):
+    def banner(self,text,**kwarg):
+        if self.talk:
             print(textcol(text,t="black",b="yellow",s="bold"),**kwarg)
-        if (self.log_file != None):
+        if self.write is not  None:
             print(" **** " + text + " *** ",**kwarg,file=self.log_file)
 
 ###----------------------------------------------------------------------------
