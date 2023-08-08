@@ -64,12 +64,14 @@ history = {"190114C":
                 "marker":"*" ,
                  "col":"tab:green"}
           }
+
+__all__ = []
 ###-----------------------------------------------------------------------------
 def historical():
     return history
 
 ###-----------------------------------------------------------------------------
-def plot_historical(ax, ddict, obs=[]):
+def plot_historical(ax, ddict, obs=None):
     """
     Add z, Eiso from already detected GRBs
 
@@ -91,7 +93,7 @@ def plot_historical(ax, ddict, obs=[]):
 
     ax = plt.gca() if ax is None else ax
 
-    for target, value in ddict.items():
+    for target, _ in ddict.items():
         data = ddict[target]
         if data["Observatory"] in obs or obs=="all":
             print(target)
