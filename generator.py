@@ -11,16 +11,17 @@ from configuration import Configuration
 from utilities import subset_ids
 from niceprint import heading
 
-__all__ = []
+__all__ = ["slurm_cmd", "decode_command_line"]
+
 ###----------------------------------------------------------------------------
 def slurm_cmd(job_cmd,
-                nproc=1,
-                mem_per_cpu="2G",
-                duration="00:00:30",
-                name="SoHAPPy"):
+              nproc=1,
+              mem_per_cpu="2G",
+              duration="00:00:30",
+              name="prod"):
     """
-    When run on Spyder, a 1000 source prodcution occupy 1.6 Gb of memory on
-    a classical laptop.
+    When run on Spyder, a 1000 source production occupy 1.6 Gb of memory on
+    a classical laptop, thus jusitifying the `mem_per_cpu` default value.
 
     Parameters
     ----------
@@ -54,7 +55,7 @@ def slurm_cmd(job_cmd,
 ###----------------------------------------------------------------------------
 def decode_command_line():
     """
-
+    Decode the current command line.
 
     Returns
     -------
@@ -76,10 +77,16 @@ def decode_command_line():
                         help ="Number of sets",
                         default=2,
                         type=int)
-    parser.add_argument('-b', '--batch',
-                        help ="Batch flag (True, generates batch commands)",
-                        default=True,
-                        type=bool)
+
+    parser.set_defaults(batch=True)
+    parser.add_argument('--batch',
+                        dest='batch',
+                        action='store_true',
+                        help = "Create batch commands")
+    parser.add_argument('--nobatch',
+                        dest='batch',
+                        action='store_false',
+                        help = "Does not create batch commands")
 
     return parser.parse_known_args()  # Separate known arguments from others
 
@@ -90,8 +97,12 @@ if __name__ == '__main__':
 
     if len(sys.argv[1:]) <= 0:
         heading("Execute examples")
-        sys.argv=["", "-C", "skygen.py","-V","strictmoonveto","-n","100", "-b", "True"]
-
+        sys.argv=["", "-C", "skygen.py",
+                      "-V", "strictmoonveto",
+                      "-P", "1000",
+                      "-S", "10",
+                      "--nobatch"]
+        # sys.argv=["", "-C", "SoHAPPy.py","-V","strictmoonveto","-P","10", "-S", "3", "--nobatch" "-d", 0]
 
     # Get command line arguments
     args, extra_args = decode_command_line()
@@ -110,25 +121,31 @@ if __name__ == '__main__':
     print()
     print(" Generated commands: ")
 
+    # Open output script files
+    fint = open()
     # Pass extra arguments to external code
-    if args.Code == "skygen.py":
-        for [id1, id2] in dsets:
+    for [id1, id2] in dsets:
 
-            # Output folder name
-            # resdir = "batch_"+str(dset[0])+"_"+str(dset[1])
+        # Output folder name
+        # resdir = "batch_"+str(dset[0])+"_"+str(dset[1])
 
-            sys.argv = [args.Code]   + extra_args + \
-                     [ "-f", str(id1), "-N", str(id2-id1+1) ]
-            sky = Skies.from_command_line()
+        sys.argv = [args.Code]   + extra_args + \
+                 [ "-f", str(id1), "-N", str(id2-id1+1) ]
+
+        if args.Code == "skygen.py":
+            sky = Skies.command_line()
             job_cmd = sky.cmd_line
-            print(" >",job_cmd)
 
-            if args.batch:
-                batch_cmd = slurm_cmd(job_cmd, name="tbd")
-                print(" >> ",batch_cmd)
+        elif args.Code == "SoHAPPy.py":
+            cf = Configuration.command_line()
+            job_cmd = cf.cmd_line
 
-    elif args.Code == "SoHAPPy.py":
-         cf = Configuration.build(extra_args)
-    else:
-        print(args.Code, "Not handled")
+        else:
+            print(args.Code, "Not handled")
+
+        print(" >",job_cmd)
+        if args.batch:
+            batch_cmd = slurm_cmd(job_cmd, name="tbd")
+            print(" >> ",batch_cmd)
+
 
