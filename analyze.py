@@ -532,7 +532,7 @@ class Analysis():
                       self.nex5s + self.nb5s,
                       self.nb5s/self.alpha))
         log.prt(66*"+")
-        log.prt("{'SoHAPPy!':>}")
+        log.prt(f"{'SoHAPPy!':>}")
 
     ###------------------------------------------------------------------------
     def dump_to_file(self, grb, pop, header=False, debug=False):
@@ -555,7 +555,7 @@ class Analysis():
 
         ### ------------------------------------------------------------
         def head_fmt(kh, vh):
-            if kh =="name":
+            if kh == "name":
                 return ">10s"
             if kh in ("radec",'   ra   dec'):
                 return ">14s"
@@ -563,9 +563,7 @@ class Analysis():
                 return ">10s"
             if isinstance(vh, int):
                 return ">4s"
-            if isinstance(vh, (float,
-                               isinstance(vh,np.float32),
-                               isinstance(vh,np.float64))) :
+            if isinstance(vh, (float, np.float32, np.float64)) :
                 return ">10s"
             if isinstance(vh, (astropy.time.core.Time,
                                astropy.units.quantity.Quantity)):
@@ -574,7 +572,7 @@ class Analysis():
             return ""
 
         def val_fmt(k,v):
-            if k=="name":
+            if k =="name":
                 return ">10s"
             if k in ("radec", '   ra   dec'):
                 return ">13s"
@@ -594,7 +592,7 @@ class Analysis():
         def values(var):
             if isinstance(var, astropy.coordinates.sky_coordinate.SkyCoord):
                 var = [ y for y in [var.ra.value, var.dec.value]]
-                return "{:>6.2f} {:>6.2f}".format(var[0],var[1])
+                return f"{var[0]:>6.2f} {var[1]:>6.2f}"
             if isinstance(var, astropy.units.quantity.Quantity):
                 return var.value
             if isinstance(var, astropy.time.core.Time):
