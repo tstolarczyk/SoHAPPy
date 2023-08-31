@@ -114,19 +114,34 @@ def main():
     ### ------------------------------------------------
     ### Configuration and output files
     ### ------------------------------------------------
+
+    # Retrieve the input and output base folder from environment variables
+    if "HAPPY_IN"  in os.environ.keys():
+        infolder = Path(os.environ["HAPPY_IN"])
+    else:
+        sys.exit("The HAPPY_IN environment variable should be defined")
+
+    if "HAPPY_OUT" in os.environ.keys():
+        resfolder = Path(os.environ["HAPPY_OUT"])
+    else:
+        sys.exit("The HAPPY_OUT environment variable should be defined")
+
     # Build the Configuration, from the defaults, a configuration file and
     # the command line arguments (sys.argv) if any.
     cf = Configuration.command_line()
 
-    data_path = Path(cf.infolder,cf.data_dir) # Input data folder
+    data_path = Path(infolder,cf.data_dir) # Input data folder
 
     if cf.prompt_dir is not None:
-        cf.prompt_dir = Path(cf.infolder, cf.prompt_dir)
+        cf.prompt_dir = Path(infolder, cf.prompt_dir)
 
     # Create output folder
     # The subfolder name Follows the convention:
     # "population name"/"user keyword"/"visibility keyword and identifiers"
-    res_dir   = cf.create_output_folder()
+    res_dir   = cf.create_output_folder(resfolder)
+
+    # IRF folder
+    irf_dir = Path(infolder,cf.irf_dir)
 
     # This is required to have the EBL models read from gammapy
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
@@ -297,7 +312,7 @@ def main():
                 if still_vis:
                     # Add IRF feature and run - Note that this can
                     # modify the number of slices (merging)
-                    slot.dress(irf_dir = Path(cf.infolder,cf.irf_dir),
+                    slot.dress(irf_dir = irf_dir,
                                arrays  = cf.arrays,
                                zenith  = cf.fixed_zenith)
 
@@ -398,6 +413,6 @@ if __name__ == "__main__":
         print("------------------> Execute examples")
         # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
         # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
-        sys.argv=["", "-c","config.yaml"]
+        sys.argv=["", "-c","data/config_ref.yaml"]
 
     main()
