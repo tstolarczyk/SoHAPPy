@@ -38,7 +38,7 @@ class Configuration():
     quantities = ["dtslew_south","dtslew_north","dtswift"]
     """ Member of the class that should be handled as quantities and not strings"""
 
-    def_conf   = "config.yaml"
+    def_conf   = Path("data","config_ref.yaml")
     """Default configuration file name"""
 
     ###-----------------------------------------------------------------------
@@ -75,8 +75,8 @@ class Configuration():
         ### -----------------
         ### INPUT/OUPUT
         ### -----------------
-        self.infolder   = Path("../input")  # Base input folder
-        self.resfolder  = Path("../output") # Base output main folder
+        # self.infolder   = Path("../input")  # Base input folder
+        # self.resfolder  = Path("../output") # Base output main folder
         self.data_dir   = "lightcurves/LONG_FITS/" #Afterglow subfolder
         self.out_dir    = "test" # Result subfolder
         self.prompt_dir = None # Prompt subfolder (if None, not considered)
@@ -155,6 +155,8 @@ class Configuration():
         self.remove_tar = False  # If True, remove tarred output files
         self.silent     = True   # If True, nothing on screen (output to log (if dbg =0))
 
+        self.cmd_line   = ""     # Command line arguments
+
         ### -----------------
         ### EXPERTS/DEVELOPPERS ONLY
         ### -----------------
@@ -223,11 +225,11 @@ class Configuration():
                             help ="Number of Monte Carlo iteration",
                             type = int)
 
-        parser.add_argument('-o', '--output',
-                            help ="Output base folder (path)")
+        # parser.add_argument('-o', '--output',
+        #                     help ="Output base folder (path)")
 
-        parser.add_argument('-i', '--input',
-                            help ="Input base folder (path)")
+        # parser.add_argument('-i', '--input',
+        #                     help ="Input base folder (path)")
 
         parser.add_argument('-c', '--config',
                             help ="Configuration file name")
@@ -248,7 +250,7 @@ class Configuration():
 
         # Find a configuration file, load the data
         # This replaces the constructor defaults
-        inst.find_and_read(args.config)
+        inst.find_and_read(args.config, debug=args.debug)
 
         # Supersede parameters if given
         if args.first is not None:
@@ -257,10 +259,10 @@ class Configuration():
             inst.nsrc       = args.nsrc
         if args.niter is not None:
             inst.niter      = args.niter
-        if args.output is not None:
-            inst.resfolder  = args.output
-        if args.input is not None:
-            inst.infolder   = args.input
+        # if args.output is not None:
+        #     inst.resfolder  = args.output
+        # if args.input is not None:
+        #     inst.infolder   = args.input
         if args.maxnight is not None:
             inst.maxnight   = args.input
         if args.skip is not None:
@@ -303,6 +305,17 @@ class Configuration():
             failure(" Number of nights cannot be limited if 'permanent' or 'forced'")
             sys.exit(" Please correct inconsistency in configuration input")
 
+        # Generate command line
+        vals = parser.parse_args()
+        inst.cmd_line = "SoHAPPy.py "
+        for (k,v) in vars(vals).items():
+
+            if k in ["trigger","position","debug"]:
+                inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
+            else:
+                if v is not None:
+                    inst.cmd_line += "--"+k+" "+ str(v) + " "
+
         return inst
 
     ###-----------------------------------------------------------------------
@@ -340,10 +353,10 @@ class Configuration():
                          f"{testname:} configuration file does not exist")
 
         # Read configuration file from file name
-        self.read_from_yaml()
+        self.read_from_yaml(debug=debug)
 
     ###------------------------------------------------------------------------
-    def read_from_yaml(self, filename=None):
+    def read_from_yaml(self, filename=None, debug=False):
 
         """
         Read configuration file from a `yaml` file on disk.
@@ -386,7 +399,8 @@ class Configuration():
                         setattr(self, key, val)
         #---------------------------------------------------
 
-        print(">>> Read configuration from ",self.filename)
+        if debug:
+            print(">>> Read configuration from ",self.filename)
 
         try:
             file = open(self.filename, "r")
@@ -482,8 +496,8 @@ class Configuration():
         ### INPUT/OUPUT
         ### -----------------
         title("Input/output")
-        out.prt(f" Input folder*             : {self.infolder:}")
-        out.prt(f" Output folder*            : {self.resfolder:}")
+        # out.prt(f" Input folder*             : {self.infolder:}")
+        # out.prt(f" Output folder*            : {self.resfolder:}")
         out.prt(f" Data subfolder            : {self.data_dir:}")
         out.prt(f" IRF subfolder             : {self.irf_dir}")
 
@@ -572,7 +586,7 @@ class Configuration():
         out.prt("    --end\n")
 
     ###------------------------------------------------------------------------
-    def create_output_folder(self):
+    def create_output_folder(self, resfolder):
 
         """
         Create the code outptut folder.
@@ -597,7 +611,7 @@ class Configuration():
         else:
             ext = "_" + str(self.srclist[0])
 
-        resdir = Path(self.resfolder,
+        resdir = Path(resfolder,
                       Path(self.data_dir).name,
                       self.visibility,
                       self.out_dir,
