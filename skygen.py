@@ -15,6 +15,7 @@ Created on Tue Feb 21 13:16:50 2023
 @author: Stolar
 """
 import sys
+import os
 from pathlib import Path
 
 import numpy as np
@@ -255,6 +256,7 @@ class Skies():
                             help = "Do not generate dates if already existing")
 
         parser.set_defaults(position=inst.newpos)
+
         parser.add_argument('--position',
                             dest='position',
                             action='store_true',
@@ -297,7 +299,7 @@ class Skies():
         inst.cmd_line = Path(__file__).name +" "
         for (k,v) in vars(vals).items():
 
-            if k in ["trigger","position","debug"]:
+            if k in ["trigger","position","debug","batch"]:
                 inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
             else:
                 if v is not None: inst.cmd_line += "--"+k+" "+ str(v) + " "
@@ -324,8 +326,16 @@ class Skies():
 
         heading("Dates and positon from source files")
 
+        # Get configuration parameters
         cf = Configuration()
         cf.read_from_yaml(filename = self.config)
+
+        # retrieve data input folder
+        if "HAPPY_IN"  in os.environ.keys():
+            infolder = Path(os.environ["HAPPY_IN"])
+        else:
+            sys.exit("The HAPPY_IN environment variable should be defined")
+
 
         found_position = False
         found_trigger  = False
@@ -336,7 +346,7 @@ class Skies():
             if (self.Nsrc <= 10) or (np.mod(i,10) == 0):
                 print("#",item," ",end="")
 
-            fname = Path(cf.infolder,
+            fname = Path(infolder,
                          cf.data_dir,
                          cf.prefix+str(item)+cf.suffix)
 
@@ -807,12 +817,20 @@ if __name__ == "__main__":
         # Define command line arguments
         sys.argv = ["skygen.py", "-h"]
         sys.argv = ["skygen.py", "-y", "2004", "-n", "10", "-f","8", "-N", "5", "-V", "nomoonveto"]
-        # sys.argv = ["skygen.py",
-        #         "-f", "1",
-        #         "-n", "1",
-        #         "-v", "default",
-        #         "-c", "config.yaml"]
+        sys.argv = ["skygen.py",
+                "-f", "1",
+                "-N", "7",
+                "-v", "default",
+                "-c", "data/config_ref.yaml"]
 
+        sys.argv = ["skygen.py",
+                "-y", "2000",
+                "-n", "44",
+                "-f", "1",
+                "-N", "7",
+                "-v", "triggers",
+                "-c", "data/config_ref.yaml",
+                "--trigger", "--debug"]
         ### If no configuration file is given, generates ex-nihilo
         # sys.argv = ["skygen.py",
         #         "-f", "1",
