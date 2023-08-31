@@ -3,12 +3,11 @@ Astrophysical objects (GRB)
 ===========================
 
 The input data files contain a series of flux measurements at certain energies
-for a series of time slices. The files also give the position, the redshift,
-some physical information. In some cases it also contain a default visibility
-over one night for a minimal altitude of 10 degrees (this visibility can be
-recomputed, see later). Alternatively the source spectrum can be  described
-as  energy and time powerlaws in an external `yaml` file that will be used to
-generate energy spectra and time slices.
+for a series of time slices. The files also give the redshift,
+some physical information. In some cases it also contain a position in the sky,
+a default visibility over one night for a minimal altitude of 10 degrees (this visibility can be recomputed, see later). Alternatively the source spectrum can
+be described as energy and time powerlaws in an external `yaml` file that will
+be used to generate energy spectra and time slices.
 
 The source information is handled by the :class:`grb.GammaRayBurst` class.
 Each instance carries a list in time of models with a default Spatial model

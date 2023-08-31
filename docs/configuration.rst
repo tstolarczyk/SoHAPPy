@@ -3,14 +3,19 @@ Configuration file
 A simulation and analysis parameter file can be passed to the main script with
 the `-c` options (some of these parameters can be superseded on the command
 line, use  `-h` to get the list). If no file name is given, the parameters
-are read from the *config.yaml* in the `SoHAPPy` repository.
+are read from the *config.yaml*. A reference file
+is given in the `SoHAPPy/data` folder.
+
+The base input and output folders are defined through the `HAPPY_IN` and
+`HAPPY_OUT` environment variables respectively.
+
 The execution of `SoHAPPy` automatically creates a copy (backup) of the chosen
 configuration file to the output folder, with the initial parameters
 overwritten by the ones on the command line, so that this backuped
 configuration can be used to reprocess the data in the exact same conditions.
 
 The configuration data are stored and processed in the
-:class:`configuration.Configuration` in :obj:`configuration.py`.
+:class:`configuration.Configuration` class in :file:`configuration.py`.
 
 The following parameters are defined and mandatory in the configuration file.
 Extra parameters can be added and are notified as ignored at run time.
@@ -20,35 +25,35 @@ Physics parameters
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
-+------------------+-------------------+--------------------------------------------------+
-| variable         | Default/Suggested | What is it ?                                     |
-+==================+===================+==================================================+
-| ``ifirst``       | 1                 | | The first GRB identifier to be processed       |
-|                  |                   | | or a list of identifiers. The identifier can   |
-|                  |                   | | include a string referring to a `yaml` file    |
-|                  |                   | | with parameters to generate spectra from an    |
-|                  |                   | | analytical function.                           |
-|                  |                   | | (See the `data/historical` folder)             |
-+------------------+-------------------+--------------------------------------------------+
-| ``nsrc``         | None              | | Number of GRB to be processed if ``ifirst`` is |
-|                  |                   | | an integer. If 1, special actions are taken.   |
-|                  |                   | | Not used if ``ifirst`` is a list.              |
-+------------------+-------------------+--------------------------------------------------+
-| ``visibility``   | None              | | Can be:                                        |
-|                  |                   | | * `built-in` (read from the data file if it    |
-|                  |                   | | exists),                                       |
-|                  |                   | | * a keyword pointing to a folder containing    |
-|                  |                   | | `json` files with a colection of visibilities; |
-|                  |                   | | * a keyword corresponding to a dictionnay entry|
-|                  |                   | | in `visibility.yaml` to compute the visibility |
-|                  |                   | | on the fly                                     |
-|                  |                   | | * `forced` to force a single infinite night    |
-|                  |                   | | * `permanent` to force a permanent visibility  |
-+------------------+-------------------+--------------------------------------------------+
-| ``EBLmodel``     | "dominguez"       | | Extragalactic Background Light model as        |
-|                  |                   | | defined in gammapy or `built-in` if provided   |
-|                  |                   | | or `None` if ignored (no absortpion)           |
-+------------------+-------------------+--------------------------------------------------+
++----------------+--------------+--------------------------------------------------+
+| variable       | Default      | What is it ?                                     |
++================+==============+==================================================+
+| ``ifirst``     | 1            | | The first GRB identifier to be processed       |
+|                |              | | or a list of identifiers. The identifier can   |
+|                |              | | include a string referring to a `yaml` file    |
+|                |              | | with parameters to generate spectra from an    |
+|                |              | | analytical function.                           |
+|                |              | | (See the `data/historical` folder)             |
++----------------+--------------+--------------------------------------------------+
+| ``nsrc``       | None         | | Number of GRB to be processed if ``ifirst`` is |
+|                |              | | an integer. If 1, special actions are taken.   |
+|                |              | | Not used if ``ifirst`` is a list.              |
++----------------+--------------+--------------------------------------------------+
+| ``visibility`` | None         | | Can be:                                        |
+|                |              | | * `built-in` (read from the data file if it    |
+|                |              | | exists),                                       |
+|                |              | | * a keyword pointing to a folder containing    |
+|                |              | | `json` files with a colection of visibilities; |
+|                |              | | * a keyword corresponding to a dictionnay entry|
+|                |              | | in `visibility.yaml` to compute the visibility |
+|                |              | | on the fly                                     |
+|                |              | | * `forced` to force a single infinite night    |
+|                |              | | * `permanent` to force a permanent visibility  |
++----------------+--------------+--------------------------------------------------+
+| ``EBLmodel``   | "dominguez"  | | Extragalactic Background Light model as        |
+|                |              | | defined in gammapy or `built-in` if provided   |
+|                |              | | or `None` if ignored (no absortpion)           |
++----------------+--------------+--------------------------------------------------+
 
 Input / Output
 --------------
@@ -58,10 +63,6 @@ Input / Output
 +------------------+-------------------+--------------------------------------------------+
 | variable         | Default           | What is it ?                                     |
 +==================+===================+==================================================+
-| ``infolder``     | ../input          | Base input folder                                |
-+------------------+-------------------+--------------------------------------------------+
-| ``resfolder``    | ../output         | Base output main folder                          |
-+------------------+-------------------+--------------------------------------------------+
 | ``out_dir``      | None              | | Specific output subfolder, with a name         |
 |                  |                   | | related to tests or IRF                        |
 +------------------+-------------------+--------------------------------------------------+

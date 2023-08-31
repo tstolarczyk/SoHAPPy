@@ -48,26 +48,33 @@ The `SoHAPPy` repository has 3 subfolders:
     * ``docs``: contains the `Sphinx` information to generate the present
       documentation (Version 4.5.0 was used for this document).
     * ``data``, contains the following subfolders:
-        * ``historical``: a list of `yaml` files containig parameters to
+        * ``historical``: a list of `yaml` files containing parameters to
           generate GRB light curves from an analytical function;
-        * ``swift``: contains information on the Swift satellit latency time
+        * ``swift``: contains information on the Swift satellite latency time
           and in particular a distribution to generate realistic delays;
-        * ``ebl``: this is a copy of the ebl subfolder of the
+        * ``ebl``: this is a copy of the `ebl` subfolder of the
           `gammapy extras <https://github.com/gammapy/gammapy-extra>`_ and is
-          necessary to have the `gammapy` models used in SoHAPPy. It also
+          necessary to have the `gammapy` models used in `SoHAPPy`. It also
           contains some additionnal EBL models for tests.
 
 Input and output
 ================
 `SoHAPPy` requires to have an input base folder and an output base folder
-defined in a `configuration <configuration.html>`_ file where some other
-default parameters are defined. Some of the parameters can be superseded on
-the command line (see `configuration <configuration.rst>`_ for the parameters).
+defined through environment variabales:
+
+* :code:`HAPPY_IN` defines the input base folder
+* :code:`HAPPY_OUT` defines teh output base folder
+
+The varaibales are set as follows :
+
+* `Windows powershell` : :code:`$Env:HAPPY_IN = "D:\\\\CTA\\SoHAPPy\\input"`
+* `Interactive python` : :code:`os.environ["HAPPY_IN"] = "D:\\\\CTA\\SoHAPPy\\input"`
+* `bash shell` : :code:`$ export HAPPY_IN="/home/user/SoHAPPY/input"`
 
 Input folder
 ------------
 
-The input folder name is free to be chosen. It has to contains the following
+The input folder has to contain the following
 subfolders:
 
     * a folder handling the light curves and some subfolders with various
@@ -77,9 +84,9 @@ subfolders:
     * a folder with the IRFs. The IRF file repository is expected to be
       organised in a strict way as the folder structure is used internally
       by `SoHAPPy` to get the suitable IRFs file (see
-      `Instrument response functions <irf.rst>`_ for details)
+      `Instrument response functions <irf.html>`_ for details)
 
-The graph below illustrate this organisation. For the light curves, none of
+The graph below illustrates this organisation. For the light curves, none of
 the names nor the organisation are mandatory (They will be passed by the user
 in the configuration file or on the command line).
 
@@ -137,9 +144,14 @@ visibility configurations can be added.
 
 The next folder name,`data_dir`, is chosen by the user and refer to his
 analysis (e.g. can be `test_omega` for results testing the omega configuration).
-The last folders use again the visibility keyword `vis_name` and add the first
-and last source identifiers of the run. In case only one source is analysed
-the names has only the first identifier (`vis_name_id0`).
+The last folder name use again the visibility keyword `vis_name` and add the
+first and last source identifiers of the run. In case only one source is
+analysed the names has only the first identifier (`vis_name_id0`).
+
+Note that it is possible to run `SoHAPPy` on a limited number of sources and
+obtain for each of them additionnal output files to be used for a spectral
+analysis (save the simulation for this using the :code:`save_simu` keyword in
+the `configuration file <configuration.html>`_ ).
 
 Required data
 -------------
@@ -151,14 +163,17 @@ on the command line. The necessary data files are the following:
     * for each of these files, the **position in ra-dec** and the
       **explosion time** (referred often as the trigger time), generated
       independently from the :obj:`skygen <../../skygen.py>` application and
-      stored in a `yaml` file (or a collection of `yaml` files). In some
+      stored in a `yaml` file (or a collection of `yaml` files). See the
+      chapter on `productions <production.html>`_ for details). In some
       cases, this information can be inside the input astrophysical source
       data files.
     * a **visibility** file giving the rise and set time for the Sun, the Moon
       and the source itself. This information can be generated  from the
-      :obj:`skygen` application. In some cases this visibility is encoded
-      in the astrophysical source files or is computed on-the-fly from a
-      given keyword referenced in the `visibility.yaml` file.
+      :obj:`skygen` application. See the chapter on
+      `productions <production.html>`_ for details). In some cases this
+      visibility is encoded in the astrophysical source files or is computed
+      on-the-fly from a given keyword referenced in the `visibility.yaml`
+      file (see `visibilities <visibility.html>`_ for details).
     * The **instrument response function** set used (e.g. `prod3`, `omega`)
       and extra information on the array or subarry used, or specific flags
       used during the simulation and analysis (e.g. the slewing time)

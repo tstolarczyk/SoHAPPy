@@ -15,19 +15,16 @@ Its main output are either a summary text file with the characteristics of the d
 The `SoHAPPy` project started mid 2019.
 Check the `gihub repository <https://github.com/tstolarczyk/SoHAPPy>`_ for the latest improvements.
 
-More on SoHAPPy
-===============
-
 .. toctree::
    :maxdepth: 1
-   :caption: Introduction
+   :caption: How to run it
 
    introduction.rst
    sohappy.rst
    configuration.rst
    irf.rst
    file_format.rst
-
+   production.rst
 ..
    test.rst
 
@@ -42,14 +39,9 @@ More on SoHAPPy
 
 .. toctree::
    :maxdepth: 1
-   :caption: Population analysis
+   :caption: Analyzing the output files
 
    population_analysis.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Spectral analysis
-
    spectral_analysis.rst
 
 .. toctree::
@@ -57,12 +49,6 @@ More on SoHAPPy
    :caption: Tools
 
    tools.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Running large simulations and analysis
-
-   production.rst
 
 .. toctree::
    :maxdepth: 1

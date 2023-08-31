@@ -34,16 +34,16 @@ For each site and the combination of the two, simulate the GRB as many times
 as required and analyse the results. Here are the steps
 (see more on `simulation and analysis <simulation.html>`_):
 
-* Create a :class:`MonteCarlo` class instance (see :class:`mcsim.MonteCarlo` )
-* Copy the original :class:`Slot` and modify the content to account for the
-  computed visibility (:func:`timeslot.Slot.apply_visibility` ).
+* Create a :class:`mcsim.MonteCarlo` class instance.
+* Copy the original :class:`timeslot.Slot` and modify the content to account
+  for the computed visibility (:func:`timeslot.Slot.apply_visibility` ).
 * If the GRB is still visible on the current site:
 
 	* Associate a physical flux (:func:`timeslot.Slot.dress`) to each time
-	  slices of the :class:`Slot`.
+	  slices of the :class:`timeslot.Slot`.
 	* Create and initialize an analysis object (:class:`analyze.Analysis`)
-	* Run the simulation on the resulting dressed :class:`Slot` and prepare
-	  the data to be analysed.
+	* Run the simulation on the resulting dressed :class:`timeslot.Slot` and
+	  prepare the data to be analysed.
 	* If requested store the simulation class instance on disk.
 	* If the siumulation is successful, analyse the resulting data
 	* Dump the result of the analysis into the population file.
