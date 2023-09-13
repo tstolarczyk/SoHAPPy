@@ -53,7 +53,6 @@ class Configuration():
         """
 
         self.filename = None
-        self.dbg = 0
 
         ### -----------------
         ### PHYSICS PARAMETERS
@@ -205,7 +204,7 @@ class Configuration():
         inst = cls() # Initialize default
 
         # Define command line arguments - default values will come from
-        # the configuraion file and are not known at this stage
+        # the configuration file and are not known at this stage
         # When using getopt, it was possible to treat the reading of
         # the configuraion file separately.
         # As a consequence, the default values from the __init__ constructor
@@ -244,7 +243,9 @@ class Configuration():
                             help ="Visibility keyword")
 
         parser.add_argument('-d', '--debug',
-                            help ="Debugging flag", type = bool)
+                            help ="Debugging level",
+                            default=0,
+                            type = int)
 
         args, _ = parser.parse_known_args()
 
@@ -259,10 +260,6 @@ class Configuration():
             inst.nsrc       = args.nsrc
         if args.niter is not None:
             inst.niter      = args.niter
-        # if args.output is not None:
-        #     inst.resfolder  = args.output
-        # if args.input is not None:
-        #     inst.infolder   = args.input
         if args.maxnight is not None:
             inst.maxnight   = args.input
         if args.skip is not None:
@@ -310,8 +307,10 @@ class Configuration():
         inst.cmd_line = "SoHAPPy.py "
         for (k,v) in vars(vals).items():
 
-            if k in ["trigger","position","debug"]:
-                inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
+            # if k in ["debug"]:
+            #     inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
+            if k in ["config"]:
+                inst.cmd_line += '--'+k+" "+ '"'+str(v)+'"' + " "
             else:
                 if v is not None:
                     inst.cmd_line += "--"+k+" "+ str(v) + " "
@@ -613,8 +612,8 @@ class Configuration():
 
         resdir = Path(resfolder,
                       Path(self.data_dir).name,
-                      self.visibility,
                       self.out_dir,
+                      self.visibility,
                       self.visibility+ext).resolve()
 
         # Check that the output folder exists, otherwise try to create it
@@ -655,14 +654,14 @@ class Configuration():
         return srclist
 
     ###------------------------------------------------------------------------
-    def decode_visibility_keyword(self, folder=None, debug=False):
+    def decode_visibility_keyword(self, folder = None, debug = False):
 
         """
         Decode the `visibility` keyword value and return an information
         to be handled at running time. The visibility keyword can be:
 
         * a visibility folder that should contain a suitable visibility `json`
-          file where all visibility instances of a data subset are  stored.
+          file where all visibility instances of a data subset are stored.
           By definition the folder structure is the following:
 
             * output
@@ -691,53 +690,58 @@ class Configuration():
 
         """
 
+        # Check predefined possibilities
         if self.visibility in ["built-in","forced","permanent"]:
             print(f" Visibilities from keyword: '{self.visibility}' ")
             return self.visibility
 
-        else: # Seems to be a keyword to be found in visibility.yaml
-            vispar =  Visibility.params_from_key(self.visibility)
+        # Check if referenced in visibility.yaml
+        vispar =  Visibility.params_from_key(self.visibility)
+        if vispar is not None:
             return vispar
 
-        # else: # A folder is given
+        # Check if the keyword corresponds to a visibility subfolder
+        test = Path(folder.parent)
+        print(f"Accessing visibility in : {test:}")
 
-        #     test = Path(folder.parent.parent, "visibility")
+        if not test.is_dir():
+            sys.exit(f"{__name__}.py : visibility Keyword supposed to be a folder and is not")
 
-        #     if not test.is_dir():
-        #         sys.exit(f"{__name__}.py : Keyword supposed to be a folder and is not")
+        # A folder is given
 
-        #     # Find file name pattern from source identifiers
-        #     idmin = min(self.srclist)
-        #     idmax = max(self.srclist)
 
-        #     # Complete version that find at least a valid file for the source
-        #     # id range
+        # Find file name pattern from source identifiers
+        idmin = min(self.srclist)
+        idmax = max(self.srclist)
 
-        #     candidates = list(test.glob("*.json"))
-        #     visfile = None
-        #     for fname in candidates:
-        #         # Get ids in the filename
-        #         bnds = [int(s) for s in fname.stem.split("_") if s.isdigit()]
+        # Complete version that find at least a valid file for the source
+        # id range
 
-        #         if len(bnds) == 4: # Range
-        #             bndmin = bnds[-2]
-        #             bndmax = bnds[-1]
-        #         elif len(bnds) == 3: # One source only
-        #             bndmin = bndmax = bnds[-1]
-        #         # print(fname.name,": ",bnds,bndmin, bndmax )
+        candidates = list(test.glob("*.json"))
+        visfile = None
+        for fname in candidates:
+            # Get ids in the filename
+            bnds = [int(s) for s in fname.stem.split("_") if s.isdigit()]
 
-        #         if bndmin<= idmin and idmax<= bndmax:
-        #             visfile = fname
-        #             break
+            if len(bnds) == 4: # Range
+                bndmin = bnds[-2]
+                bndmax = bnds[-1]
+            elif len(bnds) == 3: # One source only
+                bndmin = bndmax = bnds[-1]
+            # print(fname.name,": ",bnds,bndmin, bndmax )
 
-        #     # Load data from the visibility file
-        #     if visfile is not None:
-        #         print(" Visibility data :",visfile)
-        #         with open(visfile,"r") as f:
-        #             import json
-        #             return json.load(f)
-        #     else:
-        #         sys.exit(f"{__name__}.py : Visibility: Recomputation seems required")
+            if bndmin<= idmin and idmax<= bndmax:
+                visfile = fname
+                break
+
+        # Load data from the visibility file
+        if visfile is not None:
+            print(" Visibility data :",visfile)
+            with open(visfile,"r") as f:
+                import json
+                return json.load(f)
+        else:
+            sys.exit(f"{__name__}.py : Visibility: Recomputation seems required")
 
     ###------------------------------------------------------------------------
     def get_delay(self):
@@ -777,21 +781,19 @@ if __name__ == "__main__":
     # with wome parameters possibly ovsersed by the command line.
     # * Directly from the file on disk, e.g?
 
+    import os
     from niceprint import Log
     log = Log()
 
-    testfile = Path("myConfigs/config-LongFinalTest-omega.yaml")
+    testfile = Path("data/config_ref.yaml")
 
     # sys.argv = ["", "-f", "343", "-N", "10","-n", "100",
     #             "-V", "nomoonveto"]
     cf1 = Configuration() # Default
     cf1.read_from_yaml(filename=testfile)
-    res_dir  = cf1.create_output_folder()  # Create output folder
-    print(" >>> ",res_dir)
+    res_dir  = cf1.create_output_folder(Path(os.environ["HAPPY_OUT"]))
     cf1.decode_visibility_keyword(res_dir)
     cf1.print(log)
-
-
 
     # cf1.read_from_yaml(filename="config.yaml")
     # # cf1.print(log)
