@@ -23,6 +23,7 @@ Notes for experts:
         print(" ->Done")
 
 """
+
 __all__ = ["main"]
 
 import sys
@@ -361,7 +362,7 @@ def main():
 
     # Stop chronometer
     end_pop = time.time()
-    elapsed = end_pop-start_pop
+    elapsed = end_pop - start_pop
 
     log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
     log.prt(f" Duration   = {elapsed:8.2f} (s)")
@@ -413,6 +414,9 @@ if __name__ == "__main__":
         print("------------------> Execute examples")
         # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
         # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
-        sys.argv=["", "-c","data/config_ref.yaml"]
-
+        sys.argv= ["", "-c","data/config_ref.yaml", ]
+        sys.argv= ["", "--first", "1", "--nsrc", "3",
+                   "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
+                   "--visibility", "strictmoonveto_9999_1_interactive_test",
+                   "-d", "0"]
     main()
