@@ -40,6 +40,7 @@ from niceprint import heading, warning, highlight, failure
 from niceplot import MyLabel, draw_sphere
 
 __all__ = ["Skies"]
+
 ###############################################################################
 class Skies():
     """
@@ -81,16 +82,15 @@ class Skies():
 
 
     """
-    vis_folder = "visibility" # Subfolder in which visibility files are written
     prfx       = "ev" # Prefix before the id number
 
     #--------------------------------------------------------------------------
-    def __init__(self, year1=9999, nyears=1,
-                       first=1,   Nsrc=1,
+    def __init__(self, year1 = 9999, nyears = 1,
+                       first =    1, Nsrc   = 1,
                        version    = "1",
                        duration   = 3.0,
                        visibility = "strictmoonveto",
-                       cfg        = None,
+                       cfg_path   = None,
                        output     = Path("skygen_vis"),
                        seed       = 2022,
                        newpos     = False,
@@ -117,7 +117,7 @@ class Skies():
         visibility : string, optional
             A dictionnary entry to be found in `visibility.yaml`.
             The default is `strictmoonveto`.
-        cfg : pathlib Path, optional
+        cfg_path : pathlib Path, optional
             Configuration file name full path. The default is 'congif.yaml'.
         output : pathlib Path, optional
             Output base folder. The default is `Path("./skygen_vis")`.
@@ -155,10 +155,15 @@ class Skies():
         self.newdate  = newdate
         self.newpos   = newpos
         self.viskey   = visibility
-        self.duration = duration*u.day
+        self.duration = duration
 
         # Input parameters (backward compatibilty)
-        self.config   = cfg
+        self.cfg = Configuration()
+        if cfg_path is None:
+            cfg_path = self.cfg.def_conf
+
+        self.config   = cfg_path
+        self.cfg.read_from_yaml(filename = self.config)
 
         # Output
         self.basedir    = output if output is not None else '.'
@@ -224,11 +229,15 @@ class Skies():
 
         parser.add_argument('-c', '--config',
                             help ="Configuration file name",
-                            default=inst.config)
+                            default= Path(inst.config)
+                                     if (inst.config is not None)
+                                     else Path("data/config_ref.yaml"))
 
         parser.add_argument('-o', '--output',
                             help ="Output base folder (path)",
-                            default=inst.basedir)
+                            default= Path(inst.basedir)
+                                     if (inst.basedir is not None)
+                                     else Path("."))
 
         parser.add_argument('-s', '--seed',
                             help ="Seed from random generator",
@@ -290,17 +299,27 @@ class Skies():
 
         # Input parameters
         if vals.config is not None:
-            inst.config   = Path(vals.config)
+            inst.config = str(Path(vals.config).resolve())
+            vals.config = inst.config
 
         # Output
-        inst.basedir  = Path(vals.output)
+        # Note : The difference between resolve and absolute is that absolute()
+        # does not replace the symbolically linked (symlink) parts of the path,
+        # and it never raises FileNotFoundError . It does not modify the case either.
+        if vals.output is not None:
+            inst.basedir = str(Path(vals.output).absolute())
+            vals.output   = inst.basedir
 
         # Generate command line
-        inst.cmd_line = Path(__file__).name +" "
+        inst.cmd_line = '"'+str(Path(__file__)) +'" '
+
+        # It would be more logical to loop over the class content
         for (k,v) in vars(vals).items():
 
             if k in ["trigger","position","debug","batch"]:
                 inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
+            elif k in ["config", "output"]:
+                inst.cmd_line += '--'+k+" "+ '"'+str(v)+'"' + " "
             else:
                 if v is not None: inst.cmd_line += "--"+k+" "+ str(v) + " "
 
@@ -326,16 +345,11 @@ class Skies():
 
         heading("Dates and positon from source files")
 
-        # Get configuration parameters
-        cf = Configuration()
-        cf.read_from_yaml(filename = self.config)
-
         # retrieve data input folder
         if "HAPPY_IN"  in os.environ.keys():
             infolder = Path(os.environ["HAPPY_IN"])
         else:
             sys.exit("The HAPPY_IN environment variable should be defined")
-
 
         found_position = False
         found_trigger  = False
@@ -347,8 +361,8 @@ class Skies():
                 print("#",item," ",end="")
 
             fname = Path(infolder,
-                         cf.data_dir,
-                         cf.prefix+str(item)+cf.suffix)
+                         self.cfg.data_dir,
+                         self.cfg.prefix+str(item)+self.cfg.suffix)
 
             try :
 
@@ -393,9 +407,6 @@ class Skies():
             else:
                 highlight(" Generating dates (absent from input files")
             self.generate_dates()
-        else: # If dates are kept, make this appear in the file name
-            self.year1 = year1
-            self.year2 = year2
 
         # If requested, supersede the positions
         if self.newpos:
@@ -507,8 +518,7 @@ class Skies():
     #--------------------------------------------------------------------------
     def create_output_folder(self):
         """
-        Create the folder containing the output subfolder and the corresponding
-        files
+        Create the folder containing the corresponding files
 
         Returns
         -------
@@ -518,7 +528,10 @@ class Skies():
         heading("Create output folder")
 
         prfx = self.prefix()
-        self.out_folder   = Path(self.basedir, prfx, self.vis_folder)
+        self.out_folder   = Path(self.basedir,
+                                 Path(self.cfg.data_dir).stem,
+                                 self.cfg.out_dir,
+                                 prfx)
 
         self.basename = prfx+"_" + str(self.id1)
 
@@ -616,7 +629,7 @@ class Skies():
             print(f"stop: {self.year2}",file=out)
 
             if self.config is not None:
-                print(f"config: {str(self.config.parent.parent)}",file=out)
+                print(f"config: {str(Path(self.config).parent.parent)}",file=out)
             else:
                 print(f"config: {self.config}",file=out)
 
@@ -655,7 +668,10 @@ class Skies():
 
         """
 
-        if version is None: version = self.version
+        if version is None:
+            version = self.version
+        if  version.isnumeric():
+            version = "v"+version
 
         return self.viskey+"_" \
              + str(self.year1)+"_" \
@@ -809,7 +825,6 @@ if __name__ == "__main__":
     # in source files.
 
     import time
-    from niceprint import Log
 
     # If no command line, use examples - useful for debugging
     if len(sys.argv[1:]) ==  0:
@@ -817,20 +832,18 @@ if __name__ == "__main__":
         # Define command line arguments
         sys.argv = ["skygen.py", "-h"]
         sys.argv = ["skygen.py", "-y", "2004", "-n", "10", "-f","8", "-N", "5", "-V", "nomoonveto"]
-        sys.argv = ["skygen.py",
+        sys.argv = [r"J:\My Documents\CTA_Analysis\GRB paper\SoHAPPy\skygen.py",
                 "-f", "1",
-                "-N", "7",
+                "-N", "3",
                 "-v", "default",
-                "-c", "data/config_ref.yaml"]
+                "-c", r".\data\config_ref.yaml"]
 
         sys.argv = ["skygen.py",
-                "-y", "2000",
-                "-n", "44",
                 "-f", "1",
-                "-N", "7",
-                "-v", "triggers",
-                "-c", "data/config_ref.yaml",
-                "--trigger", "--debug"]
+                "-N", "5",
+                "-v", "tests",
+                "-c", r"data/config_ref.yaml",
+                "--notrigger", "--debug"]
         ### If no configuration file is given, generates ex-nihilo
         # sys.argv = ["skygen.py",
         #         "-f", "1",
@@ -857,7 +870,6 @@ if __name__ == "__main__":
     gvis.print()
 
     # Start the process
-    log = Log("skygen.log")
     start_pop = time.time()   # Start chronometer
 
     # If not configutation file is given, the dates and positons are
@@ -876,11 +888,10 @@ if __name__ == "__main__":
     end_pop = time.time()
     elapsed = end_pop-start_pop
 
-    log.prt("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
-    log.prt(" Duration      = {:8.2f} (s)".format(elapsed))
-    log.prt("  per source   = {:8.2f} (s)".format( (elapsed)/gvis.Nsrc))
-    log.prt(" ******* End of job - Total time = {:8.2f} min *****"
+    print("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+    print(" Duration      = {:8.2f} (s)".format(elapsed))
+    print("  per source   = {:8.2f} (s)".format( (elapsed)/gvis.Nsrc))
+    print(" ******* End of job - Total time = {:8.2f} min *****"
                   .format((end_pop-start_pop)/60))
-    log.prt("")
-    log.prt(datetime.now())
-    log.close()
+    print("")
+    print(datetime.now())
