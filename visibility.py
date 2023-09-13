@@ -1008,8 +1008,11 @@ class Visibility():
 
                     return visdict[keyword]
                 else:
-                    sys.exit("{}.py: visibility keyword not referenced"
+                    if debug:
+                        print("{}.py: visibility keyword not referenced"
                              .format(__name__))
+                    return None
+
         except IOError:
             sys.exit("{}.py: {} not found"
                      .format(__name__, parfile))
