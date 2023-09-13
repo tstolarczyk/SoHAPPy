@@ -13,8 +13,8 @@ This page:
 * describes how to generate sky positions and/or trigger times, and
   visibilities in files independent of the source file information in a way
   which is manageable by `SoHAPPy`,
-* explain how to generate command lines and scripts usable for batch submisions
-* show examples on how to launch batch jobs.
+* explains how to generate command lines and scripts usable for batch submisions;
+* shows examples on how to launch batch jobs.
 
 
 Generating visibilities
@@ -70,17 +70,18 @@ and the output is:
 
 Generating dates, positions and visibilities ex-nihilio
 -------------------------------------------------------
-Let's create dates, positions and visibilities for ten sources with dates
-randomly chosen between 2004 (January 1 :sup:`st`, 0h00'00) and end of 2013
+Let's create dates, positions and visibilities for ten sources, starting
+from source number 1, with dates randomly chosen between 2004
+(January 1 :sup:`st`, 0h00'00) and end of 2013
 (December 31 :sup:`st`, just before midnight,i.e. `23h59'59`):
 
 ``python skygen.py  -y 2004 -n 10 -f 1 -N 7``
 
-The resulting file is in the folder:
-``skygen_vis/`` **strictmoonveto_2004_10_1** ``/visibility``
+The resulting files are in the folder:
+``skygen_vis/long_1_1000/test_omega`` **strictmoonveto_2004_10_v1**
 
-In order to be used by SoHAPPy, the content of the `skygen_vis` folder has to be
-moved :red:`**WHERE** ???`
+In order to be used by SoHAPPy, the `skygen_vis` subfolder has to be moved to
+``HAPPY_OUT`` folder where it will be found by `SoHAPPy` later.
 
 It is intended to be used with a population having trigger dates along ten
 years, starting in 2004. The last number indicates a version number (in case
@@ -89,8 +90,8 @@ constraints). It can be changed with the `-v` option.
 
 The file in the folder have the source indices in its name, from 1 to 7 :
 
- * ``DP_strictmoonveto_2004_10_1_1_7.yaml`` for the dates and positions.
- * ``strictmoonveto_2004_10_1_1_7.json`` for the visibilities.
+ * ``DP_strictmoonveto_2004_10_v1_1_7.yaml`` for the dates and positions.
+ * ``strictmoonveto_2004_10_v1_1_7.json`` for the visibilities.
 
 Naturally, the next files in the series can be produced, e.g.
 ``python skygen.py  -y 2004 -N 10 -f 8 -N 5``
@@ -124,12 +125,12 @@ The code output is the following:
         +                             Create output folder                             +
         +------------------------------------------------------------------------------+
 
-        skygen_vis\strictmoonveto_2004_10_1\visibility Already exists
+        skygen_vis\strictmoonveto_2004_10_v1\ Already exists
         +------------------------------------------------------------------------------+
         +                     Dumping generated dates and posiiton                     +
         +------------------------------------------------------------------------------+
 
-         Output: skygen_vis\strictmoonveto_2004_10_1\visibility\DP_strictmoonveto_2004_10_1_8_12.yaml
+         Output: skygen_vis\strictmoonveto_2004_10_v1\DP_strictmoonveto_2004_10_1_8_12.yaml
         Done!
         +------------------------------------------------------------------------------+
         +                            Creating visibilities                             +
@@ -140,7 +141,7 @@ The code output is the following:
         +                        Dumping generated visibilities                        +
         +------------------------------------------------------------------------------+
 
-        Output: skygen_vis\strictmoonveto_2004_10_1\visibility\strictmoonveto_2004_10_1_8_12.json
+        Output: skygen_vis\strictmoonveto_2004_10_v1\strictmoonveto_2004_10_v1_8_12.json
 
         -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
          Duration      =    13.90 (s)
@@ -150,7 +151,7 @@ The code output is the following:
         2023-08-08 16:27:04.568052
 
 And, as an example, the date-position file,
-`DP_strictmoonveto_2004_10_1_8_12.yaml`, in the same folder as the previous one,
+`DP_strictmoonveto_2004_10_v1_8_12.yaml`, in the same folder as the previous one,
 has the following content:
 
 .. code-block::
@@ -178,9 +179,9 @@ the command line :
   ``python skygen.py  -y 2004 -n 10 -f 1 -N 7 -V nomoonveto``
 
 This will create the two files :
-``skygen_vis\nomoonveto_2004_10_1\visibility\DP_nomoonveto_2004_10_1_8_12.yaml``
+``skygen_vis/long_1_1000/test_omega/nomoonveto_2004_10_v1/DP_nomoonveto_2004_10_1_8_12.yaml``
 
-``skygen_vis\nomoonveto_2004_10_1\visibility\nomoonveto_2004_10_1_8_12.json``
+``skygen_vis/long_1_1000/test_omega/nomoonveto_2004_10_v1/nomoonveto_2004_10_1_8_12.json``
 
 
 Files with dates and positions already known
@@ -198,10 +199,9 @@ the file position will be read. Here is an example:
 In this strict case, the dates and positions will not be recomputed since they
 already exist (even if a start year and a number of years would be given).
 `skygen` will generate the visibility for the default `strictmoonveto`
-conditions.  Moreover, since no source range was given only the first source
-is processed. It correspond to the explicit command line:
+conditions. It correspond to the explicit command line:
 
-``skygen.py --year1 9999 --nyears 1 --first 1 --Nsrc 7 --version default --days 3.0 d --visibility strictmoonveto --config data/config_ref.yaml --output skygen_vis --seed 2022 --nodebug --notrigger --noposition  ``
+``skygen.py --year1 9999 --nyears 1 --first 1 --Nsrc 7 --version default --days 3.0 d --visibility strictmoonveto --config data/config_ref.yaml --output skygen_vis --seed 2022 --nodebug --notrigger --noposition``
 
 The `DP` file contain the original information contained in the source file.
 The visibility file contains the computed visibility.
@@ -238,8 +238,8 @@ For illustration, the start of the returned message is the following:
 
 In final, the following files are
 produced:
-``skygen_vis/strictmoonveto_2000_44_triggers/visibility/DP_strictmoonveto_2000_44_triggers_1_7.yaml``
-``skygen_vis/strictmoonveto_2000_44_triggers/visibility/strictmoonveto_2000_44_triggers_1_7.json``
+``skygen_vis//long_1_1000/test_omega/strictmoonveto_2000_44_triggers/DP_strictmoonveto_2000_44_triggers_1_7.yaml``
+``skygen_vis//long_1_1000/test_omega/strictmoonveto_2000_44_triggers/strictmoonveto_2000_44_triggers_1_7.json``
 
 Note, the following command where both the dates and positions are recomputed:
 
@@ -299,9 +299,9 @@ not in the list above. In particular it is compatible with `SoHAPPy` and
 
 As an example:
 
-:code:`python generator.py -C "SoHAPPy.py" -V "strictmoonveto" -P 10 -S 3 -b False -d 0`
+:code:`python generator.py -C "SoHAPPy.py" -V "strictmoonveto" -P 10 -S 3 --nobatch -d 0`
 
-will produce 10 commands for launching SoHAPPy on 3 subsets of 10 sources.
+will produce 3 commands for launching SoHAPPy on 3 subsets of 10 sources.
 Here is the output (note that these commands use the default `config.yaml`
 file for most of the parameters, except the one explicitely superseded on the
 command line. Here the visibility is computed on-the-fly, based on the
@@ -309,32 +309,32 @@ parameters associated to `strictmoonveto` in :obj:`visibility.yaml` ):
 
 .. code-block::
 
-    SoHAPPy.py --first 1 --nsrc 3 --visibility strictmoonveto --nodebug
-    SoHAPPy.py --first 4 --nsrc 3 --visibility strictmoonveto --nodebug
-    SoHAPPy.py --first 7 --nsrc 4 --visibility strictmoonveto --nodebug
+    SoHAPPy.py --first 1 --nsrc 3 --visibility strictmoonveto -debug 0
+    SoHAPPy.py --first 4 --nsrc 3 --visibility strictmoonveto -debug 0
+    SoHAPPy.py --first 7 --nsrc 4 --visibility strictmoonveto -debug 0
 
-with the asscoiated batch commands of the kind (example given for the first
-line, usinf :code:`-b True`):
+with the associated batch commands of the kind (example given for the first
+line, using :code:`--batch`):
 
 .. code-block::
 
-    sbatch -c 1 --mem-per-cpu 2G -t 00:00:30 -J tbd --wrap 'SoHAPPy.py --first 1 --nsrc 3 --visibility strictmoonveto --nodebug '
+     sbatch -c 1 --mem-per-cpu 2G -t 00:00:30 -J tbd --wrap 'SoHAPPy.py --first 1 --nsrc 3 --config "None" --visibility strictmoonveto --debug 0 '
 
 The same applies to the `skygen` code with its own options. For instance, let's
 compute the visibilities corresponding to `strictmoonveto` beforehand in order
 to use them later:
 
-:code:`python generator.py -C "skygen.py" -V "strictmoonveto" -P 10 -S 3 -b False -d 0`
+:code:`python generator.py -C "skygen.py" -V "strictmoonveto" -P 10 -S 3 --nobatch --nodebug`
 
-The output is the following (Note that the position and the trigger time are
-not recomputed and expected to be found in the input files. The omitted
+The output is the following (Note that the positions and the trigger times are
+not recomputed and expected to be found in the input files. The implicity paths are replaced by explcit pathes (not shown here). The omitted
 parameters are taken from the local `config.yaml` file):
 
 .. code-block::
 
-    skygen.py --year1 9999 --nyears 1 --first 1 --Nsrc 3 --version 1 --days 3.0 d --visibility strictmoonveto --output skygen_vis --seed 2022 --nodebug --notrigger --noposition
-    skygen.py --year1 9999 --nyears 1 --first 4 --Nsrc 3 --version 1 --days 3.0 d --visibility strictmoonveto --output skygen_vis --seed 2022 --nodebug --notrigger --noposition
-    skygen.py --year1 9999 --nyears 1 --first 7 --Nsrc 4 --version 1 --days 3.0 d --visibility strictmoonveto --output skygen_vis --seed 2022 --nodebug --notrigger --noposition
+    python "skygen.py" --year1 9999 --nyears 1 --first 1 --Nsrc 3 --version 1 --days 3.0 --visibility strictmoonveto --config "data\config_ref.yaml" --output "skygen_vis" --seed 2022 --nodebug --notrigger --noposition
+    python "skygen.py" --year1 9999 --nyears 1 --first 4 --Nsrc 3 --version 1 --days 3.0 --visibility strictmoonveto --config "data\config_ref.yaml" --output "skygen_vis" --seed 2022 --nodebug --notrigger --noposition
+    python "skygen.py" --year1 9999 --nyears 1 --first 7 --Nsrc 4 --version 1 --days 3.0 --visibility strictmoonveto --config "data\config_ref.yaml" --output "skygen_vis" --seed 2022 --nodebug --notrigger --noposition
 
 The output visibility files will be found in the default `skygen_vis` subfolder.
 
@@ -342,19 +342,65 @@ The output visibility files will be found in the default `skygen_vis` subfolder.
    :no-inheritance-diagram:
    :include-all-objects:
 
-Start-to-end example
-====================
+Beginning-to-end example
+========================
 
 In this example one use the 1000 long afterglow GRB sample that has been used
-in the eraly studies. The fits file contain the date, the position of the GRB
+in the early studies. The fits files contain the date, the position of the GRB
 and a defaulty visibility computed for one night with a default minimal
 altitude of 10°.
 
-We first generate the visibilities by batch of 100 sources with the 'strictmmoonveto'
-configuration. For this we create the correspoding batch commands to be submitted:
+We first set the input and output folder environment variable `HAPPY_IN` and
+`HAPPY_OUT` as explained in the `introduction <introduction.rst>`.
 
-:code:`python generator.py -C skygen.py -P 1000 -S 10 -V strictmoonveto --batch  -v 1`
+Interactive test
+----------------
+We start with an interactive run and a very small sample of 10 sources spread
+over 3 sets and generate the visibility with the 'strictmmoonveto'
+configuration. For this we create the correspoding commands to be submitted
+with the `--nobatch option`. We explicit the use of the default configuration
+file, `data\config_ref.yaml` and the fact that the dates and the sky positions
+are not re-generated:
 
-GO TO BATCH
+:code:`python generator.py -C skygen.py -P 10 -S 3 -V strictmoonveto --nobatch  -v interactive_test -c data\config_ref.yaml --notrigger --noposition`
 
+A file is created, named `interactive_skygen_10_3.ps1` (in `Powershell`) that
+contains the 3 `SoHAPPy` run commands.
+This script can be executed and launches interactively 3 `skygen` runs,
+producing `yaml`files with the original sky positions and dates, and a `json`
+file with the visibility data. Because no date were generated, the folder and
+files use the default year-of-start 9999 and the a number of years equal to 1
+(In powershell, use :code:`.\interactive_skygen_10_3.ps1`).
 
+The files are found in :
+:code: ``skygen_vis/long_1_1000/test_omega/strictmoonveto_9999_1_interactive_test\``
+
+and here they are:
+
+.. code-block::
+
+    DP_strictmoonveto_9999_1_interactive_test_1_3.yaml
+    DP_strictmoonveto_9999_1_interactive_test_4_6.yaml
+    DP_strictmoonveto_9999_1_interactive_test_7_10.yaml
+    strictmoonveto_9999_1_interactive_test_1_3.json
+    strictmoonveto_9999_1_interactive_test_4_6.json
+    strictmoonveto_9999_1_interactive_test_7_10.json
+
+These files can now be used with `SoHAPPy`. The folder has to be moved to the
+`HAPPY_OUT` base folder.
+The `SoHAPPy` command can be generated in a similar way, using the same
+configuration file, and expliciting the visibility folder created above:
+
+:code: ``python generator.py -C SoHAPPy -P 10 -S 3 -V strictmoonveto_9999_1_interactive_test --nobatch  -c data\config_ref.yaml``
+
+This gives a series of 3 command lines stored in `interactive_SoHAPPy_10_3.ps1`.
+Running them generate 3 folders with names idetical to the `json` files above
+(without extension). Each folder contains the `SoHAPPy` results for each
+series of visibilities.
+Note that the event list processed with `SoHAPPy` for a given visibility set
+has to be within the visibility range. It has not to cover the full range.
+
+Batch test
+----------
+The process is the same excet that the `genrator.py` commands have the
+`--batch` option.

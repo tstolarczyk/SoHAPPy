@@ -60,12 +60,12 @@ The `SoHAPPy` repository has 3 subfolders:
 Input and output
 ================
 `SoHAPPy` requires to have an input base folder and an output base folder
-defined through environment variabales:
+defined through environment variables:
 
 * :code:`HAPPY_IN` defines the input base folder
-* :code:`HAPPY_OUT` defines teh output base folder
+* :code:`HAPPY_OUT` defines the output base folder
 
-The varaibales are set as follows :
+The variables are set as follows :
 
 * `Windows powershell` : :code:`$Env:HAPPY_IN = "D:\\\\CTA\\SoHAPPy\\input"`
 * `Interactive python` : :code:`os.environ["HAPPY_IN"] = "D:\\\\CTA\\SoHAPPy\\input"`
@@ -126,24 +126,24 @@ The output folder file structure follows this organisation.
 
  | + output
  |         +-- pop_name_1
- |         |            +--  vis_name
- |         |                        +-- data_dir
- |         |                                    +--- vis_name_id1_id2
- |         |                                    +--- vis_name_id2_id3
- |         |                                    +--- vis_name_id3_id4
- |         |                                    +...
+ |         |            +--  out_dir
+ |         |                       +-- vis_name
+ |         |                                  +--- vis_name_id1_id2
+ |         |                                  +--- vis_name_id2_id3
+ |         |                                  +--- vis_name_id3_id4
+ |         |                                  +...
  |         +-- pop_name_2
 
 
-`output` is the output base folder, `pop_name` is the population input
-folder stored in the input base folder, and `vis_name` refers to the assumption
+`output` is the output base folder, `pop_name_1` is the population input
+folder stored in the input base folder. The folder name,`out_dir`, is chosen by
+the user and refer to his analysis (e.g. can be `test_omega` for results
+testing the omega configuration). `vis_name` refers to the assumption
 on the observation, including the minimal altitude for observation, the Moon
 light veto etc. A collection of possible names is found in the `SoHAPPy`
 `visibility.yaml` file (see `Visibility <visibility.html>`_) where more
 visibility configurations can be added.
 
-The next folder name,`data_dir`, is chosen by the user and refer to his
-analysis (e.g. can be `test_omega` for results testing the omega configuration).
 The last folder name use again the visibility keyword `vis_name` and add the
 first and last source identifiers of the run. In case only one source is
 analysed the names has only the first identifier (`vis_name_id0`).
