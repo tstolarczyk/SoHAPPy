@@ -20,7 +20,7 @@ import astropy.units as u
 from niceprint import warning, failure
 from visibility import Visibility
 
-__all__=['Configuration']
+__all__ = ['Configuration']
 
 ###############################################################################
 class Configuration():
@@ -133,7 +133,7 @@ class Configuration():
         self.fixswift = True
 
         # SWIFT Latency distribution data file in input base folder
-        self.swiftfile = "swift/Swift_delay_times.txt"
+        self.swiftfile = "data/swift/Swift_delay_times.txt"
 
         ### -----------------
         ### DEBUGGING / BOOKKEEPING
@@ -224,13 +224,8 @@ class Configuration():
                             help ="Number of Monte Carlo iteration",
                             type = int)
 
-        # parser.add_argument('-o', '--output',
-        #                     help ="Output base folder (path)")
-
-        # parser.add_argument('-i', '--input',
-        #                     help ="Input base folder (path)")
-
         parser.add_argument('-c', '--config',
+                            default = inst.def_conf,
                             help ="Configuration file name")
 
         parser.add_argument('-m', '--maxnight',
@@ -304,7 +299,7 @@ class Configuration():
 
         # Generate command line
         vals = parser.parse_args()
-        inst.cmd_line = "SoHAPPy.py "
+        inst.cmd_line = "python SoHAPPy.py "
         for (k,v) in vars(vals).items():
 
             # if k in ["debug"]:
@@ -708,8 +703,6 @@ class Configuration():
             sys.exit(f"{__name__}.py : visibility Keyword supposed to be a folder and is not")
 
         # A folder is given
-
-
         # Find file name pattern from source identifiers
         idmin = min(self.srclist)
         idmax = max(self.srclist)
