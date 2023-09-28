@@ -338,11 +338,15 @@ class Visibility():
             if visible: self.t_true.append([ Time(t1,format="mjd"),
                                              Time(t2,format="mjd") ] )
             if debug:
-                if math.isinf(t1): t1 = "--"
-                else : t1 = Df(t1).iso
+                if np.isinf(t1):
+                    t1 = "--"
+                else :
+                    t1 = Df(t1).iso
 
-                if math.isinf(t2): t2 = "--"
-                else: t2 = Df(t2).iso
+                if np.isinf(t2):
+                    t2 = "--"
+                else:
+                    t2 = Df(t2).iso
                 print(" {:>23}   {:>23} {:>10} {:>6} {:>6} {:>6} {:>6}"
                       .format(t1, t2,
                               bright, dark, above, not not_moon, visible),
@@ -360,7 +364,8 @@ class Visibility():
         # Note that this function could stop as soon as no window above
         # the horizon is found, which is not the case in this implementation
         # if len(t_above) > 0: self.vis = True
-        if len(self.t_event) > 0: self.vis = True
+        if len(self.t_event) > 0:
+            self.vis = True
 
         # At least a visibility period for observation
         # if len(t_vis) > 0:
@@ -877,7 +882,7 @@ class Visibility():
        """
 
         inst = cls()
-        inst.status = d["status"]
+        inst.status = "From_dict"
         inst.site    = EarthLocation.from_geocentric(x=u.Quantity(d["site"][0]),
                                                     y=u.Quantity(d["site"][1]),
                                                     z=u.Quantity(d["site"][2]))
