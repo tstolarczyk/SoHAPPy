@@ -25,6 +25,10 @@ from dataset_tools import check_dataset
 from gammapy.utils.random import get_random_state
 from gammapy.maps import RegionNDMap, MapAxis
 
+# Bigger texts and labels
+import seaborn as sns
+sns.set_context("poster") # talk, notebook, paper
+
 # Avoid deprecation Astropy warnings in gammapy.maps
 import warnings
 with warnings.catch_warnings():
