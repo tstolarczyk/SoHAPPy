@@ -128,7 +128,6 @@ def vals_legend(vals = None, alpha = 0.5, var_max = 1000, **kwargs):
 
     """
 
-    print("niceplot.vals_legend: Investigate why ax is not used")
     if vals is None:
         vals = [5 , 10, 20, 50, 100, 500]
 
@@ -140,8 +139,8 @@ def vals_legend(vals = None, alpha = 0.5, var_max = 1000, **kwargs):
     patches = [ plt.plot([],[], marker="o", alpha=alpha,
                           ms = 7+sizes[i]/50,
                           ls="", mec=None,
-                          color=colors[i],
-                          label="{:s}".format(labels[i]) )[0]  for i in range(len(labels),
+                          color = colors[i],
+                          label = "{:s}".format(labels[i]) )[0]  for i in range(len(labels),
                           **kwargs) ]
 
     return patches
