@@ -25,7 +25,7 @@ __all__ = ["slurm_cmd", "decode_command_line"]
 def slurm_cmd(job_cmd,
               nproc       = 1,
               mem_per_cpu = "2G",
-              duration    = "00:00:30",
+              duration    = "00:30:00",
               name        = "SoHAPPy"):
     """
     Note: When run on Spyder, a 1000 source production occupy 1.6 Gb of memory on
@@ -41,7 +41,7 @@ def slurm_cmd(job_cmd,
         Memory per cpu core. The default is "1G".
     duration : string, optional
         Estimated duration (optimise the choice of the bach queue).
-        The default is "00:00:30".
+        The default is "00:30:00" (30 minutes).
     name : string, optional
         Job name, will appear using the `squeue` command (list of running jobs).
         The default is "SoHAPPy".
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
         # Create batch command if requested - display and write commands
         if args.batch:
-            batch_cmd = slurm_cmd(job_cmd, name="tbd")
+            batch_cmd = slurm_cmd(job_cmd, name="SoHAPPy")
             print(" > ",batch_cmd)
             print(batch_cmd, file = fbatch)
         else:
