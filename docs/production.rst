@@ -362,7 +362,7 @@ with the `--nobatch option`. We explicit the use of the default configuration
 file, `data\config_ref.yaml` and the fact that the dates and the sky positions
 are not re-generated:
 
-:code:`python generator.py -C skygen.py -P 10 -S 3 -V strictmoonveto --nobatch  -v interactive_test -c data\config_ref.yaml --notrigger --noposition`
+:code:`python generator.py -C skygen.py -P 10 -S 3 -V strictmoonveto --nobatch  -v interactive_test -c data/config_ref.yaml --notrigger --noposition`
 
 A file is created, named `interactive_skygen_10_3.ps1` (in `Powershell`) that
 contains the 3 `SoHAPPy` run commands.
@@ -402,5 +402,35 @@ has to be within the visibility range. It has not to cover the full range.
 
 Batch test
 ----------
-The process is the same excet that the `genrator.py` commands have the
+The process is the same except that the `genrator.py` commands have the
 `--batch` option.
+Let's generate the commands to reproduce the simulation and analysis of the
+100 long afterglow population with he standard conditions as defined in
+`data/config-ref.yaml`.
+
+First we create the visibilities from the trigger date
+and sky psoitions in the data file. The informatuion obtained from the
+configuration file is only the input data folder. We split the full population
+(1000 sources) into 10 sets. Because of the default values, the command
+simplifies to:
+
+:code: ``python generator.py -C skygen.py -P 1000 -S 10 --batch  -v omega_ref``
+
+The output file `batch_skygen_1000_10.ps1` (`.sh` for a bash system) contains the
+command lines of the kind (Note that the visibility is computed up to 3 days,
+the default duration):
+
+:code: ``sbatch -c 1 --mem-per-cpu 2G -t 00:00:30 -J SoHAPPy --wrap 'python "J:\My Documents\CTA_Analysis\GRB paper\SoHAPPy\skygen.py" --year1 9999 --nyears 1 --first 1 --Nsrc 100 --version omega_ref --days 3.0 --visibility strictmoonveto --config "\\dapdc5\Stolar\My Documents\CTA_Analysis\GRB paper\SoHAPPy\data\config_ref.yaml" --output "J:\My Documents\CTA_Analysis\GRB paper\SoHAPPy\skygen_vis" --seed 2022 --nodebug --notrigger --noposition'``
+
+The batch runs for 6 minutes on the astrophysics CEA DAp cluster (which is 2
+times faster than on an I5 laptop for each file, and because of the use of 10
+cores in parallel, 20 times faster in total).
+
+The population can then be analysed in the standard conditions using these
+visibility and date-position files, once moved to the `HAPPY_OUT`. The batch commands are obtained from:
+
+:code: ``python generator.py -C SoHAPPy -P 1000 -S 10 -V strictmoonveto_9999_1_omega_ref --batch -d 0``
+
+The
+
+

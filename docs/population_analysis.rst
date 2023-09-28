@@ -4,97 +4,82 @@ Population analysis
 Introduction
 ------------
 
-The population is analysed from the devoted `SoHAPPy` output file
+The population is analysed from the devoted `SoHAPPy` output files
 (named `data.txt` by default).
 
-The available tools consist in a python script files and a few jupyter
-notebooks. The user is intended to indicate the `SoHAPPy` folder containing
-the population file in a file named `parameter.yaml`, with the variable
-`outfoler`, like shown here:
+The available tools consist in python script files with the most common
+analysis algorithms and plot facilities. The user is intended to indicate
+in the file `parameter.yaml` the `SoHAPPy` subfolder where the data can be
+found as well as the duration in years associated to the simulation. This
+duration is used to  normalize the detection rates.
 
 ..  code-block:: python
 
-	# outfolder : "../../../output/pop_vis24_moonlight/"
-	outfolder : "../../../output/pop_vis24_fullmoonveto/"
+    duration:
+        - 44
+    outfolders:
+        - "long/alpha_prod5/pop_vis24_strictmoonveto-100iter"
+    tags:
+        - "Example"
 
-* **pop_io.py**: Contains functions to read and convert the input data file and
-  the associated configuration parameter file, either from disk or extracted
-  from atarred compressed archive.
+The subfolder can contain a data file, or a `tar.gz` archive containing it. The
+subfolder can also contain folders resulting from the batch processing of a
+series of subpopulation as described in `<prodcution.rst>_`. In that case the
+data will be found in all folders and merged. This does mean that they have
+to come from the same unique population simulation.
 
-* **population.py** :
-  Contains the definition of the class Population. The contructor function
-  (__init__) opens the input file and store the read data in various
-  pandas table that are reused later. The main function reads the data,
-  perform a sanity check comparing the results to the requirement in the
-  original configuration file, check for negative significances, the fraction
-  of GRB for which the prompt component can be detected etc.
+The initial data file are readable text files. They are converted into a `.csv`
+file opened with `pandas`.
 
-* **rate.py**:
-  Compute detection rates for various site-related population; normalised to
-  the data taking duration to get mean yearly rates above 3 and 5 standard
-  deviations of detection significance.
+The input and output process is handled by the functions in ``pop_io.py``
+(see documentation below).
 
-* **pop_plot.py**:
-  Show distributions and population coverage as functions of Eiso, Epeak and z.
-
-* **sigmas.py**:
-  Detection rates as a function of the mean maximal significance thresholds,
-  evolution of rates with this threshold, distribution of mean maximal significances.
-
-* **times.py**:
-  Characterizes the time needed to get a detection or the mean maximal
-  significance. Plots in particular for...
-
-* **skymaps.py**:
-  Show skymap coverage in ra-dec and in altitude-azimuth
-
-* **universe.py**:
-  Show universe coverage.
-
-* **setup.py**:
-  Gathers some defintions for plot colors
-
-
-Function documentation
-----------------------
-
-.. automodapi:: analysis.population.pop_io
-   :include-all-objects:
-   :no-inheritance-diagram:
+The following scripts are available for the analysis:
 
 
 .. automodapi:: analysis.population.population
-   :include-all-objects:
    :no-inheritance-diagram:
-
+   :include-all-objects:
 
 .. automodapi:: analysis.population.rate
-   :include-all-objects:
    :no-inheritance-diagram:
-
+   :include-all-objects:
 
 .. automodapi:: analysis.population.pop_plot
-   :include-all-objects:
    :no-inheritance-diagram:
-
+   :include-all-objects:
 
 .. automodapi:: analysis.population.sigmas
-   :include-all-objects:
    :no-inheritance-diagram:
-
+   :include-all-objects:
 
 .. automodapi:: analysis.population.times
-   :include-all-objects:
    :no-inheritance-diagram:
+   :include-all-objects:
 
 .. automodapi:: analysis.population.skymaps
-   :include-all-objects:
    :no-inheritance-diagram:
+   :include-all-objects:
 
 .. automodapi:: analysis.population.universe
-   :include-all-objects:
    :no-inheritance-diagram:
+   :include-all-objects:
+
+.. automodapi:: analysis.population.compare_sets
+   :no-inheritance-diagram:
+   :include-all-objects:
+
+.. automodapi:: analysis.population.compare_ebl
+   :no-inheritance-diagram:
+   :include-all-objects:
+
+.. automodapi:: analysis.population.explore_simulation
+   :no-inheritance-diagram:
+   :include-all-objects:
 
 .. automodapi:: analysis.population.setup
-   :include-all-objects:
    :no-inheritance-diagram:
+   :include-all-objects:
+
+
+
