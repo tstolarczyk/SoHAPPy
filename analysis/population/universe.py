@@ -2,11 +2,16 @@
 """
 Created on Wed Jan  4 17:22:01 2023
 
+Show universe coverage.
+
 @author: Stolar
 """
 
+import sys
+
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 import astropy.coordinates as coord
 import astropy.units as u
@@ -15,6 +20,15 @@ from astropy.cosmology import Planck13 as cosmo # astropy v5
 from   astropy.visualization import quantity_support
 
 from niceplot import col_size, vals_legend, draw_sphere
+
+from population import Pop
+from pop_io import get_data
+
+# Bigger texts and labels
+sns.set_context("notebook") # poster, talk, notebook, paper
+
+codefolder = "../../"
+sys.path.append(codefolder)
 
 __all__ = ["universe_coverage"]
 ###----------------------------------------------------------------------------
@@ -70,24 +84,18 @@ def universe_coverage(sub_pop):
     draw_sphere(radius=dmax.value,ax=ax,alpha=0.1)
     draw_sphere(radius=cosmo.luminosity_distance(2.5).to('Gpc').value,ax=ax,alpha=0.1)
 
-    patches=vals_legend(ax)
+    patches = vals_legend()
     fig.legend(title=r"$\sigma_{max}$",handles=patches,bbox_to_anchor=[1.15, 0.800],ncol=1)
 
     plt.tight_layout()
+
 ################################################################################################
 if __name__ == "__main__":
 
-    # A standalone function to read a GRB and make various tests
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    from population import Pop
-    from pop_io import create_csv
-
-    import sys
-    codefolder = "../../"
-    sys.path.append(codefolder)
-
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag=tag, nyrs= nyears)
 
     # draw_sphere(radius=2.3)
     universe_coverage(pop.g_tot[pop.g_tot.d5s>pop.eff_lvl])

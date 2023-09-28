@@ -2,29 +2,39 @@
 """
 Created on Wed Nov 23 17:43:24 2022
 
+Detection rates as a function of the mean maximal significance thresholds,
+evolution of rates with this threshold, distribution of mean maximal significances.
+
 @author: Stolar
 """
 import sys
-codefolder = "../../"
-sys.path.append(codefolder)
-
 import numpy as np
 import pandas as pd
+
+import seaborn as sns
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-import setup as stp
 from niceprint import heading
 from niceplot import MyLabel, stamp, single_legend
 
-plt.style.use('seaborn-talk') # Make the labels readable
-#plt.style.use('seaborn-poster')
+from population import Pop
+from pop_io import get_data
+
+import setup as stp
+
+codefolder = "../../"
+sys.path.append(codefolder)
+
+# Bigger texts and labels
+sns.set_context("talk") # poster, talk, notebook, paper
 
 __all__ = ["detection_level","plot_sigmax_all","plot_sigmax","high_sigma",
            "plot_high_sigma_all", "sigmax_above_threshold",
            "rate_above_threshold","plot_sigmax_cumulative"]
-###-------------------------------------------------------------
+
+###----------------------------------------------------------------------------
 def detection_level(pop, glist, bins=25, **kwargs):
     """
     Display the detection level for a list of subpopulation.
@@ -46,7 +56,7 @@ def detection_level(pop, glist, bins=25, **kwargs):
 
     """
 
-    fig, ax = plt.subplots(nrows=1, ncols=len(glist),
+    _, ax = plt.subplots(nrows=1, ncols=len(glist),
                            figsize=(6*len(glist),5),
                            sharey = True)
     first = True
@@ -79,7 +89,7 @@ def detection_level(pop, glist, bins=25, **kwargs):
 
     plt.tight_layout()
 
-###-----------------------------------------------------------------------------
+###----------------------------------------------------------------------------
 def plot_sigmax_all(pop, nbin=25, logx=True):
     """
     Plot the mean maximal significance distributions for North and North only,
@@ -120,7 +130,7 @@ def plot_sigmax_all(pop, nbin=25, logx=True):
                 logx=logx,facecolor="none",edgecolor="black",ax=ax3,bins=bins,alpha=1,
                 weight=len(pop.g_b)/len(pop.g_tot))
 
-    stamp(pop.tag,axis=fig,where="bottom")
+    stamp(pop.tag[0],axis=fig,where="bottom")
     plt.tight_layout()
 
 ###----------------------------------------------------------------------------
@@ -156,9 +166,11 @@ def plot_sigmax(g,
         DESCRIPTION.
 
     """
-    if (ax==None): fig,ax = plt.subplots()
+    if ax is None:
+        _,ax = plt.subplots()
 
-    if (xmax != None): mask = g.sigmx < xmax
+    if xmax is not None:
+        mask = g.sigmx < xmax
     else: mask= (np.ones(len(g.sigmx),dtype=bool)) & (g.sigmx!= -1)
 
     if logx:
@@ -175,7 +187,7 @@ def plot_sigmax(g,
         ax.axvline(x=3.,color="tab:orange",ls=":",label="$3\sigma$")
         ax.axvline(x=5,color="tab:green",ls=":"  ,label="$5\sigma$")
 
-    n, bins,_ = ax.hist(x, bins=bins, label=MyLabel(x,tag,stat="med"),
+    _, bins,_ = ax.hist(x, bins=bins, label=MyLabel(x,tag,stat="med"),
                         weights=np.ones(len(x))*weight,**kwargs)
 
     single_legend(ax)
@@ -219,15 +231,15 @@ def high_sigma(gpop, ax=None, inset=True, sigmin= 5,
     var = gpop.sigmx[gpop.sigmx>=sigmin]
     weights = np.ones(len(var))*weight
 
-    n,bins,_ = ax.hist(var,label=MyLabel(var*weights,tag,stat=None),
+    _,bins,_ = ax.hist(var,label=MyLabel(var*weights,tag,stat=None),
                        weights = weights,**kwargs)
-    ax.set_xlabel("$\sigma_{{max}} \geq {}$".format(sigmin))
+    ax.set_xlabel(f"$\sigma_{{max}} \geq {sigmin:}$")
     ax.set_ylabel("Event rate")
 
     # Inset in log
     if inset:
         axx = inset_axes(ax, width="75%", height=1.2,loc="upper right")
-        nxx,binsxx,_ = axx.hist(np.log10(gpop[gpop.sigmx>0].sigmx),
+        _ ,_ ,_ = axx.hist(np.log10(gpop[gpop.sigmx>0].sigmx),
                            bins=25,color="grey",edgecolor="black", alpha=0.5)
         axx.axvline(np.log10(3),ls=":",color="red",lw="2",label="$3\sigma$")
         axx.axvline(np.log10(5),color="red",lw="2",label="$5\sigma$")
@@ -303,7 +315,7 @@ def plot_high_sigma_all(pop, nbin=100, sigmin=5, inset=False):
                            tag="Both", alpha=0.5,weight=weight, inset=inset)
     ax0.grid("both",ls=":")
 
-    stamp(pop.tag,axis=fig,where="bottom")
+    stamp(pop.tag[0],axis=fig,where="bottom")
     plt.tight_layout()
 
 ###-----------------------------------------------------------------------------
@@ -353,7 +365,8 @@ def rate_above_threshold(pop, duration=None):
     None.
 
     """
-    if duration is None: duration = pop.nyears
+    if duration is None:
+        duration = pop.nyears
 
     heading(f"Detection rate with mean sigmax above sig for {duration:} years")
 
@@ -361,19 +374,19 @@ def rate_above_threshold(pop, duration=None):
     taglist = ["North","N only","South","S only","Both"]
     siglist = [-0.5, 3, 5, 10, 20, 50, 100, 200]
 
-    print("{:>10s}".format("Sig min"),end="")
+    print(f"{'Sig min':>10s}",end="")
     for tag in taglist:
-        print("{:>8s}".format(tag),end="")
-    print("{:>8s}".format("Tot"))
+        print(f"{tag:>8s}",end="")
+    print(f"{'Tot':>8s}")
     print(60*"-")
 
     for sig in siglist:
-        print("{:>10.1f}".format(sig),end="")
+        print(f"{sig:>10.1f}",end="")
         ntot = len(pop.g_tot[pop.g_tot.sigmx>=sig])
         for p  in poplist:
             n = len(p[p.sigmx>=sig])
-            print("{:>8.2f}".format(duration*n/pop.nyears),end="")
-        print("{:>8.2f}".format(duration*ntot/pop.nyears))
+            print(f"{duration*n/pop.nyears:>8.2f}",end="")
+        print(f"{duration*ntot/pop.nyears:>8.2f}")
 
     print(60*"-")
 
@@ -433,22 +446,15 @@ def plot_sigmax_cumulative(pop, bins=10):
         ax.grid(which="minor",ls=":")
         ax.grid(which="major",ls="-")
 
-    stamp(pop.tag, axis=fig, where="bottom")
+    stamp(pop.tag[0], axis=fig, where="bottom")
 
 ###############################################################################
 if __name__ == "__main__":
 
-    from population import Pop
-    from pop_io import create_csv
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    import sys
-    codefolder = "../../"
-    sys.path.append(codefolder)
-
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-
-    print(nyears, file)
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag=tag, nyrs= nyears)
 
     ### ------------------
     ### Print statistics
@@ -475,4 +481,3 @@ if __name__ == "__main__":
 
     # Rate versus mean maximal siginificance threshold
     plot_sigmax_cumulative(pop)
-

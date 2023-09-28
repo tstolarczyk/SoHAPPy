@@ -2,26 +2,38 @@
 """
 Created on Wed Nov 30 17:11:21 2022
 
+Characterizes the time needed to get a detection or the mean maximal
+significance. Plots in particular for...
+
 @author: Stolar
 """
 import sys
-codefolder = "../../"
-sys.path.append(codefolder)
 
 import numpy as np
 import astropy.units as u
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-
-import setup as stp
 from niceplot import MyLabel, stamp, single_legend, col_size,  vals_legend
 from niceprint import heading, t_fmt
+
+from population import Pop
+from pop_io import get_data
+
+import setup as stp
+
+# Bigger texts and labels
+sns.set_context("notebook") # poster, talk, notebook, paper
+
 __all__ = ["sigmax_after_delay", "time_to_5sigma_fullrange",
            "time_to_detection","detection_fraction_versus_time",
            "plot_t_sigma","sig_vs_time_errors",
            "delay_correlation_both_sites"]
+
+codefolder = "../../"
+sys.path.append(codefolder)
 ###-----------------------------------------------------------------------------
 def sigmax_after_delay(pop, sigmx_min=5, tmin=1*u.d):
 
@@ -72,7 +84,7 @@ def sigmax_after_delay(pop, sigmx_min=5, tmin=1*u.d):
                 print()
 
 ###-----------------------------------------------------------------------------
-def time_to_5sigma_fullrange(pop, logx=True, nbin=25):
+def time_to_5sigma_fullrange(pop, nbin=25):
     """
     Display mean times to get 5 sigma siginificance in North and South.
 
@@ -94,14 +106,14 @@ def time_to_5sigma_fullrange(pop, logx=True, nbin=25):
     fig, ax1 = plt.subplots(nrows=1,ncols=1,figsize=(12,6))
 
     var = np.log10(pop.g_n[pop.g_n.d5s>pop.eff_lvl].t5s/3600)
-    n, bins, _ = ax1.hist(var,
+    _, _, _ = ax1.hist(var,
                           bins=nbin, color=stp.col_n, alpha=0.3,
                           label = MyLabel(var,"North"))
 
     var = np.log10(pop.g_s[pop.g_s.d5s>pop.eff_lvl].t5s/3600)
-    n, bins, _ = ax1.hist(var,
-                          bins=nbin, color=stp.col_s, alpha=0.3,
-                          label = MyLabel(var,"South"))
+    ax1.hist(var,
+             bins=nbin, color=stp.col_s, alpha=0.3,
+             label = MyLabel(var,"South"))
 
     ax1.set_xlabel("log Time in hours")
     ax1.axvline(np.log10(24),  ls="-", color="grey",label="1 day")
@@ -110,7 +122,7 @@ def time_to_5sigma_fullrange(pop, logx=True, nbin=25):
 
     ax1.legend()
     ax1.set_title("Mean Time to reach 5 $\sigma$")
-    stamp(pop.tag,axis=fig,where="bottom")
+    stamp(pop.tag[0],axis=fig,where="bottom")
     plt.tight_layout()
 
 ###-----------------------------------------------------------------------------
@@ -149,7 +161,7 @@ def time_to_detection(sub_pop, binw=1, yscale="log", title="generic", **kwargs):
 
     # Interesting but useless here
     if masks is None:
-         masks = np.ones(len(varlist)).astype(bool)
+        masks = np.ones(len(varlist)).astype(bool)
 
     # Define one hour binning from the min and max
     tmax = int(max([max(v[m]) for v,m in zip(varlist,masks)]))
@@ -162,7 +174,7 @@ def time_to_detection(sub_pop, binw=1, yscale="log", title="generic", **kwargs):
     first = True
     for ax0, tag, var, mask in zip(ax,tags,varlist,masks):
 
-        n, bins,_ = ax0.hist(var[mask], bins=bins, alpha=0.5,
+        _, bins,_ = ax0.hist(var[mask], bins=bins, alpha=0.5,
                              label=MyLabel(var[mask],label=tag+" (Burst)",stat="med"),**kwargs)
         if len(tobs) != 0:
             ax0.hist(var[mask]-tobs[mask],bins=bins,alpha=0.5,
@@ -183,14 +195,15 @@ def time_to_detection(sub_pop, binw=1, yscale="log", title="generic", **kwargs):
             first = False
 
         axx = inset_axes(ax0, width="50%", height=1.2,loc="upper center")
-        nxx,binsxx,_ = axx.hist(var[mask][var[mask]<1]*60,bins=range(0,60,1),alpha=0.5)
+        axx.hist(var[mask][var[mask]<1]*60,
+                                bins=range(0,60,1),alpha=0.5)
         axx.axvline(107/60,ls=":",label=" Swift + LST delays")
         axx.set_xlabel("$\Delta t$ (min)")
         axx.set_ylabel("$min^{-1}$")
         axx.legend()
 
-    ax0.set_xlabel("Mean detection time (h)") # Last one
-    stamp(pop.tag,axis=fig)
+    ax[-1].set_xlabel("Mean detection time (h)") # Last one
+    stamp(pop.tag[0],axis=fig)
     plt.tight_layout()
 
 ###----------------------------------------------------------------------------------------------
@@ -202,28 +215,27 @@ def detection_fraction_versus_time(pop, sub_pop, title="unknown",
 
     Parameters
     ----------
-    pop : TYPE
-        DESCRIPTION.
-    sub_pop : TYPE
-        DESCRIPTION.
-    title : TYPE, optional
-        DESCRIPTION. The default is "unknown".
-    bins : TYPE, optional
-        DESCRIPTION. The default is 50.
-    density : TYPE, optional
-        DESCRIPTION. The default is True.
-    axs : TYPE, optional
-        DESCRIPTION. The default is None.
-    **kwargs : TYPE
-        DESCRIPTION.
+    pop : Pop instance
+        Data on disk
+    sub_pop : pandas frame
+        Sub poulation.
+    title : string, optional
+        Plot title. The default is "unknown".
+    bins : integer, optional
+        Histogram number of bins. The default is 50.
+    density : Boolean, optional
+        Probability density if True. The default is True.
+    axs : Matplotlib Axes instance, optional
+        Current axis. The default is None.
+    **kwargs : Dictionnaryof keywords
+        Extra matplotlib keywords.
 
     Returns
     -------
-    axs : TYPE
-        DESCRIPTION.
+    axs : Matplotlib axis
+        Current axis.
 
     """
-
 
     varlist  = [np.log10(sub_pop.t5s), np.log10(sub_pop.tmx)] # Go to hours
     masklist = [(sub_pop.d5s>pop.eff_lvl), (sub_pop.tmx>=0) & (sub_pop.sigmx>=5)]
@@ -241,7 +253,7 @@ def detection_fraction_versus_time(pop, sub_pop, title="unknown",
     for ax0, var, mask, tag in zip(axs, varlist, masklist, taglist):
         if mask.all() is None:
             mask = np.ones(len(var))
-        n, bins,_ = ax0.hist(var[mask],bins,
+        _ , bins,_ = ax0.hist(var[mask],bins,
                              histtype="step",lw=2,
                              cumulative=True,density=density, **kwargs)
 
@@ -257,8 +269,8 @@ def detection_fraction_versus_time(pop, sub_pop, title="unknown",
         ax0.set_xlabel("$log_{10} \ t$")
         ax0.set_title(title+" - "+tag)
 
-    single_legend(ax0,bbox_to_anchor=[1,1])
-    stamp(pop.tag,axis=fig,where="left")
+    single_legend(axs[-1],bbox_to_anchor=[1,1])
+    stamp(pop.tag[0],axis=fig,where="left")
     plt.tight_layout()
 
     return axs
@@ -266,8 +278,8 @@ def detection_fraction_versus_time(pop, sub_pop, title="unknown",
 ###----------------------------------------------------------------------------------------------
 def plot_t_sigma(pop,sub_pop,title="unknown"):
     """
-    Display mean maximal significance as the fucntion of the mean time to reach the maximal
-    significance.
+    Display mean maximal significance as the fucntion of the mean time to reach
+    the maximal significance.
 
     Parameters
     ----------
@@ -304,9 +316,9 @@ def plot_t_sigma(pop,sub_pop,title="unknown"):
     ax.legend(loc="lower left")
     ax.set_title(title)
 
-    patches = vals_legend(ax)
+    patches = vals_legend()
     fig.legend(title="$\sigma_{max}$",handles=patches, bbox_to_anchor=(1.1, 0.98))
-    stamp(pop.tag,axis=fig,where="right")
+    stamp(pop.tag[0],axis=fig,where="right")
     plt.tight_layout()
 
 ###----------------------------------------------------------------------------------------------
@@ -389,7 +401,8 @@ def delay_correlation_both_sites(pop, sigmin=5):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,7))
     color, size = col_size(gb.sigmx)
 
-    ax.scatter(gbn.t1/3600,gbs.t1/3600,alpha=0.5,c= color, s=size, label = MyLabel(gbn.t1,"$\sigma_{max}$"))
+    ax.scatter(gbn.t1/3600,gbs.t1/3600,alpha=0.5,c= color, s=size,
+               label = MyLabel(gbn.t1,"$\sigma_{max}$"))
     ax.set_title("Seen on both sites - $\sigma_{max} \geq "+str(sigmin)+"$")
     ax.set_xlabel("Mean detection time (h) - North")
     ax.set_ylabel("Mean detection time (h) - South")
@@ -403,31 +416,26 @@ def delay_correlation_both_sites(pop, sigmin=5):
     xmax_z = 2
     ymin_z = 0
     ymax_z = 5
-    ax.axvspan(xmin_z-1, xmax_z, ymin=ymin_z-1, ymax=(ymax_z+1)/ymax, color="grey",ls=":",alpha=0.5,lw=2,ec="black",fill=False)
+    ax.axvspan(xmin_z-1, xmax_z, ymin=ymin_z-1, ymax=(ymax_z+1)/ymax,
+               color="grey",ls=":",alpha=0.5,lw=2,ec="black",fill=False)
 
     axx = inset_axes(ax, width="30%", height=3,loc="upper right")
-    axx.scatter(gbn.t1/3600, gbs.t1/3600,  alpha=0.5,c= color, s=size, label = MyLabel(gbn.t1,"$\sigma_{max}$"))
+    axx.scatter(gbn.t1/3600, gbs.t1/3600,  alpha=0.5,c= color, s=size,
+                label = MyLabel(gbn.t1,"$\sigma_{max}$"))
     axx.set_xlim(xmax=xmax_z)
     axx.set_ylim(ymax=ymax_z)
 
-    stamp(pop.tag, axis=fig,where="bottom")
-    patches = vals_legend(ax)
+    stamp(pop.tag[0], axis=fig,where="bottom")
+    patches = vals_legend()
     fig.legend(title="$\sigma_{max}$",handles=patches,bbox_to_anchor=(0.95, 0.88))
 
 ################################################################################################
 if __name__ == "__main__":
 
-    # A standalone function to read a GRB and make various tests
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    from population import Pop
-    from pop_io import create_csv
-
-    import sys
-    codefolder = "../../"
-    sys.path.append(codefolder)
-
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag=tag, nyrs= nyears)
 
     ### ------------------------
     ### Print some statistics
@@ -463,7 +471,7 @@ if __name__ == "__main__":
     title = "All - " + "$5 < \sigma_{max} < 20$"
     sig_vs_time_errors(pop.g_tot,(pop.g_tot.sigmx>=5) & (pop.g_tot.sigmx<20),
                        xscale="linear", yscale="linear", ax=ax2, title=title)
-    stamp(pop.tag,axis=fig)
+    stamp(pop.tag[0],axis=fig)
     plt.tight_layout()
 
     # Time differences between N and S for sources detected on both sites

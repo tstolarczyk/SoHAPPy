@@ -2,26 +2,35 @@
 """
 Created on Mon Nov 16 16:47:25 2020
 
+Contain the functions to obtain population data from disk, either directly or
+from a text file to be converted into a `.csv` file. The text file is in some
+cases extracted from a `.tar.gz` archive.
+
+The file or folder names, the simulation duration and the tags associated to
+each files are expected to be found in a `.yaml` file. Here is an example.
+
 @author: Stolar
 """
-
 import sys
-sys.path.append("../../")
-
+import os
 from pathlib import Path
-from   astropy.table import Table
 
 import yaml
 from yaml.loader import SafeLoader
 
+from   astropy.table import Table
 from utilities import file_from_tar
+from niceprint import heading
 
-__all__ = ["get_config_data", "create_csv"]
-###-------------------------------------------------------------
-def get_config_data(filename, debug=False):
+sys.path.append("../../")
+
+__all__ = ["get_config_data", "get_data"]
+
+###----------------------------------------------------------------------------
+def get_config_data(dirname, debug=False):
     """
     Get data from the configuration file, either from opening the file from
-    disk or by getting the file from the archive on disk
+    disk or by getting the file from the archive on disk.
 
     Parameters
     ----------
@@ -36,7 +45,8 @@ def get_config_data(filename, debug=False):
         dictionnary
 
     """
-    dirname = Path(filename).parents[0].absolute()
+
+    print("Extracting configuration parameters from ",dirname)
 
     # Get configuration file from the current folder
     for fname  in dirname.iterdir():
@@ -56,85 +66,180 @@ def get_config_data(filename, debug=False):
 
     return cfile_dict
 
-###-------------------------------------------------------------
-def create_csv(file     = "parameter.yaml",
-               dataname = "data.txt",
-               debug=False):
-
+###----------------------------------------------------------------------------
+def check_and_convert(folder, target, debug=False):
     """
-    From the current parameter file containing the folder to be analysed,
-    create the csv file from default txt file.
-    If the parameter file is not given, then the datafile is supposed to
-    contain the full path data file name.
-    Get the simulation duration.
+    Check whether the current folder contains a data file (.txt) or a
+    converted file (.csv). If not, try to extract from a tar file in that
+    folder.
+    Convert the text file if needed
+    Returns the converted file (.csv) or None if no file found.
+
 
     Parameters
     ----------
-    file : String, optional
-        Input parameter file name, can be None. The default is `paramter.yaml`.
-    datafile : TYPE, optional
-        DESCRIPTION. The default is "data.txt".
-    debug : TYPE, optional
-        DESCRIPTION. The default is False.
+    folder : Path
+        Current folder.
+    target : string or Path
+        File to be found
+    debug: boolean, optional
+        If `True`, gives details. The default is `False`
+
+    Returns
+    -------
+    Path or None
+        Converted file if found or created.
+
+    """
+
+    datafile = None
+
+    # Build the text and cvs file Path
+    txtfile = Path(folder,target)
+    csvfile = Path(folder, target).with_suffix(".csv")
+
+    # Check if converted target exists
+    if csvfile.exists():
+        if debug:
+            print(" Found ", csvfile, " already converted")
+        return csvfile
+
+    # If not csv file, try to convert txt file
+    if txtfile.exists():
+        if debug:
+            print(txtfile, " exists, convert it")
+        data = Table.read(txtfile.as_posix(),format="ascii",guess=False)
+        data.write(csvfile.as_posix(), format="ascii.csv",overwrite=True)
+        if debug:
+            print(csvfile," Created")
+        return csvfile
+
+    # No .csv nor .txt file : last chance in the tar file
+    if debug:
+        print(txtfile," not found, try to extract from tar.gz")
+    datafile = file_from_tar(folder=folder, target=target) # ExFileObject
+
+    # Nothing worked!
+    if datafile is None:
+        if debug:
+            print("Failed")
+        return None
+
+    if debug:
+        print("data from tar ",datafile.name)
+    data = Table.read(datafile,format="ascii",guess=False)
+    data.write(csvfile, format="ascii.csv",overwrite=True)
+
+    return csvfile
+
+###----------------------------------------------------------------------------
+def get_data(parpath  = None,
+               dataname = "data.txt",
+               debug    = False):
+
+    """
+    If `file` does not point to an existing parameter file, then the function
+    rns in demo mode, using the samples in the `SoHAPPy/data/samples`
+    subfolder.
+    From the parameter file containing the folder to be analysed,
+    create the csv file from the initial text file.
+    If the parameter file is not given, then the `file` is supposed to
+    contain the full path data file name.
+    Get the simulation duration, and tgas associated to the datafile to be
+    displayed on the plots (Otherwise build some from the file names).
+
+    Parameters
+    ----------
+    file : Path, optional
+        Input parameter path, can be None.
+    datafile : string, optional
+        Data file name. The default is "data.txt".
+    debug : Boolean, optional
+        If True, display processing information. The default is False.
 
     Returns
     -------
     nyears : FLOAT
-    csvfilename : STRING
-
+        Number of years of simulation
+    csvfilepaths : list of Path
+        List of path for the files found
     None.
 
     """
 
-    nyears = 1
-
-    if file is not None:
-        xdict  = yaml.load(open(file), Loader=SafeLoader)
-
-        folders = xdict["outfolders"]
-        base    = xdict["base_folder"]
-        nyears  = xdict["duration"]
-
-        # Tags are optionall
-        if "tags" not in xdict.keys():
-            tags = len(folders)*[""]
-        else:
-            tags    = xdict["tags"]
-
-        txtfilenames = [Path(base,Path(folder,dataname)) for folder in folders]
-    else: # If the population name is given, it is unique, not a list
-        txtfilenames = [Path(dataname)]
-        base=""
-        folders = [txtfilenames.parent]
-
-    csvfilenames = []
-    for txtfilename, folder in zip(txtfilenames, folders):
-        csvfilename = txtfilename.with_suffix('.csv')
-        if debug:
-            print(" Full name :",txtfilename)
-            print(" >>> ",csvfilename)
-        ### Check existence of csv file
-        if csvfilename.is_file():
-            csvfilenames.append(csvfilename)
-            if debug:
-                print(csvfilename," exists")
-        else: ### No file found.
-            # Try to create from existing text file otherwise check the archive
-            print("csvfile not found - should be created")
-            if txtfilename.is_file():
-                print("Text file found")
-                datafile = txtfilename.as_posix()
-            else: ### Extract data from the archive
-                print(" Text file not found, try to extract from tar.gz")
-                datafile = file_from_tar(folder=Path(base,folder), target="data.txt")
-            # At this stage, data are in hands and can be converted
-            print("Converting data...")
-            data = Table.read(datafile,format="ascii",guess=False)
-            data.write(csvfilename.as_posix(), format="ascii.csv",overwrite=True)
-            print(csvfilename," Created")
-            csvfilenames.append(csvfilename)
-
-    if len(csvfilenames) > 1:
-        return nyears, csvfilenames, tags
+    if parpath is None:
+        heading(" RUNNING in DEMO mode")
+        print(" No `.yaml` file was given")
+        parpath = Path("../../data/samples", "pop_parameter.yaml").resolve()
+        base    = Path("../../data/samples").resolve()
     else:
-        return nyears[0], csvfilenames[0], tags[0]
+        # Check if parameter file exists
+        parpath = Path(parpath).resolve() # If teh user forgot
+        if not parpath.exists():
+            sys.exit(f" The parameter file {parpath:} was not found")
+
+        # Check if HAPPY_OUT was defined, otherwise use the local folder
+        if "HAPPY_OUT" not in os.environ.keys():
+            base = Path("../../data/samples").resolve()
+            heading(" DEMO mode")
+        else:
+            base = Path(os.environ["HAPPY_OUT"])
+
+    csvfilepaths = []
+
+    # Get the folder names from the parameter file.
+    xdict   = yaml.load(open(parpath.as_posix()), Loader=SafeLoader)
+    folders = [Path(base,dir) for dir in xdict["outfolders"] ]
+    nyears  = xdict["duration"][0]
+
+    # Check if the folders exist
+    for curdir in folders:
+        if not curdir.exists():
+            sys.exit(f"{curdir} does not exist, please correct {parpath:}")
+
+    # Get the .csv file from the folders, either existing or to be created
+    for curdir in folders:
+
+        filepath = check_and_convert(curdir, dataname)
+
+        # No file found. Look into the subfolders
+        if filepath is None:
+
+            if debug:
+                print(" Not found ", dataname, "in ", curdir)
+                print(" Scanning the folder")
+
+            dirnames = [f for f in curdir.iterdir() if f.is_dir()]
+            for newdir in dirnames:
+                filepath = check_and_convert(newdir, dataname)
+                if filepath is not None:
+                    if debug:
+                        print(" Found ", dataname, " in ",newdir)
+                    # Found one, add to the list
+                    csvfilepaths.append(filepath)
+
+        # File found, add to the list
+        else:
+            csvfilepaths.append(filepath)
+
+    # Final folder list with data
+    if debug:
+        print("--------------")
+        print("Data found")
+        for curfile in csvfilepaths:
+            print(curfile)
+
+    # Create defaults tags or get them from the file
+    if "tags" not in xdict.keys():
+        tags = csvfilepaths[0].parent.parent.name # Migght be long!
+    else:
+        tags = xdict["tags"]
+
+    return nyears, csvfilepaths, tags
+
+###############################################################################
+if __name__ == "__main__":
+
+    get_data(parpath=None, debug=True) # Demo mode
+    # get_data(parpath="parameter.yaml", debug=True) # Local file
+    print("... completed")

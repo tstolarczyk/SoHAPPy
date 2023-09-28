@@ -6,14 +6,22 @@ Created on Tue Jan 10 14:04:54 2023
 @author: Stolar
 """
 import sys
-codefolder = "../../"
-sys.path.append(codefolder)
+import collections
+from pathlib import Path
 
 import numpy as np
+
 import matplotlib.pyplot as plt
+
 from niceplot import MyLabel
+from niceprint import heading
 
 from times import detection_fraction_versus_time
+
+from population import Pop
+from pop_io import get_data
+codefolder = "../../"
+sys.path.append(codefolder)
 
 __all__ = ["find_5sigma_diff","check_visibilities","var_plot",
            "var_scatter_all","var_scatter"]
@@ -44,26 +52,28 @@ def find_5sigma_diff(pop1, pop2):
 
     #----------------------
     def show():
-        print(" {:8s} {:5s} 1: sigmx={:5.1f} +/-{:5.1f} * CL={:5d} * vis={:2d} * err={:5d}"
-              .format(g1["name"], g1.loca, g1.sigmx, g1.esigmx, g1.d5s,g1.prpt,g1.err))
-        print(" {:8s} {:5s} 2:       {:5.1f} +/-{:5.1f}      {:5d} *     {:2d} *     {:5d}"
-              .format(" "," ",g2.sigmx, g2.esigmx,  g2.d5s,g2.prpt,g2.err))
-        return
+        print("f{g1['name']:8s} {g1.loca:5s} " \
+              + f"1: sigmx={g1.sigmx:5.1f} +/-{g1.esigmx:5.1f}" \
+              + f"* CL={g1.d5s:5d} * vis={g1.prpt:2d} * err={g1.err:5d}")
+        print(f" {'':8s} {'':5s}             "\
+              +f"2:       {g2.sigmx:5.1f} +/-{g2.esigmx:5.1f}" \
+              +f"      {g2.d5s:5d} *     {g2.prpt:2d} *     {g2.err:5d}")
     #----------------------
 
-    for (i1, g1), (i2, g2) in zip(grb1.iterrows(), grb2.iterrows()):
+    for (_, g1), (_, g2) in zip(grb1.iterrows(), grb2.iterrows()):
 
         if (g1.d5s >= pop1.eff_lvl and g2.d5s < pop2.eff_lvl) :
-            if (first1):
+            if first1:
                 print("Error : detected in 1 not in 2")
                 first1 = False
             show()
 
         if (g1.d5s < pop1.eff_lvl and g2.d5s >= pop2.eff_lvl) :
-            if (first2):
+            if first2:
                 print("Error : detected in 2 not in 1")
                 first2 = False
             show()
+
     print("All done!")
 
 ###----------------------------------------------------------------------------
@@ -97,13 +107,12 @@ def  check_visibilities(pop1, pop2):
             mask1 = (grb1["name"] == name) & (grb1.loca == loc)
             mask2 = (grb2["name"] == name) & (grb2.loca == loc)
             if grb1[mask1].err.values[0] != grb2[mask2].err.values[0] :
-                print("{:10s} {:4d} {:4d}"
-                      .format(name,grb1[mask1].err.values[0],
-                                   grb2[mask2].err.values[0]))
+                print(f"{name:10s} {grb1[mask1].err.values[0]:4d}" \
+                      + f" {grb2[mask2].err.values[0]:4d}")
                 count[loc]+=1
     print(" Differences between the 2 populations :",count)
 ###----------------------------------------------------------------------------
-def var_plot(var1, var2, tag=["o","o"],varmin=None, varmax= None,
+def var_plot(var1, var2, tag=("o","o"),varmin=None, varmax= None,
              nbin=100,xscale="log",yscale="log",xlabel=""):
     """
     Show distributions of a given variable of two different populations.
@@ -135,19 +144,19 @@ def var_plot(var1, var2, tag=["o","o"],varmin=None, varmax= None,
 
     """
 
-    if varmin == None:
+    if varmin is None:
         varmin = min(min(var1),min(var2))
-    if varmax == None:
+    if varmax is None:
         varmax = max(max(var1),max(var2))
     print("min = ",varmin," max=",varmax)
 
     mask1 = (var1<=varmax) & (var1>=varmin)
     mask2 = (var2<=varmax) & (var2>=varmin)
 
-    fig, (axa, axb) = plt.subplots(nrows=1, ncols=2,figsize=(12,5))
+    _, (axa, axb) = plt.subplots(nrows=1, ncols=2,figsize=(12,5))
 
     # First population
-    n, bins, p = axa.hist(var1[mask1],bins=nbin,alpha=0.5,
+    _, bins, _ = axa.hist(var1[mask1],bins=nbin,alpha=0.5,
                           label=MyLabel(var1[mask1],tag[0]))
 
     # Second population
@@ -195,16 +204,18 @@ def var_scatter_all(var, pop1, pop2):
     gs2 = pop2.grb[pop2.grb.loca=="South"]
     gb2 = pop2.grb[pop2.grb.loca=="Both"]
 
-    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(20,6), sharey=True)
+    _, ax = plt.subplots(nrows=1, ncols=3, figsize=(20,6), sharey=True)
 
     first = True
     for ax0, g1, g2, title in zip(ax, [gn1,gs1,gb1],
                                       [gn2,gs2,gb2],
                                       ["North", "South", "Both"]):
-        var1 = g1[nmin:nmax][var]
-        var2 = g2[nmin:nmax][var]
+        # var1 = g1[nmin:nmax][var]
+        # var2 = g2[nmin:nmax][var]
+        var1 = g1[var]
+        var2 = g2[var]
 
-        var_scatter(var1, var2,tag=[tag1,tag2], title=title, ax=ax0)
+        var_scatter(var1, var2,tag=[pop1.tag,pop2.tag], title=title, ax=ax0)
 
         if first:
             first = False
@@ -214,11 +225,11 @@ def var_scatter_all(var, pop1, pop2):
     plt.tight_layout(h_pad=0)
 
 ###----------------------------------------------------------------------------
-def var_scatter(var1, var2, tag=["o","o"], title="",
+def var_scatter(var1, var2, tag=("o","o"), title="",
                 varmin=None, varmax= None,
-                nbin=100, logscale=True, cut=0, ax =None):
+                logscale=True, cut=0, ax =None):
     """
-    The two varaibale sets should have the same size
+    The two variabale sets should have the same size
 
     Parameters
     ----------
@@ -247,10 +258,10 @@ def var_scatter(var1, var2, tag=["o","o"], title="",
     """
 
     if len(var1) != len(var2):
-        print(" Set 1 : ",tag1, len(var1))
-        print(" Set 2 : ",tag2, len(var2))
+        print(" Set 1 : ",tag[0], len(var1))
+        print(" Set 2 : ",tag[0], len(var2))
         print(" Samples should have the same size !")
-        return
+        return ax
 
     if varmin is None:
         varmin = min(min(var1),min(var2))
@@ -268,7 +279,8 @@ def var_scatter(var1, var2, tag=["o","o"], title="",
     sig3 = np.log10(3) if logscale else 3
     sig5 = np.log10(5) if logscale else 5
 
-    if ax is None: fig, axa = plt.subplots(nrows=1,ncols=1,figsize=(7,7))
+    if ax is None:
+        plt.subplots(nrows=1,ncols=1,figsize=(7,7))
 
     ax.scatter(var1,var2,marker="+")
 
@@ -291,7 +303,6 @@ def var_scatter(var1, var2, tag=["o","o"], title="",
     ax.grid(which="minor",axis="both",ls=":",alpha=0.5)
     ax.grid(which="major",axis="both",ls="-",alpha=0.5)
 
-    import collections
     handles, labels = ax.get_legend_handles_labels()
     by_label = collections.OrderedDict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys())
@@ -301,84 +312,79 @@ def var_scatter(var1, var2, tag=["o","o"], title="",
 ##############################################################################
 if __name__ == "__main__":
 
-    # A standalone function to read a GRB and make various tests
-
-    from population import Pop
-    from pop_io import create_csv
-
-    codefolder = "../../"
-    sys.path.append(codefolder)
-
-    nyears, file, tags = create_csv(file="compare.yaml",debug=False)
+    parpath = Path(codefolder,"data/samples/comparepop_parameter.yaml")
+    nyears, file, tags = get_data(parpath=parpath,debug=False)
 
     poplist = []
-    for f in file:
-        pop = Pop(filename=f, nyrs= nyears)
+
+    for f,tag in zip(file, tags):
+        pop = Pop(f, tag=tag, nyrs= nyears)
         # pop.sanity_check()
         poplist.append(pop)
-    [pop1, pop2] = poplist
+
+    [pop1, pop2] = [poplist[0], poplist[1]]
 
     # # Find 5 sigma detection differences in the two population
-    # heading("Compare 5 sigma detection")
-    # find_5sigma_diff(pop1, pop2)
+    heading("Compare 5 sigma detection")
+    find_5sigma_diff(pop1, pop2)
 
     # # Check differences in visibility
-    # heading("Check visibilities")
-    # check_visibilities(pop1, pop2)
+    heading("Check visibilities")
+    check_visibilities(pop1, pop2)
 
     # ###------------------------
     # ### Check some variables
     # ###------------------------
 
-    # nmin=0
-    # nmax=3000
-    # sigmin=0
+    nmin=0
+    nmax=3000
+    sigmin=0
 
-    # gs1 = pop1.g_s
-    # gs2 = pop2.g_s
-    tag1 = tags[0]
-    tag2 = tags[1]
+    gs1 = pop1.g_s
+    gs2 = pop2.g_s
 
     # # Check tmax relative error
-    # var1 = gs1[nmin:nmax][gs1.etmx>0].etmx/gs1[nmin:nmax].tmx
-    # var2 = gs2[nmin:nmax][gs2.etmx>0].etmx/gs2[nmin:nmax].tmx
-    # var_plot(var1, var2,tag=[tag1,tag2],xscale="linear",yscale="log",
-    #           xlabel="$t_{max}$ relative error")
-    # plt.tight_layout()
+    var1 = gs1[nmin:nmax][gs1.etmx>0].etmx/gs1[nmin:nmax].tmx
+    var2 = gs2[nmin:nmax][gs2.etmx>0].etmx/gs2[nmin:nmax].tmx
+    var_plot(var1, var2,tag=[pop1.tag,pop2.tag],xscale="linear",yscale="log",
+              xlabel="$t_{max}$ relative error")
+    plt.tight_layout()
 
     # # Mean maximal siginificance
-    # var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.sigmx>0].sigmx
-    # var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.sigmx>0].sigmx
-    # var_plot(var1, var2,tag=[tag1,tag2],xscale="linear",yscale="log",xlabel="$\sigma_{max}$ ")
-    # plt.tight_layout()
+    var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.sigmx>0].sigmx
+    var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.sigmx>0].sigmx
+    var_plot(var1, var2,tag=[pop1.tag,pop2.tag],xscale="linear",yscale="log",
+             xlabel="$\sigma_{max}$ ")
+    plt.tight_layout()
 
     # # Mean time of maximal significance
-    # var1 = gs1[nmin:nmax][gs1.sigmx>0].tmx
-    # var2 = gs2[nmin:nmax][gs2.sigmx>0].tmx
+    var1 = gs1[nmin:nmax][gs1.sigmx>0].tmx
+    var2 = gs2[nmin:nmax][gs2.sigmx>0].tmx
 
-    # var_plot(var1, var2,tag=[tag1,tag2],xscale="linear",yscale="log",xlabel="$t_{max}$ ")
-    # print(" Set 1 : ",len(var1))
-    # print(" Set 2 : ",len(var2))
-    # plt.tight_layout()
+    var_plot(var1, var2,tag=[pop1.tag,pop2.tag],xscale="linear",yscale="log",
+             xlabel="$t_{max}$ ")
+    print(" Set 1 : ",len(var1))
+    print(" Set 2 : ",len(var2))
+    plt.tight_layout()
 
     # ###------------------------
     # ### Compare in scatter plots
     # ###------------------------
 
     # heading("Compare sigmax")
-    # var_scatter_all("sigmx", pop1, pop2)
+    var_scatter_all("sigmx", pop1, pop2)
 
     # heading("Compare excess counts")
-    # var_scatter_all("nexmx", pop1, pop2)
+    var_scatter_all("nexmx", pop1, pop2)
 
     ###------------------------
     ### Cumulative 5 sigma detectionversus time
     ###------------------------
     axs = detection_fraction_versus_time(pop1, pop1.g_tot,
                                          color="tab:blue",
-                                         label=tag1,
+                                         label=pop1.tag,
                                          title=" All")
     detection_fraction_versus_time(pop2, pop2.g_tot,
                                    color="tab:orange",
-                                   label=tag2,
+                                   label=pop2.tag,
                                    title="All", axs=axs)

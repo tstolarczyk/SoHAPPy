@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-# Explore population from output files
+Explore population from output files.
 
 The output population files contain by default all the GRB information
 available in the original fits file.
@@ -9,24 +9,32 @@ Created on Mon Jan  9 14:08:58 2023
 
 @author: Stolar
 """
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import seaborn as sns
 import astropy.units as u
 from   astropy.time import Time, TimeDelta
 from astropy.visualization import quantity_support
 from  astropy.coordinates import Angle, SkyCoord
 
 from population import Pop
-from pop_io import create_csv
+from pop_io import get_data
 
 from niceplot import MyLabel, single_legend
 from niceprint import heading
 
-# plt.style.use('seaborn-talk') # Make the labels readable
-plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!
 
-__all__ = []
+# Bigger texts and labels
+sns.set_context("notebook") # poster, talk, notebook, paper
+
+CODE = "../../"
+sys.path.append(CODE)
+
+__all__ = ["galactic_coverage", "var_coverage"]
+
 ###----------------------------------------------------------------------------
 def galactic_coverage(grb, latmax= 2*u.deg):
 
@@ -83,13 +91,10 @@ def var_coverage(var,grb,logz=False):
 ###############################################################################
 if __name__ == "__main__":
 
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    import sys
-    CODE = "../../"
-    sys.path.append(CODE)
-
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag=tag, nyrs= nyears)
 
     # Wrap ra and dec for further use, define galactic coordinates - note that units handling is not clear
     pop.ref.ra  = np.array([Angle(x*u.deg).wrap_at(180*u.deg).value for x in pop.ref.ra ])

@@ -2,13 +2,28 @@
 """
 Created on Tue Jul 27 11:58:24 2021
 
+Show distributions and population coverage as functions of `Eiso`, `Epeak`
+and the redshift `z`.
+
 @author: Stolar
 """
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
+import seaborn as sns
+
 from niceplot import MyLabel, single_legend, stamp, projected_scatter, col_size, vals_legend
 from historical import plot_historical, historical
+from population import Pop
+from pop_io import get_data
+
+# Bigger texts and labels
+sns.set_context("notebook") # poster, talk, notebook, paper
+
+codefolder = "../../"
+sys.path.append(codefolder)
 
 __all__ = ["distri","coverage"]
 
@@ -73,7 +88,7 @@ def distri(pop, grbs,
         varname = var
 
     # Plot the reference "1000" GRB population
-    if reference == True:
+    if reference is True:
         mask = (pop.ref[var] <= varmax) & (pop.ref[var] >= varmin)
 
         if varlog:
@@ -115,7 +130,7 @@ def distri(pop, grbs,
 ###----------------------------------------------------------------------------
 def coverage(varx, vary,
              ref = None, pop = None, mask = None,
-             xrange = [None,None], yrange = [None, None],
+             xrange = (None,None), yrange = (None, None),
              lblx   = "",          lbly   ="",
              xscale = "log",       yscale ="log",
              title  = "dummy",
@@ -198,7 +213,7 @@ def coverage(varx, vary,
 
     ax.grid("both",ls="--")
 
-    patches = vals_legend(ax, alpha = alpha)
+    patches = vals_legend(alpha = alpha)
     fig.legend(title="$\sigma_{max}$",handles=patches, bbox_to_anchor=[0.98, 1.01],ncol=2)
 
     single_legend(ax)
@@ -209,7 +224,7 @@ def coverage(varx, vary,
     hist_mask = (ref[varx] >= xrange[0]) & (ref[varx] <= xrange[1])
 
     xref = np.log10(ref[hist_mask][varx]) if xscale=="log" else ref[hist_mask][varx]
-    n, bins, _ = axh.hist(xref, bins = nbin, facecolor="none",edgecolor="black")
+    _, bins, _ = axh.hist(xref, bins = nbin, facecolor="none",edgecolor="black")
 
     x = np.log10(pop[mask][varx]) if xscale=="log" else pop[mask][varx]
     axh.hist(x, bins = bins, color="purple",alpha=0.3)
@@ -228,7 +243,7 @@ def coverage(varx, vary,
     hist_mask = (ref[vary] >= yrange[0]) & (ref[vary] <= yrange[1])
 
     yref = np.log10(ref[hist_mask][vary]) if yscale=="log" else ref[hist_mask][vary]
-    n, bins, _ = axv.hist(yref, bins = nbin,
+    _, bins, _ = axv.hist(yref, bins = nbin,
                           facecolor="none",edgecolor="black",orientation="horizontal",
                           label=MyLabel(yref ,label="All"))
 
@@ -238,27 +253,13 @@ def coverage(varx, vary,
              label = MyLabel(y ,label="Detected"))
     axv.set_xscale(yscale)
 
-    return
-
 ###############################################################################
 if __name__ == "__main__":
 
-    # A standalone function to read a GRB and make various tests
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    from population import Pop
-    from pop_io import create_csv
-
-    import sys
-
-    #plt.style.use('seaborn-talk') # Make the labels readable
-    plt.style.use('seaborn-poster') # Make the labels readable - bug with normal x marker !!!
-
-    codefolder = "../../"
-    sys.path.append(codefolder)
-
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag=tag, nyrs= nyears)
     popNS = pop.grb[(pop.grb.loca=="North") | (pop.grb.loca=="South")]
 
 
@@ -310,7 +311,7 @@ if __name__ == "__main__":
                      xscale="linear",
                      mask=mask,
                      title=title)
-        stamp(pop.tag, axis=fig, x=1.04, y = 0.5, rotation=270)
+        stamp(pop.tag[0], axis=fig, x=1.04, y = 0.5, rotation=270)
 
     # Eiso versus Epeak
     varx    = "Epeak"
@@ -327,4 +328,4 @@ if __name__ == "__main__":
                      lblx = lblx, lbly = lbly,
                      mask=mask,
                      title=title)
-        stamp(pop.tag, axis=fig, x=1.04, y = 0.5, rotation=270)
+        stamp(pop.tag[0], axis=fig, x=1.04, y = 0.5, rotation=270)

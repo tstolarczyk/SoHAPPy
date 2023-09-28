@@ -2,9 +2,19 @@
 """
 Created on Tue Nov 15 12:26:59 2022
 
+Compute detection rates for various site-related population normalised to
+the data taking duration to get mean yearly rates above 3 and 5 standard
+deviations of detection significance.
+
 @author: Stolar
 """
+import sys
 import numpy as np
+from pop_io import get_data
+from population import Pop
+
+CODE = "../../"
+sys.path.append(CODE)
 
 __all__ = ["compute","separator","stat_mean","prt_mean",
            "stat_line"]
@@ -181,12 +191,10 @@ def stat_line(pop,tag="",nyrs=1):
 ###############################################################################
 if __name__ == "__main__":
 
-    from pop_io import create_csv
-    from population import Pop
-    import sys
-    CODE = "../../"
-    sys.path.append(CODE)
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parametr.yaml",debug=False)
 
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag= tag,  nyrs= nyears, debug=False)
+
+    pop.print()
     compute(pop,summary=False)

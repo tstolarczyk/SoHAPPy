@@ -2,6 +2,13 @@
 """
 Created on Wed Nov  9 17:40:49 2022
 
+Contains the definition of the :class:`Population`. The contructor function
+opens the input files and store the read data in various
+`pandas` table that are reused later. The main function reads the data,
+perform a sanity check comparing the results to the requirement in the
+original configuration file, check for negative significances, the fraction
+of GRB for which the prompt component can be detected etc.
+
 @author: Stolar
 """
 import sys
@@ -14,34 +21,38 @@ from astropy.time import Time
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-from pop_io import get_config_data
 from niceprint import t_fmt, heading, warning
 from niceplot import MyLabel, stamp
 
-plt.style.use('seaborn-talk') # Make the labels readable
+from pop_io import get_config_data, get_data
+
+# Bigger texts and labels
+import seaborn as sns
+sns.set_context("notebook") # notebook, notebook, paper
 
 __all__ = ["Pop"]
+
 ###############################################################################
 class Pop():
     """
-    This class handles poulation data from a csv file on disk.
+    This class handles population data from csv files on disk.
     """
 
     ###------------------------------------------------------------------------
-    def __init__(self, filename="data.csv", nyrs=1., nmaxsrc=100000,
+    def __init__(self, files, tag=None, nyrs = 1., nmaxsrc=1000000,
                  debug=False):
         """
-        Get data from a csv SoHAPPy output file
+        Get data from a csv SoHAPPy output file path list.
         Compute combinatory of site visibilities.
 
         Parameters
         ----------
-        filename : string, optional
-            Input file name. The default is "data.csv".
+        files : Path or list of Path.
+            Input files.
         nyrs : float, optional
             Number of years in the simulation or data sample. The default is 1.
         nmaxsrc : integer, optional
-            Maximum number of sources to be read. The default is 100000.
+            Maximum number of sources to be read. The default is 1000000.
         debug : boolean, optional
             A general flag for debugging. The default is False.
 
@@ -51,13 +62,23 @@ class Pop():
 
         """
 
-        self.dbg      = debug
-        self.filename = filename
-        self.tag      = filename.parent.name
-        self.nyears   = nyrs # Rate normalisation
+        if not isinstance(files, list): # Backward compatibility
+            files = [files]
+
+        self.dbg       = debug
+        self.filepaths = files
+        self.nyears    = nyrs # Rate normalisation
+        self.tag       = tag # A descriptor of the data for plots
 
         # The full GRB population (Entries North, South and Both).
-        self.grb = pd.read_csv(filename)
+        self.grb = pd.concat( [ pd.read_csv(f) for f in files ] )
+
+        # After concatenation, the indices are recalculated to be unique
+        # and the former ones are dropped
+        self.grb.reset_index(inplace=True, drop=True)
+
+        mem_Mb = self.grb.memory_usage(deep=True).sum()/1024/1024
+        print(f" Memory usage = {mem_Mb:5.1f} Mb")
 
         # Extract "not visible" flag and iteration from the data
         self.unvis     = min(set(self.grb.err))
@@ -73,40 +94,40 @@ class Pop():
             else:
                 sys.exit(f"{__name__}.py: Missing column for location")
 
-        # If "loca" column does not exist, this is an old file using "site"
+        # If "prpt" column does not exist, this is an old file using "vis"
         if "prpt" not in self.grb.columns:
             if "vis" in self.grb.columns:
                 self.grb = self.grb.rename(columns={'vis': 'prpt'})
                 warning(" Deprecated column name 'vis' changed to 'prpt'")
             else:
-                sys.exit(f"{__name__}.py: Missing column for prompt")
+                warning(" f{__name__}.py: Missing column for prompt - insering with value 0")
+                self.grb.insert(1,"prpt",0) # Dummy value
 
-        # If "loca" column does not exist, this is an old file using "site"
+        # If "t_trig" column does not exist, this is an old file using "ttrig"
         if "t_trig" not in self.grb.columns:
             if "ttrig" in self.grb.columns:
                 self.grb = self.grb.rename(columns={'ttrig': 't_trig'})
                 warning(" Deprecated column name 'ttrig' changed to 't_trig'")
             else:
-                sys.exit(f"{__name__}.py: Missing column for prompt")
+                sys.exit(f"{__name__}.py: Missing column for trigger time")
+
         # Site populations - even if not analysed
         g_s = self.grb[self.grb.loca=="South"][:nmaxsrc]
         g_n = self.grb[self.grb.loca=="North"][:nmaxsrc]
         g_b = self.grb[self.grb.loca=="Both" ][:nmaxsrc]
 
         # Keep one of them for simulated GRB parameters (e.g. z)
-        self.ref = g_n # Reference, no selection applied
+        self.ref   = g_n # Reference, no selection applied
+        self.names = self.ref.name
 
         # Get GRB names in the data
-        if  len(g_s.name) != len(g_n.name) or \
-            len(g_s.name) != len(g_b.name) :
+        if  g_s.size != g_n.size or g_s.size != g_b.size :
             sys.exit(f"{__name__:}.py: Inconstistency in GRB name list")
-
-        self.names = g_s.name
 
         # Warn user in case the maximal GRB limit is below the data content
         if len(self.names) > nmaxsrc:
             print(" WARNING : limited statistics (",len(self.names),") >",nmaxsrc)
-        self.ngrb     = min(nmaxsrc,len(self.names))
+        self.ngrb = min(nmaxsrc,len(self.names))
 
         # Add combinatory to data frame for the name list
         self.add_combinatory()
@@ -126,7 +147,7 @@ class Pop():
         self.g_tot = pd.concat([self.g_n0,self.g_s0,self.g_b],axis=0)
 
         # Get configuration file data and some parameters
-        conf = get_config_data(self.filename, debug=False)
+        conf = get_config_data(self.filepaths[0].parent, debug=False)
 
         if conf["niter"] != self.niter:
             sys.exit(f"{__name__:}.py: niter mismatch wrt configuration")
@@ -137,8 +158,13 @@ class Pop():
 
         self.eff_lvl = conf["det_level"]*conf["niter"]
         self.dtswift = u.Quantity(conf["dtswift"])
-        self.dtslew  = {"North":u.Quantity(conf["dtslew_North"]),
-                        "South":u.Quantity(conf["dtslew_South"])}
+
+        if   "dtslew_north"  in conf.keys() and "dtslew_south" in conf.keys():
+            self.dtslew  = {"North":u.Quantity(conf["dtslew_north"]),
+                            "South":u.Quantity(conf["dtslew_south"])}
+        else: # Try older version
+            self.dtslew  = {"North":u.Quantity(conf["dtslew_North"]),
+                            "South":u.Quantity(conf["dtslew_South"])}
 
     ###-------------------------------------------------------------------
     def add_combinatory(self):
@@ -146,11 +172,11 @@ class Pop():
         Add combinatory to data frame
         """
 
-        # If columns do not exist, create them
-        if "N" not in self.grb:
-            self.grb.insert(1,"N",0) # North only
+        # If columns do not exist, create them - Initlaize at zero
         if "S" not in self.grb:
             self.grb.insert(1,"S",0) # South only
+        if "N" not in self.grb:
+            self.grb.insert(1,"N",0) # North only
         if "B" not in self.grb:
             self.grb.insert(1,"B",0) # North and South
 
@@ -159,21 +185,19 @@ class Pop():
                   f" {'No':>3s} {'So':>3s}")
 
         for name in self.names:
-            grb = self.grb[self.grb.name==name]
-            seen_n = (grb[grb.loca=="North"].err!=self.unvis).bool()
-            seen_s = (grb[grb.loca=="South"].err!=self.unvis).bool()
-            seen_b = (grb[grb.loca=="Both" ].err!=self.unvis).bool()
+            src = self.grb[self.grb.name==name]
+            seen_n = (src[src.loca=="North"].err != self.unvis).bool()
+            seen_s = (src[src.loca=="South"].err != self.unvis).bool()
+            seen_b = (src[src.loca=="Both" ].err != self.unvis).bool()
             seen_sonly = seen_s & ~seen_n
             seen_nonly = seen_n & ~seen_s
             if self.dbg:
                 print(f"{name:>10s} {seen_n:3d} {seen_s:3d} {seen_b:3d}"\
                       f"{seen_nonly:3d} {seen_sonly:3d}")
-            #print(g.index)
-            for idx in grb.index:
-                # Not in pandas 1.0.3
-                # self.grb.set_value(idx,"N",int(seen_nonly))
-                # self.grb.set_value(idx,"S",int(seen_sonly))
-                # self.grb.set_value(idx,"B",int(seen_b))
+
+            # Note that this leads to unpredciatble results if the index
+            # was not rebuild after concatenation (as indices can be duplicated
+            for idx in src.index:
                 self.grb.at[idx,"N"] = int(seen_nonly)
                 self.grb.at[idx,"S"] = int(seen_sonly)
                 self.grb.at[idx,"B"] = int(seen_b)
@@ -184,9 +208,12 @@ class Pop():
         Printout the class content.
 
         """
-        heading(self.tag) #======================
+        heading(self.tag[0]) #======================
 
-        print(" DATA READING from ",self.filename)
+        print(" DATA READING from :")
+        for f in self.filepaths:
+            print(" -",f.parent.name)
+
         if ("N" in self.grb) and ("S" in self.grb) and ("B" in self.grb):
             print("Supplementary information is present")
             print(" grb.N==1 seen North only")
@@ -245,18 +272,18 @@ class Pop():
         bins = np.linspace(0,30,31)
         pop = self.__dict__[gname]
 
-        if ax==None:
+        if ax is None:
             fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(5,5))
 
-        n, bins, _ = ax.hist(pop.nt,
+        _, bins, _ = ax.hist(pop.nt,
                              bins=bins,facecolor="none",edgecolor="black",
-                             label=MyLabel(pop.nt))
+                             label=MyLabel(pop.nt), **kwargs)
         ax.legend()
         ax.set_xlabel("Number of slices in the GRB")
         ax.xaxis.set_major_locator(MultipleLocator(2.000))
         ax.set_title(gname)
 
-        stamp(self.tag,axis=fig,where="bottom")
+        stamp(self.tag[0],axis=fig,where="bottom")
 
         return ax
 
@@ -290,14 +317,14 @@ class Pop():
 
         if sigma == 3:
             nok = sum(pop.d3s)
-            var = pop.d3s
-            tag = r"$3\sigma$"
+            # var = pop.d3s
+            # tag = r"$3\sigma$"
             print(" d3s code < 0          = ",len(pop[pop.d3s<0]))
 
         if sigma == 5:
             nok = sum(pop.d5s)
-            var = pop.d5s
-            tag = r"$5\sigma$"
+            # var = pop.d5s
+            # tag = r"$5\sigma$"
             print(" d5s code < 0          = ",len(pop[pop.d5s<0]))
 
         print("Total numbers : ")
@@ -391,8 +418,7 @@ class Pop():
             if n_neg == 0:
                 print(" This simualtion was probably without fluctuations")
 
-            print(" {:10s} <0: {:<5d} ==0: {:<5d} >0: {:<5d}"
-                  .format(txt,n_neg,n0,n_pos))
+            print(f" {txt:10s} <0: {n_neg:<5d} ==0: {n0:<5d} >0: {n_pos:<5d}")
 
     ###-------------------------------------------------------------------
     def detectable_prompt(self):
@@ -424,7 +450,7 @@ class Pop():
         print("In South : ",end="")
         print(" ".join([n[5:] for n  in prS.name]))
 
-        fig, ax = plt.subplots(nrows=1,ncols=2,figsize=(8,4),sharey=True)
+        _, ax = plt.subplots(nrows=1,ncols=2,figsize=(8,4),sharey=True)
 
         for ax, g, tag in zip(ax, [self.g_n,self.g_s],
                               ["North", "South"]):
@@ -436,7 +462,7 @@ class Pop():
                     bins=bins,alpha=0.5,
                     label=MyLabel(g[mask].t90,label="Prompt visible"))
 
-            mask1 = (g.prpt==1) & (g[mask].t90>107)
+            mask1 = (g.prpt==1) & (g.t90>107)
             ax.hist(g[mask1].t90,
                     bins=bins,alpha=1,color="red",
                     label=MyLabel(g[mask1].t90,label="Prompt detectable >107s"))
@@ -520,14 +546,13 @@ if __name__ == "__main__":
 
     # A standalone function to read a GRB and make various tests
 
-    from pop_io import create_csv
-
     codefolder = "../../"
     sys.path.append(codefolder)
 
-    nyears, file, _ = create_csv(file="parameter.yaml",debug=True)
+    nyears, files, tag = get_data(parpath=None,debug=True)
+    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    pop = Pop(filename=file, nyrs= nyears)
+    pop = Pop(files, tag= tag,  nyrs= nyears, debug=False)
     pop.print()
 
     pop.sanity_check()

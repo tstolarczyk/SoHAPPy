@@ -52,7 +52,8 @@ def get_population(ifirst=1, ilast=10, folder="."):
 
     grbpop=[]
     for i, item in enumerate(grblist):
-        if ((cf.nsrc <= 10) or (np.mod(i,40) == 0)): print("#",i+1," ",end="")
+        if ((cf.nsrc <= 10) or (np.mod(i,40) == 0)):
+            print("#",i+1," ",end="")
         fname = Path(folder,"Event"+str(item)+".fits.gz" )
         grb = GammaRayBurst.from_fits(fname, ebl     = "dominguez")
         grbpop.append(grb)
