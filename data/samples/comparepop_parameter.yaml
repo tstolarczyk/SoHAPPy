@@ -1,0 +1,16 @@
+# This file is used to give the input population file list and its corresponding duration
+# A subfolder list is required. Each subfolder contains a text file with the
+# simulation/analysis result (defaut is data.txt) and a configuration file
+# describing the simulation/analysis parameters, or an archive containing these
+# two elements.
+
+duration:
+     - 44
+outfolders:
+     - "pop_vis24_strictmoonveto-100iter-noacc"
+     - "pop_vis24_nomoonveto-100iter-noacc"
+tags:
+     - "Demo ref. strict veto"
+     - "Demo ref. no Moon veto"
+
+     
