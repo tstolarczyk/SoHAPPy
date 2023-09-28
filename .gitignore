@@ -44,3 +44,8 @@ oldies tbd/myConfigs/long/promptOnly/config_prod3_omega_promptOnly-nodelay_tev_2
 oldies tbd/generator_old.py
 oldies tbd/SoHAPPy - withTrigger_dates.py
 oldies tbd/trigger_date-obsoletes.py
+data/samples/pop_vis24_nomoonveto-100iter-noacc/data.csv
+data/samples/pop_vis24_strictmoonveto-100iter-noacc-builtin/data.csv
+data/samples/pop_vis24_strictmoonveto-100iter-noacc-finke/data.csv
+data/samples/pop_vis24_strictmoonveto-100iter-noacc-franceschini/data.csv
+data/samples/pop_vis24_strictmoonveto-100iter-noacc/data.csv
