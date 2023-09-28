@@ -311,7 +311,7 @@ class Skies():
             vals.output   = inst.basedir
 
         # Generate command line
-        inst.cmd_line = '"'+str(Path(__file__)) +'" '
+        inst.cmd_line = 'python "'+str(Path(__file__)) +'" '
 
         # It would be more logical to loop over the class content
         for (k,v) in vars(vals).items():
@@ -692,7 +692,7 @@ class Skies():
         if not self.out_folder.is_dir():
             self.create_output_folder()
 
-        filename = Path(self.out_folder,self.basename+".json")
+        filename = Path(self.out_folder,"VS_"+self.basename+".json")
         heading(" Dumping generated visibilities ")
         print("Output:",filename)
 
