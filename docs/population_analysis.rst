@@ -69,7 +69,7 @@ The following scripts are available for the analysis:
    :no-inheritance-diagram:
    :include-all-objects:
 
-.. automodapi:: analysis.population.compare_ebl
+.. automodapi:: analysis.population.compare_ebl_models
    :no-inheritance-diagram:
    :include-all-objects:
 

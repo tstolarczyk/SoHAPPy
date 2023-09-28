@@ -1,21 +1,52 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 10 13:54:31 2023
+Created on Thu Sep 28 16:12:11 2023
+ Compare analysed data obtained from with the EBLmodel available in `SoHAPPy`.
 
 @author: Stolar
 """
+
 import sys
-codefolder = "../../"
-sys.path.append(codefolder)
+from pathlib import Path
 
 import numpy as np
 
 import matplotlib.pyplot as plt
 from niceplot import MyLabel
 
+from population import Pop
+from pop_io import get_data
+
+
+codefolder = "../../"
+sys.path.append(codefolder)
+
+
 __all__ = ["plot_var"]
 ###----------------------------------------------------------------------------
 def plot_var(var, poplist, taglist, logx=False, bins=20):
+    """
+
+
+    Parameters
+    ----------
+    var : TYPE
+        DESCRIPTION.
+    poplist : TYPE
+        DESCRIPTION.
+    taglist : TYPE
+        DESCRIPTION.
+    logx : TYPE, optional
+        DESCRIPTION. The default is False.
+    bins : TYPE, optional
+        DESCRIPTION. The default is 20.
+
+    Returns
+    -------
+    None.
+
+    """
+
 
     fig, axlist = plt.subplots(nrows=1, ncols=len(poplist),
                            figsize=(5*len(poplist),6),sharey=True)
@@ -49,17 +80,13 @@ def plot_var(var, poplist, taglist, logx=False, bins=20):
 ##############################################################################
 if __name__ == "__main__":
 
-    # A standalone function to read a GRB and make various tests
-
-    from population import Pop
-    from pop_io import create_csv
-
-    nyears, file, tags = create_csv(file="compare_EBL.yaml",debug=True)
+    parpath = Path(codefolder,"data/samples/compare_ebl.yaml")
+    nyears, file, tags = get_data(parpath=parpath,debug=True)
 
     # Read popualtion files
     poplist = []
     for f in file:
-        pop = Pop(filename=f, nyrs= nyears)
+        pop = Pop(f, tag=tags, nyrs= nyears)
         poplist.append(pop)
     print(" ====> Done !")
 
