@@ -24,8 +24,8 @@ __all__ = ["subset_ids","get_filename","file_from_tar","backup_file",
 ###----------------------------------------------------------------------------
 def subset_ids(nmax, nsets, debug=False):
     """
-    This is a simple code defining nsets interval for a list of integer
-    starting at 1 up to nmax. If nmax is not divisible by nsets, the rest
+    This is a simple code defining `nsets` interval for a list of integer
+    starting at 1 up to `nmax`. If `nmax` is not divisible by `nsets`, the rest
     gives and extra set.
 
     Parameters
@@ -142,6 +142,8 @@ def file_from_tar(folder=None, tarname=None, target=None):
         files = [x for x in p if x.is_file()]
         if len(files) > 1:
             sys.exit(f"{tag} More than one .tar.gz file, specify a name")
+        elif len(files) == 0:
+            return None
         else:
             tarname = files[0]
     print(f"{tag} found {tarname}")
