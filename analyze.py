@@ -5,7 +5,7 @@ Created on Thu Sep 29 12:50:28 2022
 @author: Stolar
 """
 import sys
-
+import pickle
 import numpy as np
 import astropy
 import astropy.units as u
@@ -23,7 +23,6 @@ from niceprint import t_fmt
 col3  = "tab:orange" # 3 sigma
 col5  = "tab:green"  # 5 sigma
 colmx = "black"      # Sigma max
-
 
 __all__ = ["Analysis"]
 
@@ -51,7 +50,7 @@ class Analysis():
               "sigma_std",
               "abort"]
     """
-    Members of the class to not be dumped to the population file
+    Members of the class not to be dumped into the population file
     """
 
     ###------------------------------------------------------------------------
@@ -632,9 +631,33 @@ class Analysis():
         return False
 
     ###------------------------------------------------------------------------
-    def show(self,pdf=None):
+    def write(self,filename = None):
 
-        import matplotlib.pyplot as plt
+        """
+        Save the present class to disk for further use.
+
+        Parameters
+        ----------
+        filename : string, optional
+            Output file name. The default is "None".
+
+        Returns
+        -------
+        None.
+
+        """
+
+        if filename is None:
+            sys.exit("Output file not defined)")
+
+        outfile  = open(filename,"wb")
+        pickle.dump(self,outfile)
+        outfile.close()
+
+        print(f" Saving analysis to file : {filename}")
+
+    ###------------------------------------------------------------------------
+    def show(self,pdf=None):
 
         fig_sig = self.plot_sigma_vs_time()
 
