@@ -17,7 +17,7 @@ from yaml.loader import SafeLoader
 
 import astropy.units as u
 
-from niceprint import warning, failure
+from niceprint import warning, failure, Log
 from visibility import Visibility
 
 __all__ = ['Configuration']
@@ -211,7 +211,7 @@ class Configuration():
         # are not used here.
         parser = argparse.ArgumentParser(description="SoHAPPy", epilog="---")
 
-        parser.add_argument('-f', '--first',
+        parser.add_argument('-f', '--first', nargs='+',
                             help ="First source id",
                             type = int,
                             default = None)
@@ -242,6 +242,16 @@ class Configuration():
                             default=0,
                             type = int)
 
+        parser.set_defaults(save=inst.save_simu)
+        parser.add_argument('--save',
+                            dest='save',
+                            action='store_true',
+                            help= "Save simulation")
+        parser.add_argument('--nosave',
+                            dest='save',
+                            action='store_false',
+                            help = "Do not save simulation")
+
         args, _ = parser.parse_known_args()
 
         # Find a configuration file, load the data
@@ -263,6 +273,8 @@ class Configuration():
             inst.visibility = args.visibility
         if args.debug is not None:
             inst.dbg        = args.debug
+        if args.save is not None:
+            inst.save_simu = args.save
 
         # If prompt_dir is not None, change to Path
         if inst.prompt_dir is not None:
@@ -274,6 +286,7 @@ class Configuration():
         # If debugging is requested, cannot be silent
         if inst.dbg>0:
             inst.silent = False
+
 
         # If the simulation is saved, it is not fluctuated
         if inst.save_simu:
@@ -444,7 +457,7 @@ class Configuration():
         yaml.dump(newdict, file, sort_keys=False)
 
     ###------------------------------------------------------------------------
-    def print(self, out):
+    def print(self, out=None):
 
         """
         Print configuration class instance to screen and out file.
@@ -460,6 +473,8 @@ class Configuration():
 
         """
 
+        if out is None:
+            out = Log()
 
         #----------------------------------------------------
         def title(txt):
@@ -775,7 +790,6 @@ if __name__ == "__main__":
     # * Directly from the file on disk, e.g?
 
     import os
-    from niceprint import Log
     log = Log()
 
     testfile = Path("data/config_ref.yaml")
