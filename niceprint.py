@@ -322,7 +322,7 @@ class Log():
 
         if self.talk:
             func(text,**kwarg)
-        if self.write is not None:
+        if self.write is True:
             func(text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
@@ -330,35 +330,35 @@ class Log():
         if self.talk:
             warning(text)
             # print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
-        if self.write is not  None:
+        if self.write is True:
             print("*** WARNING *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
     def failure(self,text,**kwarg):
         if self.talk:
             failure(text, **kwarg)
-        if self.write is not  None:
+        if self.write is True:
             print("*** FAILURE *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
     def success(self,text,**kwarg):
         if self.talk:
             print(textcol(text,t="green", b="black",s="bold"),**kwarg)
-        if self.write is not  None:
+        if self.write is True:
             print("*** SUCCESS *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
     def highlight(self,text,**kwarg):
         if self.talk:
             print(textcol(text,s="bold"),**kwarg)
-        if self.write is not  None:
+        if self.write is True:
             print("*** LOOK ! *** "+text,**kwarg,file=self.log_file)
 
     ###------------------------------------------------------------------------
     def banner(self,text,**kwarg):
         if self.talk:
             print(textcol(text,t="black",b="yellow",s="bold"),**kwarg)
-        if self.write is not  None:
+        if self.write is True:
             print(" **** " + text + " *** ",**kwarg,file=self.log_file)
 
 ###----------------------------------------------------------------------------
