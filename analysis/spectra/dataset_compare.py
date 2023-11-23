@@ -2,6 +2,11 @@
 """
 Created on Fri Dec  3 12:10:37 2021
 
+This module has functions to compare two dataset (It can be used to check the
+dataset stacking fucntions).
+
+This module has to be re-arranged and is not functionnal as it is!!!
+
 @author: Stolar
 """
 import pickle
@@ -13,12 +18,13 @@ from gammapy.utils.random import get_random_state
 import yaml
 from yaml.loader import SafeLoader
 
-from niceplot import stamp
-
-from dataset_tools import createonoff_from_simulation, check_datasets, sigmax , compactify
 from dataset_counts import excess_counts
 from dataset_flux import extract_spectrum
+from dataset_tools import createonoff_from_simulation, check_datasets, sigmax , compactify
 
+from niceplot import stamp
+
+__all__ = ['comparison_plot']
 ###----------------------------------------------------------------------------
 def comparison_plot(GRB_id,site="South",
                     folder = "./",

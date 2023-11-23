@@ -2,6 +2,9 @@
 """
 Created on Thu Dec 10 16:49:31 2020
 
+This modules gathers the fucntion to display and analyze the data in terms of
+counts and excess counts.
+
 @author: Stolar
 """
 import collections
@@ -123,7 +126,7 @@ def plot3D(x, y, data,
                  zscale = "linear",
                  cmap   = "plasma"):
     """
-    Create a 3D plot with x is energy, y is time, z is data
+    Create a 3D plot with x is energy, y is time, z is data.
 
     Parameters
     ----------
@@ -546,8 +549,8 @@ def excess_counts(ds, elapsed = 0*u.s,
 #------------------------------------------------------------------------------
 def residuals(ds, ax = None, elapsed=0, **kwargs):
     """
-    Plot residuals - Just use the gammapy function, but embed it such a way
-    that it can be used by the SoHAPPy `panels` function.
+    Plot residuals - Just use the `gammapy` function, but embed it ib such a
+    way that it can be used by the SoHAPPy `panels` function.
 
     Parameters
     ----------
@@ -558,14 +561,10 @@ def residuals(ds, ax = None, elapsed=0, **kwargs):
     elapsed: float
         This is an argument expected by the SoHAPPy `panels` function but
         it is not used. It has to be explicited otherwise it will be passed to
-        **kwargs and will lead to a crash since this is not expected from the
+        `kwargs` and will lead to a crash since this is not expected from the
         Gammapy resisuals function.
-    **kwargs : dictionnary
+    kwargs : dictionnary
         Arbitrary Keyword Arguments.
-
-    Returns
-    -------
-    None.
 
     """
     ds.plot_residuals(ax=ax,**kwargs)

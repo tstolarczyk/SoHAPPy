@@ -2,7 +2,7 @@
 """
 Created on Thu Dec 10 16:49:31 2020
 
-This module gather function for plotting the `dataset` contents.
+This module gather functions for plotting the `dataset` contents.
 
 @author: Stolar
 """
@@ -19,7 +19,7 @@ from astropy.visualization import quantity_support
 
 from niceprint import t_str
 
-__all__ = ['panels', 'windows']
+__all__ = ['panels', 'windows', 'counts_from_plot']
 
 #------------------------------------------------------------------------------
 def windows(dsets, nbin=15, ysize=5, unit="s", plot=True):
@@ -115,7 +115,7 @@ def panels(dsets,
     func : Function, optional
         The pointer ot a function with first argument a dataset object, and
         a matplotib axis. The rest of the arguments are passed through the
-        keyword arguments (**kwargs). The default is None.
+        keyword arguments (`kwargs`). The default is None.
     nmaxcol : Integer, optional
         The maximum number of columns in the panel. The default is 5.
     xsize : Float, optional
@@ -124,7 +124,7 @@ def panels(dsets,
         The height of the rows in the panel. The default is 7.
     fixrange : Boolean, optional
         If True, all plot y axis are identical. The default is False.
-    **kwargs : Keyword arguments
+    kwargs : Keyword arguments
         Extra arguments for the function (func)
 
     Returns
@@ -229,10 +229,6 @@ def counts_from_plot(ax, dset, plot_line=False):
     plot_line : Boolean, optional
         If True, plot vertical and horizontal lines to the extracted points.
         The default is False.
-
-    Returns
-    -------
-    None.
 
     """
 

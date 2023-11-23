@@ -2,7 +2,7 @@
 """
 Created on Mon Nov 20 15:50:34 2023
 
-This script show hows to analyse the time and energy spectra of a simulated
+This script shows how to analyse the time and energy spectra of a simulated
 GRB.
 Note that in some cases the available data are unsufficient to get a
 spectrum fitted, in particular when observation starts early and the time
@@ -13,6 +13,7 @@ a minimal duration.
 """
 
 import sys
+import os
 import pickle
 from pathlib import Path
 
@@ -36,11 +37,19 @@ sys.path.append("../../../SoHAPPy")
 ###############################################################################
 
 # Get data from a GRB simulated file
-base=Path(r"D:/CTA/SoHAPPy/output/long_1_1000/test_omega/strictmoonveto\strictmoonveto_343")
-GRB_id  = 343
-site    = "South"
-file    = Path(base,"Event"+str(GRB_id)+"-"+site+"_sim.bin")
+# Use the INFILE environment variable if it exists
+if "INFILE"  in os.environ.keys():
+    file = Path(os.environ["INFILE"])
+else:
+    base = Path("D:/CTA/SoHAPPy/output/long_1_1000/test_omega/strictmoonveto/strictmoonveto_343")
+    GRB_id  = 343
+    site    = "South"
+    file    = Path(base,"Event"+str(GRB_id)+"-"+site+"_sim.bin")
 
+if not file.exists():
+    sys.exit(f"File {file:} not found")
+
+# Get the MC class instance
 infile  = open(file,"rb")
 mc      = pickle.load(infile)
 infile.close()
@@ -70,12 +79,12 @@ print(f" Significance from this realization = {sigmx:5.1f}")
 
 # Mean significance from many realisations
 siglist = []
+fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(8,8))
 for i in range(100):
     print(i," ", end="")
     dset_test = createonoff_from_simulation(mc,debug=False,
                                     random_state=get_random_state(2021))
     siglist.append(sigmax(dset_test))
-    fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(8,8))
     ax.hist(siglist, label=MyLabel(siglist,label="MC Siginificances"))
     ax.axvline(sigmx,ls="--",color="red")
     ax.legend()
