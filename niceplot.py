@@ -183,6 +183,9 @@ def stamp(text, axis = None,
 
     text = text + " - " + gammapy.__version__
 
+    if axis is None:
+        axis = plt.gcf() # Currentr figure
+
     if x is None or y is None:
         if   where =="right":
             (x,y) = (  1, 0.5)
