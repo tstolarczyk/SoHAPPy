@@ -117,8 +117,8 @@ class MonteCarlo():
 
         Parameters
         ----------
-        subarray : string
-            Sub-array name.
+        subarray : dictionnary or string
+            Sub-array names or name.
         log : file, optional
             pointer to log file. The default is None.
 
@@ -131,11 +131,13 @@ class MonteCarlo():
         log.banner(f"+{78*'=':78s}+")
         log.banner(f"+{'LAUNCHING SIMULATION':^78s}+")
         log.banner(f"+{78*'=':78s}+")
+
         log.prt(f"   On-region size     : N: {mcf.on_size[subarray['North']]:5}" \
-                f" -  S: {mcf.on_size[subarray['South']]:5}")
+                    f" -  S: {mcf.on_size[subarray['South']]:5}")
 
         log.prt(f"   Offset from center : N: {mcf.offset[subarray['North']]:5}"\
-                f" -  S: {mcf.offset[subarray['South']]:5}")
+                    f" -  S: {mcf.offset[subarray['South']]:5}")
+
         log.prt(f"   Eff. area cont.    : {mcf.containment}")
         log.prt(f"   Min on/off counts  : {mcf.nLiMamin}")
 
