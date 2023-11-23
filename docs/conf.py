@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../analysis'))
 sys.path.insert(0, os.path.abspath('../analysis/population'))
 sys.path.insert(0, os.path.abspath('../analysis/prompt'))
-sys.path.insert(0, os.path.abspath('../analysis/single_object'))
+sys.path.insert(0, os.path.abspath('../analysis/spectra'))
 print("SYS PATH :",sys.path)
 
 # -- Project information -----------------------------------------------------
