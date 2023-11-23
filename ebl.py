@@ -28,6 +28,10 @@ from gammapy.modeling.models import EBLAbsorptionNormSpectralModel
 
 from niceplot import single_legend
 
+# Bigger texts and labels
+import seaborn as sns
+sns.set_context("poster") # talk, notebook, paper
+
 __all__ = ["EBL_from_file", "EBL_plot", "plot_dominguez_2011",
            "compare_EBL_models"]
 #------------------------------------------------------------------------------
@@ -329,10 +333,6 @@ if __name__ == "__main__":
 
     # Compare absorption models versus energy for various redshifts.
     # This is quite under development and can certainly be optimised
-
-    # Bigger texts and labels
-    import seaborn as sns
-    sns.set_context("talk") # poster, talk, notebook, paper
 
     # Read SoHAPPY absorptions - These are interp2d function!
     # Do not pass Quantity as argument
