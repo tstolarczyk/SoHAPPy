@@ -4,8 +4,8 @@ How it works ?
 Here is an overview of the processes handled by the main function
 (in `SoHAPPy.py` ):
 
-* Read the steering parameters from a `yaml` file (`config.yaml`) and/or the
-  command line (see `configuration <configuration.html>`_).
+* Read the steering parameters from a `yaml` file (`data/config_ref.yaml` by
+  default) and/or the command line (see `configuration <configuration.html>`_).
 * Create the specific output folder.
 * Copy an updated version of the configuration *yaml*.
 * Create the object list to be processed.
@@ -45,7 +45,7 @@ as required and analyse the results. Here are the steps
 	* Run the simulation on the resulting dressed :class:`timeslot.Slot` and
 	  prepare the data to be analysed.
 	* If requested store the simulation class instance on disk.
-	* If the siumulation is successful, analyse the resulting data
+	* If the simulation is successful, analyse the resulting data.
 	* Dump the result of the analysis into the population file.
 
 .. automodapi:: SoHAPPy

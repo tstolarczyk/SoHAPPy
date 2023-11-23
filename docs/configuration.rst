@@ -3,8 +3,8 @@ Configuration file
 A simulation and analysis parameter file can be passed to the main script with
 the `-c` options (some of these parameters can be superseded on the command
 line, use  `-h` to get the list). If no file name is given, the parameters
-are read from the *config.yaml*. A reference file
-is given in the `SoHAPPy/data` folder.
+are read from the *data/config_ref.yaml* default file provided with the code
+sources.
 
 The base input and output folders are defined through the `HAPPY_IN` and
 `HAPPY_OUT` environment variables respectively.
@@ -18,7 +18,9 @@ The configuration data are stored and processed in the
 :class:`configuration.Configuration` class in :file:`configuration.py`.
 
 The following parameters are defined and mandatory in the configuration file.
-Extra parameters can be added and are notified as ignored at run time.
+Extra parameters can be added and are notified as ignored at run time. The
+defauilt in the following tables are the one in the *data/config_ref.yaml*
+file.
 
 Physics parameters
 ------------------
@@ -104,7 +106,8 @@ Simulation parameters
 |                       |                | | be stopped after 10 iterations*               |
 +-----------------------+----------------+-------------------------------------------------+
 
-(*) Note that this bias the resulting population since it artificially depletes the maximal significance population below the minimum required (e.g. 3 sigma).
+(*) Note that this bias the resulting population since it artificially depletes
+the maximal significance population below the minimum required (e.g. 3 sigma).
 
 Detection parameters
 --------------------

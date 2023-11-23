@@ -1,8 +1,9 @@
+===================
 Population analysis
 ===================
 
 Introduction
-------------
+============
 
 The population is analysed from the devoted `SoHAPPy` output files
 (named `data.txt` by default).
