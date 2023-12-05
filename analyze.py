@@ -476,7 +476,7 @@ class Analysis():
             message = "NOT detected    "
 
         log.prt("| Analysis     |  ===> ",end="")
-        log.highlight("{message:42s}",end="")
+        log.highlight(f"{message:42s}",end="")
         log.prt("|")
         #.....................................................................
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
