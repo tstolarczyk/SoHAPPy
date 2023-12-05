@@ -2,7 +2,7 @@
 """
 Created on Wed Nov  9 17:40:49 2022
 
-Contains the definition of the :class:`Population`. The contructor function
+Contains the definition of the :class:`Population`. The constructor function
 opens the input files and store the read data in various
 `pandas` table that are reused later. The main function reads the data,
 perform a sanity check comparing the results to the requirement in the
