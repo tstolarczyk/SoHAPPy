@@ -550,10 +550,11 @@ class Slot():
         if still_vis_s and still_vis_n:
             slot_n.merge(slot_s)
             return slot_n
-        else:
-            failure(" N and/or S vanished because of delays")
-            failure(" Combined analysis not possible")
-            return None
+
+        failure(" N and/or S vanished because of delays")
+        failure(" Combined analysis not possible")
+
+        return None
 
 ###---------------------------------------------------------------------------
 ### TESTS
