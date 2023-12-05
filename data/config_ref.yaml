@@ -34,7 +34,7 @@
 # Emax       : Limit GRB data energy bins to Emax
 #-----------------------------------------------------------------------------#
 ifirst      : 1 #"190114C"  "221009A" [980, 465, 785,343]
-nsrc        : 3
+nsrc        : 1
 visibility  : "strictmoonveto" #"built-in" #
 ebl_model   : "dominguez" #"gilmore"
 maxnight    : Null
@@ -69,7 +69,7 @@ suffix       : ".fits.gz"
 #                 trials in the limit of 1 - det_level have reached the minimal
 #                 significance (3 sigma).
 #-----------------------------------------------------------------------------#
-niter           : 1
+niter           : 100
 seed            : 2021
 do_fluctuate    : True
 do_accelerate   : False
