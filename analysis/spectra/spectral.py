@@ -17,19 +17,18 @@ import os
 import pickle
 from pathlib import Path
 
-from gammapy.utils.random import get_random_state
-
-
-from niceprint import heading
-from niceplot import stamp, MyLabel
-
 import matplotlib.pyplot as plt
 import astropy.units as u
 
-from dataset_tools import createonoff_from_simulation, check_datasets, sigmax
+from gammapy.utils.random import get_random_state
+
 from dataset_plot import windows, panels
 from dataset_counts import excess_counts, excess_versus_time, lightcurve, residuals
 from dataset_flux import extract_spectrum, flux_versus_time
+from dataset_tools import createonoff_from_simulation, check_datasets, sigmax
+
+from niceprint import heading
+from niceplot import stamp, MyLabel
 
 sys.path.append("../")
 sys.path.append("../../../SoHAPPy")
