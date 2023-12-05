@@ -703,8 +703,8 @@ def check_dataset(ds, tag="?", e_unit="GeV",
 #                              nbck.flatten()[i],
 #                              "-",
 #                              npred.flatten()[i]),end="")
-            print("  {ds.mask_safe.data[mask].flatten()[i]:^6}  "\
-                  "{ds.models[0].spectral_model(energy).value):8.2e} ")
+            print(f"  {ds.mask_safe.data[mask].flatten()[i]:^6}  "\
+                  f"{ds.models[0].spectral_model(energy).value:8.2e} ")
 
     return show_header
 
