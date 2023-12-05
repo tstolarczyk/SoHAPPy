@@ -243,14 +243,14 @@ class IRF():
         if inst.filename.exists() is False:
             sys.exit(" This file does not exist :",inst.filename)
 
-        inst.irf = load_cta_irfs(inst.filename)
+        inst.irf   = load_cta_irfs(inst.filename)
 
-        eirf_min = min(inst.irf["aeff"].data.axes["energy_true"].edges)
-        inst.etrue  = MapAxis.from_energy_bounds(eirf_min,
-                                                 inst.etrue_max[kzen],
-                                                 nbin = inst.nbin_per_decade,
-                                                 per_decade=True,
-                                                 name="energy_true")
+        eirf_min   = min(inst.irf["aeff"].data.axes["energy_true"].edges)
+        inst.etrue = MapAxis.from_energy_bounds(eirf_min,
+                                                inst.etrue_max[kzen],
+                                                nbin = inst.nbin_per_decade,
+                                                per_decade=True,
+                                                name="energy_true")
 
         inst.subarray  = subarray
         inst.kzen      = kzen
