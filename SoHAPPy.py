@@ -1,6 +1,6 @@
 """
 Create a source list to be simulated and analysed using the parameters given
-in a configuration file and the command line, and files on disks.
+in a configuration file, the command line, and files on disks.
 
 Notes for experts:
 
@@ -30,10 +30,14 @@ import sys
 import os
 import warnings
 import tarfile
+import logging
 
 import time
 from   datetime import datetime
 from   pathlib  import Path
+
+from matplotlib.backends.backend_pdf import PdfPages
+
 from astropy.utils import iers
 
 import gammapy
@@ -107,7 +111,6 @@ def main():
     """
 
     # Change gammapy logging to avoid warning messages
-    import logging
     logging.basicConfig()
     log = logging.getLogger("gammapy.irf")
     log.setLevel(logging.ERROR)
@@ -185,6 +188,7 @@ def main():
     ### ------------------------------------------------
     start_pop = time.time()   # Start chronometer
 
+
     with open(sim_filename, 'w') as pop:
 
         #################################
@@ -193,7 +197,7 @@ def main():
         MonteCarlo.welcome(cf.arrays,log=log) # Say hello, remind simulation parameters
 
         first = True # Actions for first GRB only
-        # for i, item in enumerate(srclist):
+
         for item in cf.srclist:
 
             # If silence required, keep at least the event number for crashes
@@ -208,6 +212,7 @@ def main():
                     if not fname.is_file():
                         failure(f" SKIPPING - File not found {fname:}")
                         continue
+
                     grb = GammaRayBurst.from_fits(fname,
                                               prompt  = cf.prompt_dir,
                                               ebl     = cf.ebl_model,
@@ -240,6 +245,12 @@ def main():
                 # grb.limit_time_range(cf.n_night, tmin, tmax)
 
             # Printout grb, visibility windows, display plots
+
+            if cf.save_fig and cf.show > 0:
+                pdf_out = PdfPages(Path(grb.id+"_booklet.pdf"))
+            else:
+                pdf_out = None
+
             if (cf.niter<=1 and cf.do_fluctuate is True) \
                 or cf.dbg>0 or cf.nsrc==1 :
                 heading(grb.id)
@@ -247,13 +258,8 @@ def main():
                 grb.vis["North"].print(log=log)
                 grb.vis["South"].print(log=log)
 
-            if cf.save_fig and cf.show > 0: # Init. pdf output
-                from matplotlib.backends.backend_pdf import PdfPages
-                pdf_out = PdfPages(Path(grb.id+"_booklet.pdf"))
-            else: pdf_out = None
-
             if cf.show > 0 :
-                grb.plot(pdf_out)
+                grb.plot(pdf = pdf_out)
             if cf.save_grb :
                 grb.write_to_bin(res_dir)
 
@@ -289,8 +295,8 @@ def main():
                 ### ------------
                 ### Both sites - create a slot
                 ### ------------
-                if loc=="Both":
-                    if grb.vis["North"].vis_night \
+                if loc == "Both":
+                    if  grb.vis["North"].vis_night \
                     and grb.vis["South"].vis_night:
                         slot = origin.both_sites(delay = delay,
                                                  debug = (cf.dbg>1))
@@ -311,7 +317,7 @@ def main():
                 ### ------------
 
                 if still_vis:
-                    # Add IRF feature and run - Note that this can
+                    # Add IRF features and run - Note that this can
                     # modify the number of slices (merging)
                     slot.dress(irf_dir = irf_dir,
                                arrays  = cf.arrays,
@@ -334,6 +340,7 @@ def main():
                 # If requested save simulation to disk
                 if cf.save_simu:
                     mc.write(Path(res_dir,name + "_sim.bin"))
+                    ana.write(Path(res_dir,name+"_ana.bin"))
 
                 # Display status - even if simulation failed (not visible)
                 if cf.dbg :
@@ -352,7 +359,7 @@ def main():
                 # # Even if not detected nor visibile, dump to file
                 first = ana.dump_to_file(grb, pop, header=first)
 
-            if cf.save_fig and cf.show>0:
+            if pdf_out is not None:
                 pdf_out.close()
 
             # End of loop over sites
@@ -410,13 +417,14 @@ def main():
 ###############################################################################
 if __name__ == "__main__":
 
-    if len(sys.argv[1:]) <= 0:
+    print(" argv : ",sys.argv," len = ",len(sys.argv))
+    if len(sys.argv[1:]) <= 1:
         print("------------------> Execute examples")
         # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
         # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
-        sys.argv= ["", "-c","data/config_ref.yaml", ]
-        sys.argv= ["", "--first", "1", "--nsrc", "3",
-                   "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
-                   "--visibility", "strictmoonveto_9999_1_interactive_test",
-                   "-d", "0"]
+        # sys.argv= ["", "-c","data/config_ref.yaml", ]
+        # sys.argv= ["", "--first", "1", "--nsrc", "3",
+        #            "--visibility", "strictmoonveto_9999_1_interactive_test",
+        #            "-d", "0"]
+                   # "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
     main()
