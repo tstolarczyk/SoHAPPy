@@ -25,7 +25,7 @@ duration is used to  normalize the detection rates.
 
 The subfolder can contain a data file, or a `tar.gz` archive containing it. The
 subfolder can also contain folders resulting from the batch processing of a
-series of subpopulation as described in `<prodcution.rst>_`. In that case the
+series of subpopulation as described in `<production.rst>_`. In that case the
 data will be found in all folders and merged. This does mean that they have
 to come from the same unique population simulation.
 
