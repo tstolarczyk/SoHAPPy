@@ -239,7 +239,7 @@ class Configuration():
 
         parser.add_argument('-d', '--debug',
                             help ="Debugging level",
-                            default=0,
+                            default=None,
                             type = int)
 
         parser.set_defaults(save=inst.save_simu)
