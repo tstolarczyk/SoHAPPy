@@ -18,11 +18,12 @@ from gammapy.utils.random import get_random_state
 import yaml
 from yaml.loader import SafeLoader
 
+from niceplot import stamp
+
+from dataset_tools import createonoff_from_simulation, check_datasets, sigmax , compactify
 from dataset_counts import excess_counts
 from dataset_flux import extract_spectrum
-from dataset_tools import createonoff_from_simulation, check_datasets, sigmax , compactify
 
-from niceplot import stamp
 
 __all__ = ['comparison_plot']
 ###----------------------------------------------------------------------------
