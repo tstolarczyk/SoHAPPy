@@ -1349,7 +1349,7 @@ class Visibility():
 
         if len(twindow[0]) == 0: return ax
         for elt in twindow:
-            if elt[0] !=-9 and elt[1] != -9:  # Check if -9, i.e. undefined
+            if elt[0] != -9 and elt[1] != -9:  # Check if -9, i.e. undefined
                 t1  = (elt[0] - tshift).datetime
                 t2  = (elt[1] - tshift).datetime
                 if isinstance(tag, list):
