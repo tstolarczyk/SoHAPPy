@@ -106,7 +106,7 @@ class Analysis():
         self.prpt = -1  # O or 1 if prompt if visible (not valid for "Both")
 
         self.det_level = cl    # Fraction declaring a detection above 3,5 sig.
-        self.alpha     = alpha # 5 zones (1/0.2) for stimating B in off regions
+        self.alpha     = alpha # 5 zones (1/0.2) for estimating B in off-regions
 
         if nstat is not None:
             self.nstat = nstat
@@ -277,7 +277,6 @@ class Analysis():
         """
         Extract mean values and RMS from the index list.
 
-
         Parameters
         ----------
         idlist : list of indices
@@ -375,8 +374,9 @@ class Analysis():
 
         # Cumulate sigma and sigma squared values for each slice
         if len(self.sigma_mean) == 0:
-            self.sigma_mean = self.sigma_std = np.zeros(len(self.slot.slices))
-        self.sigma_mean += sigma # To be averaged later
+            self.sigma_mean = np.zeros(len(self.slot.slices))
+            self.sigma_std  = np.zeros(len(self.slot.slices))
+        self.sigma_mean += sigma    # To be averaged later
         self.sigma_std  += sigma**2 # To be averaged later
 
         # Go back to excess and background counts
@@ -469,9 +469,11 @@ class Analysis():
         """
 
         if self.d5s/self.nstat >= self.det_level:
-            message = "5 sigma detected"
+            message = "5 sigma detected at " \
+                      + str(round(100*self.d5s/self.nstat,1))+"%"
         elif self.d3s/self.nstat >= self.det_level:
-            message = "3 sigma detected"
+            message = "3 sigma detected at " \
+                      + str(round(100*self.d3s/self.nstat,1))+"%"
         else:
             message = "NOT detected    "
 
@@ -536,7 +538,6 @@ class Analysis():
     ###------------------------------------------------------------------------
     def dump_to_file(self, grb, pop, header=False, debug=False):
         """
-
 
         Parameters
         ----------
@@ -686,24 +687,15 @@ class Analysis():
     def plot_sigma_vs_time(self):
         """
 
-
-        Parameters
-        ----------
-        unit_def : TYPE, optional
-            DESCRIPTION. The default is "s".
-
         Returns
         -------
-        fig : TYPE
-            DESCRIPTION.
+        fig : matplolib figure
+            Current figure.
 
         """
 
-        import matplotlib.pyplot as plt
-        from astropy.visualization import quantity_support
-
         # If only one MC trial, no max significance distribution
-        if self.nstat>1:
+        if self.nstat > 1:
             fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
                                            gridspec_kw={'width_ratios': [2, 1]})
         else:
