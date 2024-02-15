@@ -189,11 +189,11 @@ class GammaRayBurst(object):
                   filename,
                   prompt  = None,
                   ebl     = None,
-                  Emax    = None,
+                  emax    = None,
+                  tmax    = None,
                   dt      = 0.0,
                   magnify = 1,
-                  vis_from_file = False,
-                  debug = False):
+                  debug   = False):
 
         """
         Read the GRB data from a `fits` file.
@@ -232,9 +232,6 @@ class GammaRayBurst(object):
         magnify : float, optional
             Flux multiplicative factor to the afterglow model flux for tests.
             Default is 1.
-        vis_from_file: Boolean, optional
-            If True the visibility is read from the file.
-            The default is `False`.
         debug: Boolean, optional
             Debugging flag. The default is False.
 
@@ -323,6 +320,13 @@ class GammaRayBurst(object):
         else: # In SHORT GRB, the time bin is given, [t1, t2].
             cls.tval = np.array(tval["col1"])*u.s
 
+        # Select point up to tmax. Force last point to be tmax.
+        if tmax is not None:
+            ninit = len(cls.tval)
+            cls.tval = cls.tval[(tmax - cls.tval)>0]
+            cls.tval[-1] = tmax.to(u.s)
+            print(f" GRB {cls.id:}: slices {ninit:} -> {len(cls.tval):}")
+
         cls.tstart   = cls.t_trig
         cls.tstop    = cls.t_trig + cls.tval[-1]
 
@@ -334,10 +338,10 @@ class GammaRayBurst(object):
         cls.Eval  = Table.read(hdul[tab_key])[col_key].quantity
         cls.Eval = np.array(cls.Eval)*cls.Eval[0].unit
 
-        if Emax is not None and Emax<=cls.Eval[-1]:
+        if emax is not None and emax <= cls.Eval[-1]:
             warning(" Data up to {:5.3f} restricted to {:5.3f}"
-                    .format(cls.Eval[-1],Emax))
-            cls.Eval = cls.Eval[cls.Eval<= Emax]
+                    .format(cls.Eval[-1],emax))
+            cls.Eval = cls.Eval[cls.Eval<= emax]
 
         ###--------------------------
         ### Afterglow flux
@@ -407,7 +411,9 @@ class GammaRayBurst(object):
 
     ###------------------------------------------------------------------------
     @classmethod
-    def historical_from_yaml(cls, item, ebl=None, magnify=1):
+    def historical_from_yaml(cls, item,
+                                  ebl     = None,
+                                  magnify = 1):
 
         """
         Read the characteristics of a parameterised GRB from a `yaml` file.
@@ -432,7 +438,6 @@ class GammaRayBurst(object):
             import yaml
             from yaml.loader import SafeLoader
             data = yaml.load(f, Loader=SafeLoader)
-
 
         cls.z        = data["z"]
         cls.eblmodel = ebl
@@ -624,7 +629,7 @@ class GammaRayBurst(object):
                                                             name="model_"+str(i))
             cls.models.append(m)
 
-        # Not adding the avraged on time prompt
+        # Not adding the averaged on time prompt
         cls.prompt = False
 
         hdul.close()
@@ -680,8 +685,9 @@ class GammaRayBurst(object):
         return attflux
 
     ###------------------------------------------------------------------------
-    def set_visibility(self, item, loc, info=None, n_night=None, n_skip=None,
-                             status="", dbg=False):
+    def set_visibility(self, item, loc,
+                             info = None, n_night = None, n_skip = None,
+                             status="", dbg = False):
         """
         Attach a visibility to a GRB instance.
         Either recompute it if a keyword has been given and a dictionnary
@@ -706,16 +712,15 @@ class GammaRayBurst(object):
 
         """
 
-        ### Update the default instance
+        ### Update the default - At this stage the visibility is maximal
         self.vis[loc] = Visibility(pos    = self.radec,
                                    site   = obs.xyz["CTA"][loc],
                                    window = [self.tstart, self.tstop],
                                    name   = self.id+"_"+loc,
                                    status = status)
 
-        # At this stage the visibility is maximal
         if info == "permanent":
-            self.status = "permanent"
+            self.vis[loc].status = info # Keep track of that special case
             return self
 
         if isinstance(info,dict): # A dictionnary not a keyword
@@ -1603,65 +1608,46 @@ class GammaRayBurst(object):
         Plot time spectra along the energy bins.
         The number of energy bins is fixed.
 
-        To be rearranged.
         """
 
-        # coln = "blue"
-        # cols = "red"
-        # tb_n1 = self.vis["North"].t_true[0]
-        # tb_n2 = self.vis["North"].t_true[1]
-        # tb_s1 = self.vis["South"].t_true[0]
-        # tb_s2 = self.vis["South"].t_true[1]
-
-        # dt_n = (tb_n2 - tb_n1)/3600
-        # dt_s = (tb_s2 - tb_s1)/3600
-        # print(tbound_n, tbound_s)
-
-        fig, ax = plt.subplots(nrows=8, ncols=5, figsize=(20,20))
-        for irow in range(0,8):
-            for icol in range(0,5):
+        ncols = 5
+        nrows = int(len(self.Eval)/ncols)
+        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20,20))
+        for irow in range(0,nrows):
+            for icol in range(0,ncols):
 
                 #print(irow,icol,icol+8*irow)
                 idx = icol+5*irow
                 a = ax[irow][icol]
                 label = "E= {:6.2f}".format(self.Eval[idx])
-                #print(idx,self.Eval[idx])
+
                 # Artificially adds 1 s to avoid log(0)
-                a.plot(np.log10(self.tval.value+1),np.log10(self.fluxval[:,idx].value),
+                a.plot(np.log10(self.tval.value),np.log10(self.fluxval[:,idx].value),
                        marker='.',markerfacecolor='grey',markeredgecolor='grey',
                        label=label)
-                # Display visibility boundaties - Add articifially 1 second  to
-                # avoid log(0)
-                # if (dt_n):
-                #     a.axvline(x=np.log10(tb_n1+1),linestyle =":",color=coln)
-                #     a.axvline(x=np.log10(tb_n2+1),linestyle =":",color=coln)
-                # if (dt_s):
-                #     a.axvline(x=np.log10(tb_s1+1),linestyle =":",color=cols)
-                #     a.axvline(x=np.log10(tb_s2+1),linestyle =":",color=cols)
 
                 a.set_xlim(-0.5,5.5)
                 a.set_ylim(-22,-4)
-                if irow != 7:
+                if irow != nrows-1:
                     a.set_xticklabels([])
                 if icol != 0:
                     a.set_yticklabels([])
                 a.grid("both")
                 a.legend()
-                #a.set_xscale("log")
-                #a.set_yscale("log")
 
         fig.add_subplot(111, frameon=False)
+
         # hide tick and tick label of the big axis
         plt.tick_params(labelcolor='none',
                         top=False, bottom=False,
                         left=False, right=False)
-        plt.xlabel("$log(t + 1$ $(s))$",size=20)
+        plt.xlabel("$log(t $ $(s))$",size=20)
         plt.ylabel("$log(Flux$ $(Gev^{-1} cm^{-2} s^{-1}) )$",size=20)
 
-        # title = self.id \
+        title = self.id
         # + " Obs. : North = {:6.2f}h - South = {:6.2f}h".format(dt_n,dt_s)
 
-        # fig.suptitle(title,size=16,y=0.9)
+        fig.suptitle(title,size=16,y=0.9)
         plt.subplots_adjust(hspace = .001, wspace=0.001)
         plt.show(block=False)
 
@@ -1761,12 +1747,13 @@ if __name__ == "__main__":
 
     cf.ifirst      = 1
     cf.nsrc        = 1 # 250
-    cf.prompt_dir  = None
-    cf.save_grb    = False
-    grblist        = cf.source_ids()
+    cf.prompt_dir = None
+    cf.save_grb   = False
+    cf.emax       = u.Quantity("10 GeV")
+    cf.tmax       = u.Quantity("10 h")
+    grblist       = cf.source_ids()
 
-    data_path   = Path(cf.infolder,cf.data_dir) # Input data
-    cf.create_output_folder()
+    data_path   = Path( Path(os.environ["HAPPY_IN"]),cf.data_dir) # Input data
 
     ###---------------------------
     ### visibility parameters
@@ -1774,10 +1761,12 @@ if __name__ == "__main__":
     case = 1
 
     # Computed from a keyword
-    if case==1: cf.visibility = "strictmoonveto"
+    if case==1:
+        cf.visibility = "strictmoonveto"
 
     # Obtained from a directory as json files
-    if case==2: cf.visibility = "visibility/long/vis_301_400_strictmoonveto.json"
+    if case==2:
+        cf.visibility = "visibility/long/vis_301_400_strictmoonveto.json"
 
     visinfo = cf.decode_visibility_keyword()
 
@@ -1790,7 +1779,9 @@ if __name__ == "__main__":
 
         grb = GammaRayBurst.from_fits(Path(data_path,fname),
                                       prompt  = cf.prompt_dir,
-                                      ebl     = cf.ebl_model)
+                                      ebl     = cf.ebl_model,
+                                      emax    = cf.emax,
+                                      tmax    = cf.tmax)
 
         for loc in ["North","South"]:
             grb.set_visibility(item,loc,info=visinfo)
@@ -1807,7 +1798,6 @@ if __name__ == "__main__":
 
         grb.plot()
         grb.energy_and_time_2d()
-        # grb.animated_spectra(savefig=True)
         grb.energy_over_timeslices()
         grb.time_over_energyband()
 

@@ -188,13 +188,12 @@ def main():
     ### ------------------------------------------------
     start_pop = time.time()   # Start chronometer
 
-
     with open(sim_filename, 'w') as pop:
 
         #################################
         # Loop over source population   #
         #################################
-        MonteCarlo.welcome(cf.arrays,log=log) # Say hello, remind simulation parameters
+        MonteCarlo.welcome(cf.arrays, log = log) # Remind simulation parameters
 
         first = True # Actions for first GRB only
 
@@ -202,7 +201,9 @@ def main():
 
             # If silence required, keep at least the event number for crashes
             if cf.silent:
-                print("#",item)
+                if first is True:
+                    print("Processing items :", end=" ")
+                print(item,end=' ')
 
             ### Get GRB
             if isinstance(item, int): # from a number as an indentifier
@@ -212,13 +213,13 @@ def main():
                     if not fname.is_file():
                         failure(f" SKIPPING - File not found {fname:}")
                         continue
-
                     grb = GammaRayBurst.from_fits(fname,
                                               prompt  = cf.prompt_dir,
                                               ebl     = cf.ebl_model,
-                                              Emax    = cf.emax,
+                                              emax    = cf.emax,
                                               dt      = cf.tshift,
-                                              magnify = cf.magnify)
+                                              magnify = cf.magnify,
+                                              tmax    = cf.tmax)
                 else: # Prompt component alone
 
                     pname = Path(Path(cf.infolder, cf.prompt_dir,
@@ -228,7 +229,9 @@ def main():
 
                     grb = GammaRayBurst.prompt(pname, fname,
                                                ebl     = cf.ebl_model,
-                                               magnify = cf.magnify)
+                                               magnify = cf.magnify,
+                                               emax    = cf.emax,
+                                               tmax    = cf.tmax)
 
             elif isinstance(item, str): # this is a GRB name string
                 if cf.visibility == "built-in":
@@ -242,7 +245,6 @@ def main():
                                    info    = visinfo,
                                    n_night = cf.maxnight,
                                    n_skip  = cf.skip)
-                # grb.limit_time_range(cf.n_night, tmin, tmax)
 
             # Printout grb, visibility windows, display plots
 
@@ -356,7 +358,7 @@ def main():
                     if cf.show :
                         ana.show(pdf = pdf_out)
 
-                # # Even if not detected nor visibile, dump to file
+                # Even if not detected nor visibile, dump to file
                 first = ana.dump_to_file(grb, pop, header=first)
 
             if pdf_out is not None:
@@ -417,12 +419,16 @@ def main():
 ###############################################################################
 if __name__ == "__main__":
 
+    os.environ["HAPPY_IN"] = "D:\\CTA\SoHAPPy\input"
+    os.environ["HAPPY_OUT"] = "D:\\CTA\SoHAPPy\output"
+
     print(" argv : ",sys.argv," len = ",len(sys.argv))
     if len(sys.argv[1:]) <= 1:
         print("------------------> Execute examples")
         # sys.argv=["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
         # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
         # sys.argv= ["", "-c","data/config_ref.yaml", ]
+        sys.argv= ["", "-c","config_maximal_detection14h.yaml", ]
         # sys.argv= ["", "--first", "1", "--nsrc", "3",
         #            "--visibility", "strictmoonveto_9999_1_interactive_test",
         #            "-d", "0"]
