@@ -30,7 +30,7 @@ from   astropy.coordinates import AltAz, SkyCoord, get_moon, EarthLocation
 from   astropy.table import Table
 from   astropy.io import fits
 
-import observatory as obs
+from observatory import xyz as obs_loc
 from niceprint import Log
 from utilities import get_filename, Df, Dp
 
@@ -73,7 +73,7 @@ class Visibility():
     ###------------------------------------------------------------------------
     def __init__(self, pos    = SkyCoord(0*u.deg,0*u.deg, frame='icrs'),
                        site   = None,
-                       window =[ 0,0],
+                       window = [0,0],
                        status = "Empty", name="Dummy"):
         """
         Create a Visibility instance with default values.
@@ -87,7 +87,7 @@ class Visibility():
             A keyword describing the site (e.g. `North`). The default is None.
         window : python list of float, optional
             A list with the start and stop time of the source.
-            The default is [ 0,0].
+            The default is [0,0].
         status : string, optional
             A keyword cahracterising this visibility. The default is "Empty".
         name : string, optional
@@ -154,15 +154,15 @@ class Visibility():
         self.moon_too_bright = [] # Moon brigthness above threshold
         self.moon_too_close  = [] # Moon distance too small
 
-        self.depth = 3 # Number of nights to be considred
+        self.depth = 3 # Number of nights to be considered
         self.skip  = 0 # Number of first nights to be skipped
 
         return
 
     ###-----------------------------------------------------------------------
-    def compute(self, param       = None,
-                      npt         = 150,
-                      debug       = False):
+    def compute(self, param = None,
+                      npt   = 150,
+                      debug = False):
 
         """
         Compute the visibility periods until the end of the last night within
@@ -823,7 +823,7 @@ class Visibility():
         hdu = hdul["VISIBILITY"]
 
         inst = cls(pos    = grb.radec,
-                   site   = obs.xyz["CTA"][loc],
+                   site   = obs_loc["CTA"][loc],
                    window = [grb.tstart, grb.tstop],
                    name   = grb.id+"_"+loc)
 
@@ -1044,9 +1044,9 @@ class Visibility():
 
         log.prt("=================   {:10s}   {:10s}   ================"
           .format(self.name,self.status))
-        log.prt(' Visible : {} - tonight, prompt : {}, {})'
+        log.prt(' Visible  : {} - tonight, prompt : {}, {})'
               .format(self.vis, self.vis_night,self.vis_prompt))
-        log.prt(' Altitude : Horizon > {:3.1f} - Moon > {:4.2f}'
+        log.prt(' Altitude : Horizon > {:3.1f} - Moon veto > {:4.2f}'
               .format(self.altmin, self.moon_maxalt))
         #log.prt(" Trigger: {}".format(self.t_trig.datetime))
 
@@ -1252,7 +1252,7 @@ class Visibility():
 
             # Minimal altitude
             ax[0].axhline(y =self.altmin.value,
-                       ls=":",color="tab:green",label="Min. Alt.")
+                       ls="--",color="tab:blue",label="Min. Alt.")
 
             ### GRB (main plot)
             grb.plot_altitude_and_flux(tobs, site=self.site, ax=ax[0])
@@ -1260,10 +1260,12 @@ class Visibility():
             ax[0].grid("both",ls="--",alpha=0.5)
 
             ## GRB above horizon
+            minalt, maxalt = ax[0].get_ylim()
+            ymax = self.altmin.value/(maxalt - minalt)
             self.period_plot(self.t_event,
                         ax = ax[0],color="tab:blue",alpha=0.2,
                         tag="Above horizon",
-                        ymin=0.,  ymax= 0.5,)
+                        ymin=0.,  ymax= ymax)
 
             ### Moon if requested
             if moon_alt or moon_dist:
