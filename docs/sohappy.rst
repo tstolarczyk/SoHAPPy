@@ -26,13 +26,17 @@ Here is an overview of the processes handled by the main function
 	* Create an original time Slot with the original object time slices
 	  (:class:`timeslot.Slot` and :class:`obs_slice.Slice`, read more on
 	  time `slots and slices <time_slice.html>`_ ).
-	* Loop over the site configuration (*North*, *South*, *Both*), see below.
+	* Loop over the sites (*North*, *South*, *Both*), and proceed to the
+	  simulation of the CTA response and the analysis in term of detection.
+	  **See below**.
 	* Close the population and log file.
 	* `tar` the output files in the output folder.
 
-For each site and the combination of the two, simulate the GRB as many times
-as required and analyse the results. Here are the steps
-(see more on `simulation and analysis <simulation.html>`_):
+For each site and the combination of the two, the code simulates the response
+to the GRB as many times as required and analyse the results in term of
+detection siginificances. The final output is written in the so-called
+`population file`. Here are the steps
+(see more on `simulation and analysis of the detector response <simulation.html>`_):
 
 * Create a :class:`mcsim.MonteCarlo` class instance.
 * Copy the original :class:`timeslot.Slot` and modify the content to account
