@@ -5,7 +5,7 @@ Created on Wed Nov  9 17:40:49 2022
 Contains the definition of the :class:`Population`. The constructor function
 opens the input files and store the read data in various
 `pandas` table that are reused later. The main function reads the data,
-perform a sanity check comparing the results to the requirement in the
+perform a sanity check comparing the results to the requirements in the
 original configuration file, check for negative significances, the fraction
 of GRB for which the prompt component can be detected etc.
 
@@ -81,10 +81,15 @@ class Pop():
         print(f" Memory usage = {mem_Mb:5.1f} Mb")
 
         # Extract "not visible" flag and iteration from the data
-        self.unvis     = min(set(self.grb.err))
         self.niter     = max(set(self.grb.err))
         self.niter_3s  = max(self.grb.d3s)
         self.niter_5s  = max(self.grb.d5s)
+
+        # When there is only one iteration, and the visibility is forced to
+        # permanent self.niter equals 1 all the time. A special action has to
+        # be taken to avoid the susccess, niter=1, being taken as a failure.
+        # In that case, unvis is forced to one
+        self.unvis     = min(min(set(self.grb.err)), -1)
 
         # If "loca" column does not exist, this is an old file using "site"
         if "loca" not in self.grb.columns:
@@ -100,7 +105,7 @@ class Pop():
                 self.grb = self.grb.rename(columns={'vis': 'prpt'})
                 warning(" Deprecated column name 'vis' changed to 'prpt'")
             else:
-                warning(" f{__name__}.py: Missing column for prompt - insering with value 0")
+                warning(" f{__name__}.py: Missing column for prompt - inserting one with values 0")
                 self.grb.insert(1,"prpt",0) # Dummy value
 
         # If "t_trig" column does not exist, this is an old file using "ttrig"
@@ -143,6 +148,7 @@ class Pop():
         self.g_n = self.g_ana[  self.g_ana.loca =="North"] # North and maybe elsewhere
         self.g_s = self.g_ana[  self.g_ana.loca =="South"] # South and maybe elsewhere
         self.g_b = self.g_ana[ (self.g_ana.loca =="Both")  & (self.g_ana.B==1)] # Seen both
+
         # The total unique population
         self.g_tot = pd.concat([self.g_n0,self.g_s0,self.g_b],axis=0)
 
@@ -205,7 +211,7 @@ class Pop():
     ###------------------------------------------------------------------------
     def print(self):
         """
-        Printout the class content.
+        Printout the statistics of the class content.
 
         """
         heading(self.tag[0]) #======================
@@ -224,7 +230,11 @@ class Pop():
         print(" Flags:")
         print("   No visible flag, unvis           = ",self.unvis)
         print("   Iteration # from error code, 3s and 5s counts : ",
-              self.niter, self.niter_3s, self.niter_5s)
+              self.niter, self.niter_3s, self.niter_5s, end=" ->  ")
+        if len(set([self.niter, self.niter_3s, self.niter_5s])) != 1:
+               warning(" MISMATCH")
+        else:
+                print(" Match !")
 
         print("+----------------------- Statistics -------------------------+")
         print(f" {'Not visible':^15s} {'Fully analyzed':^15s} {'Aborted':^15s}")
@@ -244,6 +254,7 @@ class Pop():
 
         print("  - North only : ",len(self.g_n0))
         print("  - South only : ",len(self.g_s0))
+        print("  - Reference  : ",len(self.ref))
 
         print("+------------------------------------------------------------+")
 
@@ -384,8 +395,10 @@ class Pop():
 
             axi.set_title(r"Time delay to $3 \sigma$  - "+loc)
             axi.set_xlim(xmin=0,xmax=10+1.3*delay.value)
+            axi.set_xlabel("Minimal registered time (s)")
             #axi.set_yscale("log")
             axi.legend()
+
             print(f" Estimated total delay in {loc:5s}")
             print(f" - From visibility start : {min(gpop[gpop.t1>=0].t1):5.1f}")
             print(f" - From 3s detection     : {min(gpop[gpop.t3s>=0].t3s):5.1f}")
@@ -543,8 +556,6 @@ class Pop():
 
 ###############################################################################
 if __name__ == "__main__":
-
-    # A standalone function to read a GRB and make various tests
 
     codefolder = "../../"
     sys.path.append(codefolder)
