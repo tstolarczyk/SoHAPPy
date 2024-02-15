@@ -69,7 +69,11 @@ class Configuration():
         self.visibility = "strictmoonveto"
 
         # Possible EBL models are from gammapy or Gilmore data on disk.
-        self.ebl_model   = "dominguez"
+        self.ebl_model = "dominguez"
+        self.maxnight  = None # Limit data to a maximal number of nights
+        self.skip      = None # Number of first nights to be skipped
+        self.emax      = None # Limit data energy bins to Emax
+        self.tmax      = None # Limit lightcurve time bins to tmax
 
         ### -----------------
         ### INPUT/OUPUT
@@ -175,10 +179,6 @@ class Configuration():
 
         # Store detailed information on slices if True
         self.write_slices  = False
-
-        self.maxnight      = None # Limit data to a maximal number of nights
-        self.skip          = None # Number of first nights to be skipped
-        self.emax          = None # Limit data energy bins to Emax
 
         # Bulld the source list to be processed
         self.srclist = self.source_ids()
@@ -287,7 +287,6 @@ class Configuration():
         if inst.dbg>0:
             inst.silent = False
 
-
         # If the simulation is saved, it is not fluctuated
         if inst.save_simu:
             inst.do_fluctuate = False
@@ -298,6 +297,12 @@ class Configuration():
 
         # Bulld the source list to be processed
         inst.srclist = inst.source_ids()
+
+        # Extract quantities
+        if inst.emax is not None:
+            inst.emax = u.Quantity(inst.emax)
+        if inst.tmax is not None:
+            inst.tmax = u.Quantity(inst.tmax)
 
         # Redefine array and dtslew variaables
         inst.dtslew = {"North": inst.dtslew_north,
@@ -499,14 +504,22 @@ class Configuration():
         out.prt(f" Number of nights limit*   : {nnight}")
         nskip = self.skip if self.skip is not None else "0"
         out.prt(f" Night(s) skipped*         : {nskip}")
-        out.prt(f" Energy max. limit         : {self.emax:}")
+        out.prt(f" Energy max. limit         : {self.emax:}",end=" ")
+        if self.emax is not None:
+            out.warning(" !" )
+        else:
+            out.prt("")
+
+        out.prt(f" Time max. limit           : {self.tmax:}",end=" ")
+        if self.tmax is not None:
+            out.warning(" ! ")
+        else:
+            out.prt("")
 
         ### -----------------
         ### INPUT/OUPUT
         ### -----------------
         title("Input/output")
-        # out.prt(f" Input folder*             : {self.infolder:}")
-        # out.prt(f" Output folder*            : {self.resfolder:}")
         out.prt(f" Data subfolder            : {self.data_dir:}")
         out.prt(f" IRF subfolder             : {self.irf_dir}")
 
@@ -542,9 +555,9 @@ class Configuration():
         out.prt(f" Detection level            : {self.det_level}")
         out.prt(f" Alpha (1/n)                : {self.alpha}")
         out.prt(f" Site sub-arrays            : N:{self.array_north:} "\
-                "S:{self.array_south:}")
-        out.prt(f" Slewing time               : N:{self.dtslew_north}"\
-                " S:{self.dtslew_south}")
+                f"S:{self.array_south:}")
+        out.prt(f" Slewing time               : N:{self.dtslew_north:}"\
+                f" S:{self.dtslew_south:}")
         out.prt(f"    Fixed                   : {self.fixslew}")
         out.prt(f" SWIFT delay fixed          : {self.fixswift}")
         if self.fixswift:
