@@ -31,7 +31,9 @@
 #              Use "in-file" for the absorbed data in the input file (if any)
 # maxnight*  : Limit GRB data to a maximal number of nights
 # skip*      : Skip the first nights
-# Emax       : Limit GRB data energy bins to Emax
+# emax       : Limit GRB data energy bins to Emax
+# tmax       : Limit GRB lightcurve in time to tmax
+
 #-----------------------------------------------------------------------------#
 ifirst      : 1 #"190114C"  "221009A" [980, 465, 785,343]
 nsrc        : 1
@@ -40,7 +42,7 @@ ebl_model   : "dominguez" #"gilmore"
 maxnight    : Null
 skip        : Null
 emax        : Null
-tshift      : 0  # Shift in days applied to all trigger dates
+tmax        : Null
 
 #=============================================================================#
 # INPUT/OUPUT
@@ -52,10 +54,10 @@ tshift      : 0  # Shift in days applied to all trigger dates
 # prefix     : String added before the source identifier
 # suffix     : String added after the source id., including the file extension
 #-----------------------------------------------------------------------------#
-out_dir      : "test_omega"
+out_dir      : "test_prod5"
 data_dir     : "lightcurves/long_1_1000/" #""lightcurves/long_ISM_finaltest" #
 prompt_dir   : Null # "lightcurves/prompt/ctagrbs_spop" # Null
-irf_dir      : "irf/Full/prod3-v2"
+irf_dir      : "irf/Full/prod5-v0.1"
 prefix       : "Event"
 suffix       : ".fits.gz"
 #=============================================================================#
@@ -86,10 +88,10 @@ do_accelerate   : False
 #                If False, latency generated from Swift data
 # swiftfile    : Latency dsitribution data file in the input base folder
 #-----------------------------------------------------------------------------#
-array_north    : "FullArray"  # Prod3
-array_south    : "FullArray"  # prod5-v0.1\MST\South
-dtslew_north   : "30 s" # "30 s"
-dtslew_south   : "30 s" #"30 s"
+array_north    : "4LSTs09MSTs"
+array_south    : "14MSTs37SSTs"
+dtslew_north   : "30 s"
+dtslew_south   : "90 s"
 fixslew        : True
 dtswift        : "77 s"
 fixswift       : True
@@ -124,6 +126,7 @@ remove_tar   : False
 # obs_point      : Observation position in the time slice
 # test_prompt    : If True test prompt alone (experimental)
 # use_afterglow  : Prompt characteristics from the afterglow with same id.
+# tshift         : Shift in days applied to all trigger dates
 # fixed_zenith   : If a value ("20 deg") freezes zenith in IRF
 # magnify        : Multiplicative factor of the input flux, for tests
 # write_slices   : Store detailed information on slices if True
@@ -134,6 +137,7 @@ alpha           : 0.2
 obs_point       : "end"  # Observation position in the time slice
 test_prompt     : False  # If True test prompt alone (experimental)
 use_afterglow   : False  # Prompt characteristics from the afterglow with same id.
+tshift          : 0      # Shift in days applied to all trigger dates
 fixed_zenith    : Null   # If a value ("20 deg") freezes zenith in IRF
 magnify         : 1      # Multiplicative factor of the input flux, for tests
 write_slices    : False  # Store detailed information on slices if True
