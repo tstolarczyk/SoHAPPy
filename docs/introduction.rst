@@ -115,8 +115,9 @@ Output folder
 A `SoHAPPy` run output consists in 3 files:
 
 * a log file, **analysis.log**, that keeps track of the processing;
-* a result text file, **data.txt**, which contains the results of the
-  simulation and analysis.
+* a result text file for the whole population, **data.txt**, which contains
+  the results of the simulation and analysis. It is sometimes names as the
+  *population file* in  contrast with the files used for the spectral analysis.
 * a copy of the **configuration file** initially given (or the default) with
   some parameters changed through the command line (so that reusing this
   configuration file allows reproducing exactly the simulation/analysis).
@@ -214,9 +215,9 @@ default.
  |  -n NITER, --niter NITER
  |                       Number of Monte Carlo iteration
  |  -o OUTPUT, --output OUTPUT
- |                       Output base folder (path)
+ |                       Output subfolder (path)
  |  -i INPUT, --input INPUT
- |                       Input base folder (path)
+ |                       Input subfolder (path)
  |  -c CONFIG, --config CONFIG
  |                        Configuration file name
  |  -m MAXNIGHT, --maxnight MAXNIGHT
