@@ -139,7 +139,7 @@ def file_from_tar(folder=None, tarname=None, target=None):
     if tarname is None:
         # Find the archive in the folder
         p = Path(folder).glob('*.tar.gz')
-        files = [x for x in p if x.is_file()]
+        files = [x for x in p] # if x.is_file()] <- Crash when not connected
         if len(files) > 1:
             sys.exit(f"{tag} More than one .tar.gz file, specify a name")
         elif len(files) == 0:
