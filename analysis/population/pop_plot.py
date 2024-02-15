@@ -29,91 +29,85 @@ __all__ = ["distri","coverage"]
 
 ###-----------------------------------------------------------------------------
 def distri(pop, grbs,
-            var="z", varmin=0, varmax=4, varlog = False,
-            varname=None, tag="dummy",
-            ax=None,
-            reference=True, ratio=True,
-            nbin=20, color="tab:blue", color2="red",
-            **kwargs):
+           var="z", var_range=[0,4], var_log = False, var_name="", tag="",
+           weight=1, ax=None, nbin=20, color="tab:blue", color2="red",
+           **kwargs):
     """
-
+    Plot the given variable compared to the reference population and the ratio
+    of the two.
 
     Parameters
     ----------
-    pop : TYPE
-        DESCRIPTION.
-    grbs : TYPE
-        DESCRIPTION.
-    var : TYPE, optional
-        DESCRIPTION. The default is "z".
-    varmin : TYPE, optional
-        DESCRIPTION. The default is 0.
-    varmax : TYPE, optional
-        DESCRIPTION. The default is 4.
-    varlog : TYPE, optional
-        DESCRIPTION. The default is False.
-    varname : TYPE, optional
-        DESCRIPTION. The default is None.
-    tag : TYPE, optional
-        DESCRIPTION. The default is "dummy".
-    ax : TYPE, optional
-        DESCRIPTION. The default is None.
-    reference : TYPE, optional
-        DESCRIPTION. The default is True.
-    ratio : TYPE, optional
-        DESCRIPTION. The default is True.
-    nbin : TYPE, optional
-        DESCRIPTION. The default is 20.
-    color : TYPE, optional
-        DESCRIPTION. The default is "tab:blue".
-    color2 : TYPE, optional
-        DESCRIPTION. The default is "red".
-    **kwargs : TYPE
-        DESCRIPTION.
+    pop : Pandas table
+        A population.
+    grbs : pandas table
+        A subselection of the population.
+    var : String, optional
+        A column name in the Pandas table. The default is "z".
+    range : List, optional
+        The variable minimal and maximal values allowed in the plot.
+        The default is [0, 4].
+    var_log : Boolean, optional
+        Plot logarithm10 of the variable if true. The default is False.
+    var_name : String, optional
+        Explicit name of the plotted variable. The default is "".
+    weight: float
+        A weight applied to th epopuelation data in case it would sum-up
+        several ones. The default is one.
+    tag: String, optional
+        Describes the data in the plot. The default is "".
+    ax : matplotlib axes, optional
+        Current matplotlib axes. The default is None.
+    nbin : integer, optional
+        Number of bins in the histrogram. The default is 20.
+    color : string, optional
+        Selected subpopulation color. The default is "tab:blue".
+    color2 : String, optional
+        Ratio curve color. The default is "red".
+    **kwargs : dictionnary
+        matplotlib supplementary parameters.
 
     Returns
     -------
-    ax : TYPE
-        DESCRIPTION.
-    axx : TYPE
-        DESCRIPTION.
+    ax : matplotlib axis
+        Population distribution axis.
+    axx : matplotlib axis
+        Dsitribtution ratio secondary axis.
 
     """
 
-
     ax = plt.gca() if ax is None else ax
 
-    # If varaibale namenot explcitely given, use the column name
-    if varname is None:
-        varname = var
+    # If the variable name is not explcitely given, use the column name
+    if var_name == "":
+        var_name = var
 
-    # Plot the reference "1000" GRB population
-    if reference is True:
-        mask = (pop.ref[var] <= varmax) & (pop.ref[var] >= varmin)
+    # Plot the reference GRB population
+    mask = (var_range[0] <= pop.ref[var]) & (pop.ref[var]<= var_range[1])
 
-        if varlog:
-            x = [np.log10(v) if v>0 else 0 for v in pop.ref[mask][var]]
-        else:
-            x = pop.ref[mask][var]
-
-        nref, bins, _  = ax.hist(x, bins=nbin,
-                                 facecolor="none",edgecolor="black")
+    if var_log:
+        x = [np.log10(v) if v>0 else 0 for v in pop.ref[mask][var]]
     else:
-        bins = nbin
-        nref = 0
+        x = pop.ref[mask][var]
 
-    # Plot the requested population
-    mask = (grbs[var] <= varmax) & (grbs[var] >= varmin)
-    if varlog:
+    nref, bins, _  = ax.hist(x, bins=nbin,
+                             facecolor="none",edgecolor="black")
+
+    # Plot the requested population - can be weighted if the sum of several
+    mask = (var_range[0] <= grbs[var]) & (grbs[var] <= var_range[1])
+
+    if var_log:
         x  =[ np.log10(v) if v>0 else 0 for v in grbs[mask][var]]
     else:
         x = grbs[mask][var]
+
     n, bins, _ = ax.hist(x,
                          bins=bins, color=color,
-                         label=MyLabel(x,label=tag),
+                         label= MyLabel(x, label = tag),
+                         weights = weight*np.ones(len(x)),
                          **kwargs)
     ax.legend()
-    ax.set_xlabel(varname)
+    ax.set_xlabel(var_name)
     ax.set_yscale("log")
 
     # Plot the ratio
@@ -259,29 +253,41 @@ if __name__ == "__main__":
     nyears, files, tag = get_data(parpath=None,debug=True)
     # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
-    pop = Pop(files, tag=tag, nyrs= nyears)
-    popNS = pop.grb[(pop.grb.loca=="North") | (pop.grb.loca=="South")]
+    # Read population
+    pop   = Pop(files, tag=tag, nyrs= nyears)
 
+    # Population seen in North or South (x2 in number)
+    popNS = pop.grb[(pop.grb.loca == "North") | (pop.grb.loca == "South")]
 
-    # Plot one-dim varaibale coverage
-    fig, ax = plt.subplots(nrows=3,ncols=2,figsize=(15,10))
+    # Plot one-dim variabale coverage
+    fig, ax = plt.subplots(nrows=3, ncols=2, figsize=(15,10))
 
-    for icol, grbs, tag in zip(range(2),
+    # Loop over the reference population and superimpose selected data
+    for icol, grbs, weight, tag in zip(range(2),
                                [popNS, pop.g_tot],
+                               [0.5, 1],
                                [r"North & South 5$\sigma$","Combined 5$\sigma$"]):
-
         print(icol)
+
         # Selection
         grbs = grbs[grbs.d5s >= pop.eff_lvl]
 
-        distri(pop, grbs, var="z", tag=tag, varmax=5, ax=ax[0][icol],
-               varname="Redshift (z)")
+        distri(pop, grbs, var="z", tag=tag,
+               var_range=[0, 4],
+               ax= ax[0][icol],
+               var_name="Redshift (z)",
+               weight = weight)
 
-        distri(pop, grbs ,var="Eiso", tag=tag, varmin=5.5e50, varmax=5.5e55,
-               varlog=True, ax=ax[1][icol], varname=r"$log_{}10 E_{iso}$")
+        distri(pop, grbs ,var="Eiso", tag=tag,
+               var_range = [5.5e50, 5.5e55], var_log=True,
+               ax=ax[1][icol],
+               var_name=r"$log_{}10 E_{iso}$",
+               weight = weight)
 
-        distri(pop, grbs ,var="Epeak", tag=tag, varmin=10, varmax=1e5,
-               varlog=True, ax=ax[2][icol])
+        distri(pop, grbs ,var="Epeak", tag=tag,
+               var_range=[10, 1e5], var_log=True,
+               ax=ax[2][icol],
+               weight = weight)
 
         plt.tight_layout()
 
@@ -304,13 +310,12 @@ if __name__ == "__main__":
     alpha = 0.5
 
     for grbs, mask, tag in zip(poplist, masklist, taglist):
-
         coverage(varx,vary,ref=pop.ref, pop=grbs,
-                     xrange=xrange,yrange=yrange,
-                     lblx = lblx, lbly = lbly,
-                     xscale="linear",
-                     mask=mask,
-                     title=title)
+                      xrange=xrange,yrange=yrange,
+                      lblx = lblx, lbly = lbly,
+                      xscale="linear",
+                      mask=mask,
+                      title=title)
         stamp(pop.tag[0], axis=fig, x=1.04, y = 0.5, rotation=270)
 
     # Eiso versus Epeak
@@ -324,8 +329,8 @@ if __name__ == "__main__":
     for grbs, mask, tag in zip(poplist, masklist, taglist):
 
         coverage(varx,vary,ref=pop.ref, pop=grbs,
-                     xrange=xrange,yrange=yrange,
-                     lblx = lblx, lbly = lbly,
-                     mask=mask,
-                     title=title)
+                      xrange=xrange,yrange=yrange,
+                      lblx = lblx, lbly = lbly,
+                      mask=mask,
+                      title=title)
         stamp(pop.tag[0], axis=fig, x=1.04, y = 0.5, rotation=270)
