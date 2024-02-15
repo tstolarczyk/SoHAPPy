@@ -27,40 +27,50 @@ Physics parameters
 
 .. tabularcolumns:: |l|c|p{5cm}|
 
-+----------------+--------------+--------------------------------------------------+
-| variable       | Default      | What is it ?                                     |
-+================+==============+==================================================+
-| ``ifirst``     | 1            | | The first GRB identifier to be processed       |
-|                |              | | or a list of identifiers. The identifier can   |
-|                |              | | include a string referring to a `yaml` file    |
-|                |              | | with parameters to generate spectra from an    |
-|                |              | | analytical function.                           |
-|                |              | | (See the `data/historical` folder)             |
-+----------------+--------------+--------------------------------------------------+
-| ``nsrc``       | None         | | Number of GRB to be processed if ``ifirst`` is |
-|                |              | | an integer. If 1, special actions are taken.   |
-|                |              | | Not used if ``ifirst`` is a list.              |
-+----------------+--------------+--------------------------------------------------+
-| ``visibility`` | None         | | Can be:                                        |
-|                |              | | * `built-in` (read from the data file if it    |
-|                |              | | exists),                                       |
-|                |              | | * a keyword pointing to a folder containing    |
-|                |              | | `json` files with a colection of visibilities; |
-|                |              | | * a keyword corresponding to a dictionnay entry|
-|                |              | | in `visibility.yaml` to compute the visibility |
-|                |              | | on the fly                                     |
-|                |              | | * `forced` to force a single infinite night    |
-|                |              | | * `permanent` to force a permanent visibility  |
-+----------------+--------------+--------------------------------------------------+
-| ``EBLmodel``   | "dominguez"  | | Extragalactic Background Light model as        |
-|                |              | | defined in gammapy or `built-in` if provided   |
-|                |              | | or `None` if ignored (no absortpion)           |
-+----------------+--------------+--------------------------------------------------+
++----------------+------------------+--------------------------------------------------+
+| variable       | Default          | What is it ?                                     |
++================+==================+==================================================+
+| ``ifirst``     | 1                | | The first GRB identifier to be processed       |
+|                |                  | | or a list of identifiers. The identifier can   |
+|                |                  | | include a string referring to a `yaml` file    |
+|                |                  | | with parameters to generate spectra from an    |
+|                |                  | | analytical function.                           |
+|                |                  | | (See the `data/historical` folder)             |
++----------------+------------------+--------------------------------------------------+
+| ``nsrc``       | 1                | | Number of GRB to be processed if ``ifirst`` is |
+|                |                  | | an integer. If 1, special actions are taken.   |
+|                |                  | | Not used if ``ifirst`` is a list.              |
++----------------+------------------+--------------------------------------------------+
+| ``visibility`` | "strictmoonveto" | | Can be:                                        |
+|                |                  | | * `built-in` (read from the data file if it    |
+|                |                  | | exists),                                       |
+|                |                  | | * a keyword pointing to a folder containing    |
+|                |                  | | `json` files with a collection of visibilities;|
+|                |                  | | * a keyword corresponding to a dictionnay entry|
+|                |                  | | in `visibility.yaml` to compute the visibility |
+|                |                  | | on the fly (example given)                     |
+|                |                  | | * `forced` to force a single infinite night    |
+|                |                  | | * `permanent` to force a permanent visibility  |
++----------------+------------------+--------------------------------------------------+
+| ``EBLmodel``   | "dominguez"      | | Extragalactic Background Light model as        |
+|                |                  | | defined in ``gammapy`` or `built-in` if        |
+|                |                  | | provided or `None` if ignored (no absortpion)  |
++----------------+------------------+--------------------------------------------------+
+| ``maxnight``   | Null             |  Limit data to a maximal number of nights        |
++----------------+------------------+--------------------------------------------------+
+| ``skip``       | Null             |  Skip the first nights                           |
++----------------+------------------+--------------------------------------------------+
+| ``emax``       | Null             |  Limit data energy bins to Emax (Quantity)       |
++----------------+------------------+--------------------------------------------------+
+| ``tmax``       | Null             |  Limit lightcurve time bins to tmax (Quantity)   |
++----------------+------------------+--------------------------------------------------+
 
-Input / Output
---------------
+Input / Output file names and directories
+-----------------------------------------
 
 .. tabularcolumns:: |l|c|p{5cm}|
+
+See file for examples.
 
 +------------------+-------------------+--------------------------------------------------+
 | variable         | Default           | What is it ?                                     |
@@ -117,18 +127,18 @@ Detection parameters
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
-| ``array_North``       | "FullArray"            | IRF North array                             |
+| ``array_North``       | "4LSTs09MSTs"          | IRF North array, subfolder name             |
 +-----------------------+------------------------+---------------------------------------------+
-| ``array_South``       | "FullArray"            | IRF South array                             |
+| ``array_South``       | "14MSTs37SSTs"         | IRF South array, subfolder name             |
 +-----------------------+------------------------+---------------------------------------------+
 | ``dtslew_North``      | "30 s"                 | Maximum slewing time delay in North         |
 +-----------------------+------------------------+---------------------------------------------+
-| ``dtslew_South``      | "30 s"                 | Maximum slewing time delay in South         |
+| ``dtslew_South``      | "90 s"                 | Maximum slewing time delay in South         |
 +-----------------------+------------------------+---------------------------------------------+
 | ``fixslew``           | True                   | If False generate a random delay less       |
 |                       |                        |   than ``dtslew``. If True use ``dtswift``  |
 +-----------------------+------------------------+---------------------------------------------+
-| ``dtswift``           | 77*u.s                 | | Alert latency Fixed SWIFT latency         |
+| ``dtswift``           | "77 s"                 | | Alert latency Fixed SWIFT latency         |
 |                       |                        | | (e.g. SWIFT latency, with                 |
 |                       |                        | | a mean value of 77 s)                     |
 +-----------------------+------------------------+---------------------------------------------+
@@ -147,7 +157,7 @@ Debugging and bookkeeping
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
-| ``dbg``               | 0                      | From 0 to 3, increasingly verbosy           |
+| ``dbg``               | 0                      | From 0 to 3, increasingly talkative         |
 +-----------------------+------------------------+---------------------------------------------+
 | ``silent``            | False                  | If True, nothing on screen (output to log)  |
 +-----------------------+------------------------+---------------------------------------------+
@@ -195,12 +205,7 @@ Experts and developpers only
 +-----------------------+------------------------+---------------------------------------------+
 | ``save_dataset``      | False                  | Not implemented (save datasets)             |
 +-----------------------+------------------------+---------------------------------------------+
-| ``n_night``           | Null                   |  Limit data to a maximal number of nights   |
-+-----------------------+------------------------+---------------------------------------------+
-| ``skip``              | Null                   |  Skip the firts nights                      |
-+-----------------------+------------------------+---------------------------------------------+
-| ``Emax``              | Null                   |  Limit data energy bins to Emax             |
-+-----------------------+------------------------+---------------------------------------------+
+
 
 .. automodapi:: configuration
    :include-all-objects:
