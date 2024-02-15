@@ -1,12 +1,12 @@
-========================
-Simulation and Analysis
-========================
+================================================
+Simulation and Analysis of the detector response
+================================================
 
     - `Simulation`_ of the instrumentation response
         - The `mcsim`_ module
         - `mcsim_config`_ module
 
-    - `Analysis`_ of simulated data
+    - `Analysis`_ of the simulated response
         - The `analyze`_ module
 
     -`Dataset`_ tools
@@ -101,8 +101,8 @@ This module contains only the :class:`mcsim.montecarlo` class.
 
 .. _Analysis:
 
-Analysis of the simulated data
-==============================
+Analysis of the simulated response
+==================================
 
 The functions of the :class:`analyze.Analysis` class handle the list over time
 of the on and off-counts provided by the :class:`mcsim.MonteCarlo` class. It
