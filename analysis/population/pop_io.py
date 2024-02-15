@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 
-from   astropy.table import Table
+from astropy.table import Table
 from utilities import file_from_tar
 from niceprint import heading
 
@@ -99,13 +99,17 @@ def check_and_convert(folder, target, debug=False):
     csvfile = Path(folder, target).with_suffix(".csv")
 
     # Check if converted target exists
-    if csvfile.exists():
+    # if csvfile.exists(): # Problematic when not connected on the server
+    # Since it convert the variable to an absolute path
+    if csvfile.name in os.listdir(csvfile.parent):
         if debug:
             print(" Found ", csvfile, " already converted")
         return csvfile
 
     # If not csv file, try to convert txt file
-    if txtfile.exists():
+    # if txtfile.exists(): # See above
+    if txtfile.name in os.listdir(txtfile.parent):
+
         if debug:
             print(txtfile, " exists, convert it")
         data = Table.read(txtfile.as_posix(),format="ascii",guess=False)
@@ -134,12 +138,12 @@ def check_and_convert(folder, target, debug=False):
 
 ###----------------------------------------------------------------------------
 def get_data(parpath  = None,
-               dataname = "data.txt",
-               debug    = False):
+             dataname = "data.txt",
+             debug    = False):
 
     """
     If `file` does not point to an existing parameter file, then the function
-    rns in demo mode, using the samples in the `SoHAPPy/data/samples`
+    runs in demo mode, using the samples in the `SoHAPPy/data/samples`
     subfolder.
     From the parameter file containing the folder to be analysed,
     create the csv file from the initial text file.
@@ -170,8 +174,10 @@ def get_data(parpath  = None,
     if parpath is None:
         heading(" RUNNING in DEMO mode")
         print(" No `.yaml` file was given")
-        parpath = Path("../../data/samples", "pop_parameter.yaml").resolve()
-        base    = Path("../../data/samples").resolve()
+        # parpath = Path("../../data/samples", "pop_parameter.yaml").resolve()
+        # base    = Path("../../data/samples").resolve()
+        parpath = Path("../../data/samples", "pop_parameter.yaml")
+        base    = Path("../../data/samples")
     else:
         # Check if parameter file exists
         parpath = Path(parpath).resolve() # If teh user forgot
