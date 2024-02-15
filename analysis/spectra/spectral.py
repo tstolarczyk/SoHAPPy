@@ -84,9 +84,9 @@ for i in range(100):
     dset_test = createonoff_from_simulation(mc,debug=False,
                                     random_state=get_random_state(2021))
     siglist.append(sigmax(dset_test))
-    ax.hist(siglist, label=MyLabel(siglist,label="MC Siginificances"))
-    ax.axvline(sigmx,ls="--",color="red")
-    ax.legend()
+ax.hist(siglist, label=MyLabel(siglist,label="MC Siginificances"))
+ax.axvline(sigmx,ls="--",color="red")
+ax.legend()
 
 # Display the observation start times and windows
 heading("Observation windows")
