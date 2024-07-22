@@ -8,6 +8,8 @@ This module is organised around the :class:`Configuration` class.
 
 """
 import sys
+import os
+
 import argparse
 from pathlib import Path
 import numpy as np
@@ -36,7 +38,7 @@ class Configuration():
     a file on disk"""
 
     quantities = ["dtslew_south","dtslew_north","dtswift"]
-    """ Member of the class that should be handled as quantities and not strings"""
+    """ Class members that should be handled as quantities and not strings"""
 
     def_conf   = Path("data","config_ref.yaml")
     """Default configuration file name"""
@@ -117,6 +119,7 @@ class Configuration():
         # Number of on over off regions for detection
         self.alpha = 0.2
 
+        self.observatory  = "CTAO"
         self.array_north  = "FullArray"  # IRF subarrays in North
         self.array_south  = "FullArray"  # IRF subarrays in South
         self.dtslew_north = 30*u.s # Maximum slewing time delay in North
@@ -156,7 +159,7 @@ class Configuration():
         self.save_vis   = False  # If True, svae computed visibility
         self.save_fig   = False  # If True, plots saved to pdf file
         self.remove_tar = False  # If True, remove tarred output files
-        self.silent     = True   # If True, nothing on screen (output to log (if dbg =0))
+        self.silent     = True   # If True, nothing on screen (output to log (if dbg=0))
 
         self.cmd_line   = ""     # Command line arguments
 
@@ -203,7 +206,7 @@ class Configuration():
 
         inst = cls() # Initialize default
 
-        # Define command line arguments - default values will come from
+        # Define the command line arguments - default values will come from
         # the configuration file and are not known at this stage
         # When using getopt, it was possible to treat the reading of
         # the configuraion file separately.
@@ -242,7 +245,7 @@ class Configuration():
                             default=None,
                             type = int)
 
-        parser.set_defaults(save=inst.save_simu)
+        parser.set_defaults(save = None)
         parser.add_argument('--save',
                             dest='save',
                             action='store_true',
@@ -484,9 +487,10 @@ class Configuration():
         #----------------------------------------------------
         def title(txt):
             out.prt("")
-            out.prt(f"{'=== '+txt+40*'=':<27s}")
+            out.prt(f"=== {txt:<27s} {40*'=':40s}")
         #----------------------------------------------------
 
+        out.prt(72*"=")
         out.prt(f" Configuration file*     : {self.filename:} ")
 
         ### -----------------
@@ -554,6 +558,7 @@ class Configuration():
         title("Detection")
         out.prt(f" Detection level            : {self.det_level}")
         out.prt(f" Alpha (1/n)                : {self.alpha}")
+        out.prt(f" Observtory                 : {self.observatory}")
         out.prt(f" Site sub-arrays            : N:{self.array_north:} "\
                 f"S:{self.array_south:}")
         out.prt(f" Slewing time               : N:{self.dtslew_north:}"\
@@ -802,7 +807,9 @@ if __name__ == "__main__":
     # with wome parameters possibly ovsersed by the command line.
     # * Directly from the file on disk, e.g?
 
-    import os
+    # os.environ["HAPPY_IN"] = "D:\\CTAO\SoHAPPy\input"
+    # os.environ["HAPPY_OUT"] = "D:\\CTAO\SoHAPPy\output"
+
     log = Log()
 
     testfile = Path("data/config_ref.yaml")
