@@ -13,6 +13,7 @@ import numpy as np
 import time
 import pickle
 
+import gammapy
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from regions import CircleSkyRegion
@@ -24,6 +25,8 @@ from dataset_tools import check_dataset
 
 from gammapy.utils.random import get_random_state
 from gammapy.maps import RegionNDMap, MapAxis
+if gammapy.__version__ > "1":
+    from gammapy.maps import  RegionGeom
 
 # Bigger texts and labels
 import seaborn as sns
@@ -480,15 +483,18 @@ class MonteCarlo():
             # from both sites in some cases.
             # Two independent datasets are created
             dset_site = []
+
             for ip, perf in enumerate(aslice.irf()):
 
                 array   = perf.subarray
                 kzen    = perf.kzen
                 on_size = mcf.on_size[array]
                 offset  = mcf.offset[array]
+
                 # The on-region is on the GRB
                 on_region = CircleSkyRegion(center = self.slot.grb.radec,
                                             radius = on_size)
+
                 # Create the observation - The pointing is not on the GRB
                 on_ptg = SkyCoord(self.slot.grb.radec.ra + offset,
                                   self.slot.grb.radec.dec, frame="icrs")
@@ -518,10 +524,16 @@ class MonteCarlo():
                                             interp ="log")
                 e_true = perf.etrue
 
-                ds_empty = SpectrumDataset.create(e_reco = e_reco,
-                                                  e_true = e_true,
-                                                  region = on_region,
-                                                  name   = ds_name)
+                if gammapy.__version__ < "1":
+                    ds_empty = SpectrumDataset.create(e_reco = e_reco,
+                                                      e_true = e_true,
+                                                      region = on_region,
+                                                      name   = ds_name)
+                else:
+                    geom = RegionGeom.create(region=on_region, axes=[e_reco])
+                    ds_empty = SpectrumDataset.create(geom = geom,
+                                                      energy_axis_true = e_true,
+                                                      name   = ds_name)
 
                 maker = SpectrumDatasetMaker(
                         selection=["exposure", "background","edisp"])
@@ -534,14 +546,20 @@ class MonteCarlo():
                 # strictly equals to the true energy, which is certainly not the case at
                 # the lowest energies.
                 # Maybe this could desserve a specific study.
-                radii = perf.irf['psf'].containment_radius(energy   = e_reco.center,
+                if gammapy.__version__ < "1":
+                    radii = perf.irf['psf'].containment_radius(energy   = e_reco.center,
                                                            theta    = mcf.offset[array],
                                                            fraction = mcf.containment)[0]
+                else:
+                    radii = perf.irf['psf'].containment_radius(energy_true = e_reco.center,
+                                                          offset    = mcf.offset[array],
+                                                          fraction = mcf.containment)[0]
+
                 factor  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[array]))
 
                 # If factor is too large above threshold, error
                 idx = np.where((e_reco.center)[np.where(factor>1 )] >= mcf.erec_min[array][kzen])
-                if np.size(idx):
+                if np.size(idx) != 0 :
                     # Get guilty energies
                     print(f" E = {e_reco.center[idx]:}")
                     print(f" R = {radii[idx].value:} - max = {mcf.on_size[array].value}")
@@ -562,13 +580,22 @@ class MonteCarlo():
                                                      energy_max = mcf.erec_max[kzen])
 
                 mask = mask & ds.mask_safe.data
-                ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
+                if gammapy.__version__ == "0.18.2":
+                    ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
+                else:
+                    ds.mask_safe = mask
 
                 dset_site.append(ds)
 
             dset_list.append(dset_site)
 
-        return np.asarray(dset_list)
+        # return np.asarray(dset_list) crashes as there are lists of lists with
+        # different size. The error is (found when going to gammapy 1.2):
+        # setting an array element with a sequence. The requested array has an
+        # inhomogeneous shape after 1 dimensions. The detected shape
+        # was (6,) + inhomogeneous part.
+
+        return dset_list
 
     ###------------------------------------------------------------------------
     def status(self,log=None):
