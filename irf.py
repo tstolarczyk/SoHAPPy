@@ -6,21 +6,31 @@ Created on Thu Dec 12 09:01:41 2019
 @author: Stolar
 
 """
+import gammapy
 import sys
 import itertools
 from pathlib import Path
 
 import numpy as np
 
+import seaborn as sns
+
 import astropy.units as u
 from astropy.visualization import quantity_support
 import matplotlib.pyplot as plt
 
+import gammapy
 from gammapy.maps import MapAxis
-from gammapy.irf import load_cta_irfs
+if gammapy.__version__ < "1.2":
+    from gammapy.irf import load_cta_irfs
+else:
+    from gammapy.irf import load_irf_dict_from_file
 
 import mcsim_config as mcf
 from niceplot import single_legend
+
+# Bigger texts and labels
+sns.set_context("notebook") # poster, talk, notebook, paper
 
 __all__=['IRF']
 
@@ -241,11 +251,19 @@ class IRF():
             sys.exit("Not implemented")
 
         if inst.filename.exists() is False:
-            sys.exit(" This file does not exist :",inst.filename)
+            sys.exit(f" This file does not exist : {inst.filename:}")
 
-        inst.irf   = load_cta_irfs(inst.filename)
+        if gammapy.__version__ < "1.2":
+            inst.irf   = load_cta_irfs(inst.filename)
+        else:
+            inst.irf   = load_irf_dict_from_file(inst.filename)
 
-        eirf_min   = min(inst.irf["aeff"].data.axes["energy_true"].edges)
+        if gammapy.__version__ < "1":
+            eirf_min   = min(inst.irf["aeff"].data.axes["energy_true"].edges)
+        else:
+            eirf_min   = min(inst.irf["aeff"].axes["energy_true"].edges)
+
+
         inst.etrue = MapAxis.from_energy_bounds(eirf_min,
                                                 inst.etrue_max[kzen],
                                                 nbin = inst.nbin_per_decade,
@@ -389,10 +407,14 @@ def containment_plot(irf,
     e_edges = np.append(np.array([10.,20.]),
                         mcf.erec_edges[subarray].to(unit).value)
     e2plot = MapAxis.from_edges(e_edges,unit=unit,name="energy",interp="log")
-    radii = irf.irf['psf'].containment_radius(energy = e2plot.edges,
-                                             theta    = mcf.offset[subarray],
-                                             fraction = mcf.containment)[0]
-
+    if gammapy.__version__ == "0.18.2":
+        radii = irf.irf['psf'].containment_radius(energy = e2plot.edges,
+                                                  theta    = mcf.offset[subarray],
+                                                  fraction = mcf.containment)[0]
+    elif gammapy.__version__ == "1.2":
+        radii = irf.irf['psf'].containment_radius(energy_true = e2plot.edges,
+                                              offset    = mcf.offset[subarray],
+                                              fraction = mcf.containment)
     ax.plot(e2plot.edges.to(eunit).value,radii.value,
             marker="o",alpha=0.5, label= tag)
     ax.axvline(erec_min.to(eunit).value,ls=":")
@@ -438,7 +460,12 @@ def onoff_sketch_plot(irf, emin = 30*u.GeV, subarray=None, tag=None,
 
     # Retrieve radii at EDGES
     # Assumes that Erec = Etrue as the PSF is given versus Etrue
-    radii = irf.irf['psf'].containment_radius(energy    = mcf.erec_edges[subarray],
+    if gammapy.__version__ == "1.2":
+        radii = irf.irf['psf'].containment_radius(energy_true    = mcf.erec_edges[subarray],
+                                               offset    = mcf.offset[subarray],
+                                               fraction = mcf.containment)
+    else:
+        radii = irf.irf['psf'].containment_radius(energy    = mcf.erec_edges[subarray],
                                                theta    = mcf.offset[subarray],
                                                fraction = mcf.containment)[0]
     if debug:
@@ -645,7 +672,7 @@ if __name__ == "__main__":
     log = logging.getLogger("gammapy.irf")
     log.setLevel(logging.ERROR)
 
-    infolder = "D:/CTA/SoHAPPy/input/"
+    infolder = "D:/CTAO/SoHAPPy/input/"
     irf_dir  = "irf/Full/prod3-v2"
 
     irf_dir = Path(infolder, irf_dir)
@@ -660,11 +687,11 @@ if __name__ == "__main__":
     prod = irf_dir.name[:5]
     print(" Processing ",prod," files")
     # show = []
-    # show = ["containment", "onoff", "effearea","generic"]
+    show = ["containment", "onoff", "effearea","generic"]
     # show = ["effarea", "containment"]
     # show = ["edisp"]
     # show = ["effarea"]
-    show = ["containment", "onoff"]
+    # show = ["containment", "onoff"]
 
     print(IRF.dt_log_valid)
     ###-------------------------
