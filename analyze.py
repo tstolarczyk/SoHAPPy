@@ -662,15 +662,18 @@ class Analysis():
 
         fig_sig = self.plot_sigma_vs_time()
 
-        if self.nstat > 1: fig_n = self.plot_non_vs_noff()
-        else: fig_n = None # Otherwise plot one single point
+        if self.nstat > 1:
+            fig_n = None # self.plot_non_vs_noff()
+        else:
+            fig_n = None # Otherwise plot one single point
 
         fig_vis = self.plot_story(ref="VIS")
         fig_grb = self.plot_story(ref="GRB")
 
-        if pdf != None:
+        if pdf is not None:
             pdf.savefig(fig_sig)
-            if fig_n != None: pdf.savefig(fig_n)
+            if fig_n is not None:
+                pdf.savefig(fig_n)
             pdf.savefig(fig_vis)
             pdf.savefig(fig_grb)
 
@@ -837,6 +840,7 @@ class Analysis():
             ax.legend()
             title = self.name+"_"+self.loca +' ('+str(self.nstat)+' iter.)'
             ax.set_title(title,loc="right")
+            ax.grid(which='both',alpha=0.2)
 
         plt.tight_layout()
 
