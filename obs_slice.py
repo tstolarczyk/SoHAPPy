@@ -23,12 +23,12 @@ class Slice():
     The observation time can be simply set at the beginning or at the end of
     the slice or at a date defined in a more elaborated way. Variations due to
     these various hypothesis highly depends on the slice length and how the
-    flux variates in the slice.
+    flux varies in the slice.
     """
     #--------------------------------------------------------------------------
     def __init__(self,idt, t1, t2, site="?"):
         """
-        This defines a so called naked slice. It has no physical information *
+        This defines a so called naked slice. It has no physical information
         defined.
 
         Parameters
@@ -207,8 +207,6 @@ class Slice():
             Define the position at which the flux is estimated. The default is "end".
         zenith : astropy Quantity, optional
             Value of the forced zenith angle. The default is None.
-        debug : boolean, optional
-            Allow debug printing. The default is False.
 
         Returns
         -------
@@ -217,7 +215,7 @@ class Slice():
         """
         self.obs_point(opt)
         self.get_flux(grb,self.__tobs)
-        self.get_perf(grb,irf_dir= irf_dir,arrays=arrays,zenith=zenith)
+        self.get_perf(grb, irf_dir= irf_dir, arrays=arrays, zenith=zenith)
 
     #------------------------------------------------------------
     def merge(self, next_slice):
@@ -227,7 +225,7 @@ class Slice():
         self.__tobs = next_slice.tobs()
 
     #------------------------------------------------------------
-    def obs_point(self,opt):
+    def obs_point(self, opt):
         """
         Get the observation point time depending on where the flux will be
         considered.
@@ -244,13 +242,13 @@ class Slice():
 
         """
 
-        if   opt =="end":
+        if   opt == "end":
             self.__tobs = self.__ts2
-        elif opt =="start":
+        elif opt == "start":
             self.__tobs = self.__ts1
-        elif opt =="mean":
+        elif opt == "mean":
             self.__tobs = 0.5*(self.__ts1+self.__ts2)
-        elif opt =="interp":
+        elif opt == "interp":
             self.__tobs = self.__ts2
         else:
             self.__tobs=0*(self.__ts1.unit)
@@ -279,10 +277,10 @@ class Slice():
 
     #--------------------------------------------------------------------------
     def get_perf(self, grb,
-                       irf_dir=Path("./"),
-                       arrays=None,
-                       zenith=None,
-                       debug=False):
+                       irf_dir = Path("./"),
+                       arrays  = None,
+                       zenith  = None,
+                       debug   = False):
         """
         Obtain the best performance for a given slice, indpendently of
         the observation point that was chosen.
@@ -318,13 +316,13 @@ class Slice():
             altaz =  grb.altaz(dt=self.__ts1,loc=site)
 
             # Zenith is obtained from altaz except if fixed beforehand
-            if zenith is None:
+            if zenith is None or zenith is False:
                 zenith   = 90*u.degree-altaz.alt
             else:
                 zenith = u.Quantity(zenith) # Was string so far
 
             irf = IRF.from_observation(zenith   = zenith,
-                                       azimuth  = altaz.az,
+                                       azimuth  = None,
                                        obstime  = obstime,
                                        loc      = site,
                                        irf_dir  = irf_dir,
