@@ -15,19 +15,19 @@ import numpy as np
 
 import seaborn as sns
 
+import mcsim_config as mcf
+from niceplot import single_legend
+from niceprint import t_str
+
 import astropy.units as u
 from astropy.visualization import quantity_support
 import matplotlib.pyplot as plt
 
-import gammapy
 from gammapy.maps import MapAxis
 if gammapy.__version__ < "1.2":
     from gammapy.irf import load_cta_irfs
 else:
     from gammapy.irf import load_irf_dict_from_file
-
-import mcsim_config as mcf
-from niceplot import single_legend
 
 # Bigger texts and labels
 sns.set_context("notebook") # poster, talk, notebook, paper
@@ -37,7 +37,7 @@ __all__=['IRF']
 ###############################################################################
 class IRF():
     """
-    This class handles the Instrument Response FFunction information and
+    This class handles the Instrument Response Function information and
     utilities
     """
 
@@ -122,6 +122,7 @@ class IRF():
 
     nbin_per_decade = 4
     """Bins per decade for the true energy axis"""
+
     ###------------------------------------------------------------------------
     def __init__(self,filename  = None,
                       irf       = None,
@@ -131,7 +132,7 @@ class IRF():
                       kaz       = None,
                       kdt       = None):
         """
-        Initialise the object.
+        Initialise the object. Not in use.
 
         Parameters
         ----------
@@ -162,7 +163,7 @@ class IRF():
     @classmethod
     def from_observation(cls,
                          zenith   = 0*u.deg,
-                         azimuth  = 0*u.deg,
+                         azimuth  = None,
                          obstime  = 0*u.h,
                          subarray = None,
                          loc      = None,
@@ -225,8 +226,8 @@ class IRF():
         prod = irf_dir.name[:5]
 
         kzen, kaz, kdt = inst.find_best_keys(zenith, azimuth, obstime,
-                                            closest = closest,
-                                            prod = prod)
+                                             closest = closest,
+                                             prod = prod)
 
         # Find base folder from the keys
         if prod =="prod3":
@@ -239,11 +240,11 @@ class IRF():
 
         elif prod =="prod5":
             folder = Path(irf_dir,subarray)
-            if kaz=="average":
+            if kaz == "average":
                 filename = "Prod5-"+loc+"-"+kzen+"-AverageAz-"\
                     +subarray+"."+kdt+"-v0.1.fits.gz"
             else:
-                sys.exit("Azimuth, only average is implemented")
+                sys.exit(f"Azimuth is {kaz:}, but only average is implemented")
 
             inst.filename = Path(folder,filename)
 
@@ -280,7 +281,7 @@ class IRF():
     ###------------------------------------------------------------------------
     def find_best_keys(self, zenith, azimuth, obstime,
                              closest = False,
-                             prod = None):
+                             prod    = None):
         """
         Find the best keys to later identify the IRF data file.
 
@@ -328,7 +329,7 @@ class IRF():
                 sys.exit(f"get_irf_file: zenith= {zenith} => range not found")
 
         # Azimuth - implement here N, S choice
-        kaz = "average"
+        kaz = "average" if azimuth is None else azimuth
 
         # Observation time
         if closest:
@@ -531,7 +532,6 @@ def onoff_sketch_plot(irf, emin = 30*u.GeV, subarray=None, tag=None,
 
     noff_reg = int(1/alpha)+1
     dtheta   = 360*u.degree/noff_reg
-    #print(noff_reg," regions separated by ", dtheta)
 
     xsize    = 3
     ysize    = 3
@@ -542,7 +542,7 @@ def onoff_sketch_plot(irf, emin = 30*u.GeV, subarray=None, tag=None,
     ncols    = min(nmaxcol,nplots) # If nplots < nmaxcol, take nplots
     nrows    = int(nplots/ncols)+ 1*(nplots%ncols != 0)
 
-    f_adj = 0.92 # adjusts the size when plot scale is forced to squre
+    f_adj = 0.92 # adjusts the size when plot scale is forced to square
     fig, ax = plt.subplots(ncols=ncols, nrows=nrows,
                            figsize=(f_adj*xsize*ncols,ysize*nrows),
                            sharex=True, sharey=True)
@@ -574,19 +574,20 @@ def onoff_sketch_plot(irf, emin = 30*u.GeV, subarray=None, tag=None,
     # Figure title
     fig.suptitle(irf.filename.parts[-2]+tag,fontsize=18, y = 1.02)
 
-    # know feature/bug : does not take supttile into account !
+    # known feature/bug : does not take supttile into account !
     # fig.suptitle("Title centered above all subplots", fontsize=14)
     fig.tight_layout(h_pad=0,w_pad=0)
 
     # Adjust AFTER tight_layout
-    #plt.subplots_adjust(top=0.4,hspace=None,wspace=None)
     plt.subplots_adjust(hspace=0,wspace=0,top=0.95)
 
 ###------------------------------------------------------------------------
-def  aeff_plot(irf, ethreshold = 100*u.GeV,
+def  aeff_plot(irf, axs = None,
+               ethreshold   = 100*u.GeV,
                min_fraction = 0.05,
-               unit="GeV",
-               tag=""):
+               unit         = "GeV",
+               tag          = "",
+               yscale       = "log"):
     """
     Display effective areas.
 
@@ -594,6 +595,8 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
     ----------
     irf : IRF instance
         Current IRF.
+    axs: Matplotlib axes
+        Set of 3 axes on a line
     ethreshold : astropy.Quantity, optional
         Energy threshold to be displayed. The default is 100*u.GeV.
     min_fraction : float, optional
@@ -610,44 +613,69 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
 
     """
 
+    if axs is None:
+        axs = plt.subplots(nrows=1, ncols = 2)
+
     # Effective area
     effarea = irf.irf["aeff"].data
-    e_edges = effarea.axes[0].center
-    for j, off in enumerate([0*u.deg, 0.5*u.deg, 1*u.deg]):
-        axij = axi[j]
-        effoff = irf.irf["aeff"].to_effective_area_table(off)
-        effmax = effoff.max_area # or max( effarea.evaluate(energy_true=e_edges,offset=off) )
-        emin    = effoff.find_energy(effmax*min_fraction)
-        print(f" {emin[0].to(unit).value:5.1f} ",end="")
-        with quantity_support():
 
+    if gammapy.__version__ < "1.2":
+        e_edges = effarea.axes[0].center
+    else:
+        e_edges = irf.irf["aeff"].axes[0].center
+
+    # Loop over offsets in the field of view
+    for joff, off in enumerate([0*u.deg, 0.5*u.deg, 1*u.deg]):
+
+        ax =  axs[joff]
+
+        if gammapy.__version__ < "1.2":
+            effoff = irf.irf["aeff"].to_effective_area_table(off)
+            effmax = effoff.max_area # or max( effarea.evaluate(energy_true=e_edges,offset=off) )
+            emin   = effoff.find_energy(effmax*min_fraction)
+            print(f" {emin[0].to(unit).value:5.1f} ",end="")
+
+        else:
+            effoff = irf.irf["aeff"].evaluate(offset=off)
+            effmax = max(effoff)[0]
+            emin = e_edges[np.where(effoff >= effmax*min_fraction)[0][0]]
+            print(f" {emin.to(unit).value:5.1f} ",end="")
+
+        with quantity_support():
 
             label = tag + "\n"+str(off.value)+"° "
 
             # effarea.evaluate(energy_true = e_edges,offset =off))
-            p = axij.plot(e_edges,
-                          effoff.data.evaluate(energy_true = e_edges)/1e6,
-                          label=label)
-            axij.axhline(y=min_fraction*effmax/1e6,ls="--",
-                         color=p[0].get_color(),
-                         label=str(100*min_fraction)+"%")
-            # axij.axvline(x=irf.ereco_min,
-            #              ls=":",color=p[0].get_color(),
-            #              label="Emin")
-            # axij.axvline(x=irf.ereco_max,
-            #              ls=":",color=p[0].get_color(),
-            #              label="Emax")
-            axij.axvline(ethreshold,color="tab:green",ls="--")
-            axij.set_xscale("log")
-            axij.set_yscale("log")
-            axij.legend()
-            if j>0 :
-                axij.set_ylabel(None)
-            if i>1 :
-                axij.set_xlabel(None)
-            axij.grid("both",which="major",alpha=0.5)
-            axij.grid("both",which="minor",alpha=0.3)
-            single_legend(axij)
+            if gammapy.__version__ < "1.2":
+                p = ax.plot(e_edges,
+                              effoff.data.evaluate(energy_true = e_edges)/1e6,
+                              label=label)
+                ax.axhline(y=min_fraction*effmax/1e6,ls="--",
+                             color=p[0].get_color(),
+                             label=str(100*min_fraction)+"%")
+            else:
+                p = ax.plot(e_edges,
+                              irf.irf["aeff"].evaluate(offset=0.5*u.deg,
+                                                       energy_true=e_edges),
+                              label=label)
+                ax.axhline(y=min_fraction*effmax,ls="--",
+                             color=p[0].get_color(),
+                             label=str(100*min_fraction)+"%")
+
+            ax.axvline(ethreshold,color="black",ls="--",label="Threshold" )
+            ax.axvline(emin,
+                       ls="--",
+                       color=p[0].get_color())
+            ax.set_xscale("log")
+            ax.set_yscale(yscale)
+            ax.legend()
+
+            if joff > 0 :
+                ax.set_ylabel(None)
+
+            ax.grid("both",which="major",alpha=0.5)
+            ax.grid("both",which="minor",alpha=0.3)
+            single_legend(ax)
 
     print()
     plt.tight_layout(h_pad=0, w_pad=0)
@@ -656,13 +684,6 @@ def  aeff_plot(irf, ethreshold = 100*u.GeV,
 if __name__ == "__main__":
 
     # Code example to use the IRF class
-
-    from niceprint import t_str
-    import gammapy
-
-    # Bigger texts and labels
-    import seaborn as sns
-    sns.set_context("talk") # poster, talk, notebook, paper
 
     print(" Running with gammapy ",gammapy.__version__)
 
@@ -674,70 +695,90 @@ if __name__ == "__main__":
 
     infolder = "D:/CTAO/SoHAPPy/input/"
     irf_dir  = "irf/Full/prod3-v2"
+    irf_dir  = "irf/Full/prod5-v0.1"
 
     irf_dir = Path(infolder, irf_dir)
+
     array   = {"North":"FullArray", "South":"FullArray"} # "FullArray", "LST",...
     # array   = {"North":"LST", "South":"LST"} # "FullArray", "LST",...
     # array   = {"North":"MST", "South":"MST"} # "FullArray", "LST",...
 
-    # irf_dir = r"D:\CTA\00-Data\IRF-SoHAPPy\prod5-v0.1"
-    # array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
-    # array   = {"North":"4LSTs09MSTs", "South":"4LSTs14MSTs40SSTs"}
+    array   = {"North":"4LSTs09MSTs", "South":"14MSTs37SSTs"}
+    array   = {"North":"4LSTs09MSTs", "South":"4LSTs14MSTs40SSTs"}
 
     prod = irf_dir.name[:5]
     print(" Processing ",prod," files")
-    # show = []
-    show = ["containment", "onoff", "effearea","generic"]
-    # show = ["effarea", "containment"]
-    # show = ["edisp"]
-    # show = ["effarea"]
-    # show = ["containment", "onoff"]
+
+    # Choose plot to show in the following
+    show = ["containment", "onoff", "effarea","generic", 'edisp']
 
     print(IRF.dt_log_valid)
+
     ###-------------------------
     ### E dispersion
     ###-------------------------
     if "edisp" in show:
+
         npoints = 25
-        ratio = np.linspace(0.25,1.75,npoints)
-        etrue = np.array([30,40, 60, 110, 200, 350])*u.GeV
+        ratio   = np.linspace(0.25, 1.75, npoints)
+        etrue   = np.array([30,40, 60, 110, 200, 350])*u.GeV
         zenlist = [21*u.deg, 41*u.deg, 61*u.deg]
         dtlist  = [100*u.s, 1*u.h, 10*u.h, 100*u.h]
-        # dtlist = [100*u.s]
-        # zenlist = [21*u.deg]
 
         for loc in ["North","South"]:
+
             offset = mcf.offset[array[loc]]
             print(loc," -> Offset = ",offset)
 
             for dt in dtlist:
                 fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(17,6),sharey=True)
                 iplot = 0
+
                 # Display the 3 zenith plots
                 for ax0, zenith in zip(ax, zenlist):
+
                     irf = IRF.from_observation(loc=loc,
                                                 subarray   = array[loc],
                                                 zenith  = zenith,
-                                                azimuth = 123*u.deg,
+                                                azimuth = None,
                                                 obstime = dt,
                                                 irf_dir = irf_dir )
                     print(" ",irf.filename)
-                    # Display E dispersion
-                    irf.irf["edisp"].plot_migration(ax0,
-                                                    offset = offset,
-                                                    migra = ratio,
-                                                    energy_true = etrue,
-                                                    alpha=0.5,
-                                                    marker =".")
 
-                    # Superimpose the dispersion for the threshold energy
-                    ethreshold = [mcf.erec_min[array[loc]][irf.kzen]+mcf.safe_margin]
-                    # print(ethreshold)
-                    irf.irf["edisp"].plot_migration(ax0,
-                                                    offset=offset,
-                                                    migra=ratio,
-                                                    energy_true = ethreshold,
-                                                    alpha=1.0,
+                    # Display E dispersion
+                    if gammapy.__version__ < "1.2":
+                        irf.irf["edisp"].plot_migration(ax0,
+                                                        offset = offset,
+                                                        migra = ratio,
+                                                        energy_true = etrue,
+                                                        alpha=0.5,
+                                                        marker =".")
+
+                        # Superimpose the dispersion for the threshold energy
+                        ethreshold = [mcf.erec_min[array[loc]][irf.kzen]+mcf.safe_margin]
+
+                        irf.irf["edisp"].plot_migration(ax0,
+                                                        offset=offset,
+                                                        migra=ratio,
+                                                        energy_true = ethreshold,
+                                                        alpha=1.0,
+                                                        marker="o")
+                    else:
+                        irf.irf["edisp"].plot_migration(ax0,
+                                                        offset = offset,
+                                                        # migra = ratio,
+                                                        energy_true = etrue,
+                                                        alpha=0.5,
+                                                        marker =".")
+
+                        # Superimpose the dispersion for the threshold energy
+                        ethreshold = [mcf.erec_min[array[loc]][irf.kzen]+mcf.safe_margin]
+
+                        irf.irf["edisp"].plot_migration(ax0,
+                                                        offset=offset,
+                                                        # migra=ratio,
+                                                        energy_true = ethreshold,
+                                                        alpha=1.0,
                                                     marker="o")
 
                     # Change color of threshold and simplify labels
@@ -771,7 +812,7 @@ if __name__ == "__main__":
                         ax0.set_ylabel(None)
                     iplot+=1
 
-                ax.legend(bbox_to_anchor=[1,0.5],fontsize=12)
+                ax[2].legend(bbox_to_anchor=[1,0.5],fontsize=12)
                 # Rearrange the plots
                 plt.tight_layout(w_pad=0)
 
@@ -783,18 +824,20 @@ if __name__ == "__main__":
             irf = IRF.from_observation(loc=loc,
                                        subarray   = array[loc],
                                        zenith  = 20*u.deg,
-                                       azimuth = 123*u.deg,
+                                       azimuth = None,
                                        obstime = 100*u.s,
                                        irf_dir = irf_dir )
             irf.print()
             irf.irf["psf"].peek()
             irf.irf["edisp"].peek()
+
         print(irf.dt_log_valid)
 
     ###-------------------------
     ### Show containment radii
     ###-------------------------
     if "containment" in show:
+
         for loc in ["North","South"]:
             fig, ax = plt.subplots(nrows=1,ncols=3,figsize=(15,5),
                                    sharex=True, sharey=True)
@@ -804,7 +847,7 @@ if __name__ == "__main__":
                     irf = IRF.from_observation(loc       = loc,
                                                subarray = array[loc],
                                                zenith   = IRF.zenith_list[ztag],
-                                               azimuth  = 123*u.deg,
+                                               azimuth  = None,
                                                obstime  = dt,
                                                irf_dir  = irf_dir )
                     print("---->",irf.filename,dt)
@@ -838,7 +881,7 @@ if __name__ == "__main__":
                     irf = IRF.from_observation(loc       = loc,
                                                subarray = array[loc],
                                                zenith   = IRF.zenith_list[ztag],
-                                               azimuth  = 123*u.deg,
+                                               azimuth  = None,
                                                obstime  = dt,
                                                irf_dir  = irf_dir )
                     print(f"---->{irf.filename}")
@@ -851,34 +894,37 @@ if __name__ == "__main__":
     ### Effectiva area plots
     ###-------------------------
     if "effarea" in show:
+
         unit = "GeV"
         min_fraction = 0.05 # 0.05, 0.1
 
         print(f" *** Threshold for {100*min_fraction:2.0f}% eff.max ({unit:3s})  *** ")
 
         for loc in ["North","South"]:
+
             fig, ax = plt.subplots(nrows=3,ncols=3, figsize=(15,12),
-                                        sharex=True, sharey=True)
+                                   sharex=True, sharey=True)
             fig.suptitle(array[loc] + "-" + loc,fontsize=24)
 
             print(f"{loc:5s} {array[loc]:10s} {'0°':7s} {'0.5°':7s} {'1°':7s}")
 
-            i=0
-            for z, axi in zip([20, 40,57],ax):
-        #       print(axi)
+            for z, ax3 in zip([20, 40,57],ax):
+
                 for dt in [100*u.s,0.5*u.h, 5*u.h, 50*u.h]:
+
                     irf = IRF.from_observation(loc      = loc,
                                                subarray = array[loc],
                                                zenith   = z*u.deg,
-                                               azimuth  = 123*u.deg,
+                                               azimuth  = None,
                                                obstime  = dt,
                                                irf_dir  = irf_dir )
-                    #print(" Found : ",irf.filename)
+
                     print(f"{str(z)+'° '+str(dt.value)+' '+str(dt.unit):13s} :",end="")
 
-                    aeff_plot(irf,unit=unit,
-                              min_fraction=min_fraction,
+                    aeff_plot(irf, axs = ax3, unit=unit,
+                              min_fraction = min_fraction,
                               ethreshold = mcf.erec_min[irf.subarray][irf.kzen],
-                              tag = irf.kzen + "\n" +irf.kdt)
-                    i+=1
+                              tag = irf.kzen + "\n" +irf.kdt,
+                              yscale = "log")
+
             plt.subplots_adjust(top=0.95)
