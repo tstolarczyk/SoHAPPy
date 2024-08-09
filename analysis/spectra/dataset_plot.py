@@ -6,6 +6,9 @@ This module gather functions for plotting the `dataset` contents.
 
 @author: Stolar
 """
+
+import sys
+
 import itertools
 import numpy as np
 
@@ -16,6 +19,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import astropy # for type
 from astropy.time import Time
 from astropy.visualization import quantity_support
+
+sys.path.append("../")
+sys.path.append("../../../SoHAPPy")
 
 from niceprint import t_str
 
