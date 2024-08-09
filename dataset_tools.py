@@ -30,7 +30,12 @@ from gammapy.stats import WStatCountsStatistic
 from gammapy.datasets import SpectrumDataset, Datasets, SpectrumDatasetOnOff
 from gammapy.makers   import SpectrumDatasetMaker
 
-from gammapy.irf import load_cta_irfs
+import gammapy
+if gammapy.__version__ < "1.2":
+    from gammapy.irf import load_cta_irfs
+else:
+    from gammapy.irf import load_irf_dict_from_file
+
 from gammapy.data import Observation
 from gammapy.maps import RegionNDMap, MapAxis
 
@@ -139,7 +144,10 @@ def generate_dataset(Eflux, flux, Erange = None,
         print("  Ereco : ", ereco_axis.edges)
 
     # Load IRF
-    irf  = load_cta_irfs(irf_file)
+    if gammapy.__version__ < "1.2":
+        irf   = load_cta_irfs(irf_file)
+    else:
+        irf   = load_irf_dict_from_file(irf_file)
 
     spec = TemplateSpectralModel(energy = Eflux,
                                  values = flux,
@@ -609,10 +617,10 @@ def get_axis(dsets, tunit = u.s, Eunit=u.GeV):
 
     return dt*tunit, Erec*Eunit
 
-###---------------------------------------------------------------------------------------
-def check_dataset(ds, tag="?", e_unit="GeV",
-                  masked = False, show_header=False, deeper=False):
 
+# ##--------------------------------------------------------------------------------------
+def check_dataset(ds, tag="?", e_unit="GeV",
+                  masked=False, show_header=False, deeper=False):
     """
     Printout some content of a dataset for verification purposes
 
@@ -675,14 +683,14 @@ def check_dataset(ds, tag="?", e_unit="GeV",
 
     npred   = ds.npred_signal().data[mask]
     print(90*"=")
-    print(f" {tag:3s}  {ds.name:>8s}    {ds.gti.time_sum:6.2f} "\
-          f"{ncounts_sum:10.2f} {nbck.sum():10.2f} {nxs_sum:10.2f} "\
+    print(f" {tag:3s}  {ds.name:>8s}    {ds.gti.time_sum:6.2f} "
+          f"{ncounts_sum:10.2f} {nbck.sum():10.2f} {nxs_sum:10.2f} "
           f"{npred.sum():10.2f}   {ds.models[0].name:6s} ")
 
     # If requested go into the energy bins
-    if deeper :
+    if deeper:
         e_center = ds.background.geom.axes[0].center
-        e_edges  = ds.background.geom.axes[0].edges
+        e_edges = ds.background.geom.axes[0].edges
         print(90*"=")
 
         for i,_ in enumerate(ds.background.data[mask]):
