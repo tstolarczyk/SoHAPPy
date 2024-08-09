@@ -9,6 +9,7 @@ This module is organised around the :class:`Configuration` class.
 """
 import sys
 import os
+import ast
 
 import argparse
 from pathlib import Path
@@ -80,8 +81,6 @@ class Configuration():
         ### -----------------
         ### INPUT/OUPUT
         ### -----------------
-        # self.infolder   = Path("../input")  # Base input folder
-        # self.resfolder  = Path("../output") # Base output main folder
         self.data_dir   = "lightcurves/LONG_FITS/" #Afterglow subfolder
         self.out_dir    = "test" # Result subfolder
         self.prompt_dir = None # Prompt subfolder (if None, not considered)
@@ -154,9 +153,9 @@ class Configuration():
         self.show       = 1
         self.logfile    = "analysis.log" # log file
 
-        self.save_simu  = False  # If True, Simulation saved to file
+        self.save_simu  = False  # If True, Simulation class saved to file
         self.save_grb   = False  # If True, GRB class saved to disk
-        self.save_vis   = False  # If True, svae computed visibility
+        self.save_vis   = False  # If True, save computed visibility
         self.save_fig   = False  # If True, plots saved to pdf file
         self.remove_tar = False  # If True, remove tarred output files
         self.silent     = True   # If True, nothing on screen (output to log (if dbg=0))
@@ -203,7 +202,6 @@ class Configuration():
             Current instance.
 
         """
-
         inst = cls() # Initialize default
 
         # Define the command line arguments - default values will come from
@@ -216,7 +214,7 @@ class Configuration():
 
         parser.add_argument('-f', '--first', nargs='+',
                             help ="First source id",
-                            type = int,
+                            type = ast.literal_eval, # Any type
                             default = None)
 
         parser.add_argument('-N', '--nsrc',
@@ -263,7 +261,12 @@ class Configuration():
 
         # Supersede parameters if given
         if args.first is not None:
-            inst.ifirst     = args.first
+            # If a list is given but it has only one item, get the item
+            if len(args.first) != 1 :
+                inst.ifirst = args.first
+            else:
+                warning("Unique item list converted to the item")
+                inst.ifirst = args.first[0]
         if args.nsrc is not None:
             inst.nsrc       = args.nsrc
         if args.niter is not None:
@@ -325,6 +328,11 @@ class Configuration():
 
             # if k in ["debug"]:
             #     inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
+
+            # For reasons that I have not understood, the first source id. is
+            # taken as a list even if there is one item
+            if isinstance(v, list) and len(v)==1:
+                v = v[0]
             if k in ["config"]:
                 inst.cmd_line += '--'+k+" "+ '"'+str(v)+'"' + " "
             else:
