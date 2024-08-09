@@ -81,7 +81,7 @@ class Visibility():
         Parameters
         ----------
         pos : Astropy SkyCoord, optional
-            Source postionin the sky.
+            Source postion in the sky.
             The default is SkyCoord(0*u.deg,0*u.deg, frame='icrs').
         site : string, optional
             A keyword describing the site (e.g. `North`). The default is None.
@@ -581,7 +581,9 @@ class Visibility():
         # through a Warning. After investigation the test implemented below
         # seems correct (In numpy, Masked arrays, numpy.na, are arrays that may
         # have missing or invalid entries.)
-        if isinstance(t_rise.mjd ,np.ma.core.MaskedArray):
+        # if isinstance(t_rise.mjd ,np.ma.core.MaskedArray):
+        # With gammapy1.2 installation, slight change in the test:
+        if np.ma.is_masked(t_rise.mjd):
             if high:
                 self.vis = True
                 return high, [[self.tstart,self.tstop]]
@@ -1365,6 +1367,7 @@ class Visibility():
 
 ###---------------------------------------------------------------------
 if __name__ == "__main__":
+
     """
     Compute the visibilities for some GRB and compare to the default stored in
     the GRB class. Update the GRB visibility windows.
@@ -1386,6 +1389,11 @@ if __name__ == "__main__":
 
     """
 
+    # Complies with gamapy 1.2 installation
+    import os
+    os.environ["HAPPY_IN"] = "D:\\CTAO\SoHAPPy\input"
+    os.environ["HAPPY_OUT"] = "D:\\CTAO\SoHAPPy\output"
+
     from configuration import Configuration
     from grb import GammaRayBurst
 
@@ -1402,14 +1410,14 @@ if __name__ == "__main__":
     visinfo = cf.decode_visibility_keyword()
 
     # Log fle
-    log_filename    = Path(cf.resfolder,"/visibility.log")
+    log_filename    = Path(cf.out_dir,"/visibility.log")
     log = Log(log_name  = log_filename,talk=True)
 
     # Print configuration with possible superseded values
     cf.print(log)
 
     # Loop over GRB list
-    data_path   = Path(cf.infolder,cf.data_dir) # Input data
+    data_path   = Path( Path(os.environ["HAPPY_IN"]),cf.data_dir) # Input data
     grblist     = cf.source_ids() # GRB list to be analysed
 
     for item in grblist:
