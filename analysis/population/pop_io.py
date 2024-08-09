@@ -26,7 +26,8 @@ sys.path.append("../../")
 
 __all__ = ["get_config_data", "get_data"]
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def get_config_data(dirname, debug=False):
     """
     Get data from the configuration file, either from opening the file from
@@ -46,27 +47,28 @@ def get_config_data(dirname, debug=False):
 
     """
 
-    print("Extracting configuration parameters from ",dirname)
+    print("Extracting configuration parameters from ", dirname)
 
     # Get configuration file from the current folder
-    for fname  in dirname.iterdir():
+    for fname in dirname.iterdir():
         if fname.suffix == ".yaml":
             if debug:
-                print(" Found configuration file :",fname)
-            cfile_dict = yaml.load(open(fname,"r"), Loader=SafeLoader)
+                print(" Found configuration file :", fname)
+            cfile_dict = yaml.load(open(fname, "r"), Loader=SafeLoader)
             return cfile_dict
 
     # If it failed, try to get it from the archive
-    print(" No configuration file found in",dirname,". Try archive")
-    cfile = file_from_tar(folder  = dirname,
-                          tarname = None,
-                          target  = "config.yaml")
+    print(" No configuration file found in", dirname, ". Try archive")
+    cfile = file_from_tar(folder=dirname,
+                          tarname=None,
+                          target="config.yaml")
 
     cfile_dict = yaml.load(cfile.read(), Loader=SafeLoader)
 
     return cfile_dict
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def check_and_convert(folder, target, debug=False):
     """
     Check whether the current folder contains a data file (.txt) or a
@@ -95,7 +97,7 @@ def check_and_convert(folder, target, debug=False):
     datafile = None
 
     # Build the text and cvs file Path
-    txtfile = Path(folder,target)
+    txtfile = Path(folder, target)
     csvfile = Path(folder, target).with_suffix(".csv")
 
     # Check if converted target exists
@@ -112,16 +114,16 @@ def check_and_convert(folder, target, debug=False):
 
         if debug:
             print(txtfile, " exists, convert it")
-        data = Table.read(txtfile.as_posix(),format="ascii",guess=False)
-        data.write(csvfile.as_posix(), format="ascii.csv",overwrite=True)
+        data = Table.read(txtfile.as_posix(), format="ascii", guess=False)
+        data.write(csvfile.as_posix(), format="ascii.csv", overwrite=True)
         if debug:
-            print(csvfile," Created")
+            print(csvfile, " Created")
         return csvfile
 
     # No .csv nor .txt file : last chance in the tar file
     if debug:
-        print(txtfile," not found, try to extract from tar.gz")
-    datafile = file_from_tar(folder=folder, target=target) # ExFileObject
+        print(txtfile, " not found, try to extract from tar.gz")
+    datafile = file_from_tar(folder=folder, target=target)  # ExFileObject
 
     # Nothing worked!
     if datafile is None:
@@ -130,17 +132,61 @@ def check_and_convert(folder, target, debug=False):
         return None
 
     if debug:
-        print("data from tar ",datafile.name)
-    data = Table.read(datafile,format="ascii",guess=False)
-    data.write(csvfile, format="ascii.csv",overwrite=True)
+        print("data from tar ", datafile.name)
+    data = Table.read(datafile, format="ascii", guess=False)
+    data.write(csvfile, format="ascii.csv", overwrite=True)
 
     return csvfile
 
-###----------------------------------------------------------------------------
-def get_data(parpath  = None,
-             dataname = "data.txt",
-             debug    = False):
 
+# ##---------------------------------------------------------------------------
+def get_data_from_folder(folder, dataname="data.txt", debug=False):
+    """
+    Get the .csv file from the folders, either existing or to be created
+
+    Parameters
+    ----------
+    folders : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    filelist = []
+
+    filepath = check_and_convert(folder, dataname)
+
+    # No file found. Look into the subfolders
+    if filepath is None:
+
+        if debug:
+            print(" Not found ", dataname, "in ", folder)
+            print(" Scanning the folder")
+
+        dirnames = [f for f in folder.iterdir() if f.is_dir()]
+        for newdir in dirnames:
+            filepath = check_and_convert(newdir, dataname)
+            if filepath is not None:
+                if debug:
+                    print(" Found ", dataname, " in ", newdir)
+                # Found one, add to the list
+                filelist.append(filepath)
+            else:
+                sys.exit(f"No file found in {str(folder):s}")
+
+    # File found, add to the list
+    else:
+        filelist.append(filepath)
+
+    return filelist
+
+# ##---------------------------------------------------------------------------
+def get_data(parpath=None,
+             dataname="data.txt",
+             debug=False):
     """
     If `file` does not point to an existing parameter file, then the function
     runs in demo mode, using the samples in the `SoHAPPy/data/samples`
@@ -177,10 +223,10 @@ def get_data(parpath  = None,
         # parpath = Path("../../data/samples", "pop_parameter.yaml").resolve()
         # base    = Path("../../data/samples").resolve()
         parpath = Path("../../data/samples", "pop_parameter.yaml")
-        base    = Path("../../data/samples")
+        base = Path("../../data/samples")
     else:
         # Check if parameter file exists
-        parpath = Path(parpath).resolve() # If teh user forgot
+        parpath = Path(parpath).resolve()  # If the user forgot
         if not parpath.exists():
             sys.exit(f" The parameter file {parpath:} was not found")
 
@@ -190,43 +236,20 @@ def get_data(parpath  = None,
             heading(" DEMO mode")
         else:
             base = Path(os.environ["HAPPY_OUT"])
-
-    csvfilepaths = []
-
-    # Get the folder names from the parameter file.
-    xdict   = yaml.load(open(parpath.as_posix()), Loader=SafeLoader)
-    folders = [Path(base,dir) for dir in xdict["outfolders"] ]
-    nyears  = xdict["duration"][0]
+    # Get the folder names and duration from the parameter file.
+    xdict = yaml.load(open(parpath.as_posix()), Loader=SafeLoader)
+    folders = [Path(base, dir) for dir in xdict["outfolders"]]
+    nyears = xdict["duration"][0]
 
     # Check if the folders exist
     for curdir in folders:
         if not curdir.exists():
             sys.exit(f"{curdir} does not exist, please correct {parpath:}")
 
-    # Get the .csv file from the folders, either existing or to be created
+    csvfilepaths = []
     for curdir in folders:
-
-        filepath = check_and_convert(curdir, dataname)
-
-        # No file found. Look into the subfolders
-        if filepath is None:
-
-            if debug:
-                print(" Not found ", dataname, "in ", curdir)
-                print(" Scanning the folder")
-
-            dirnames = [f for f in curdir.iterdir() if f.is_dir()]
-            for newdir in dirnames:
-                filepath = check_and_convert(newdir, dataname)
-                if filepath is not None:
-                    if debug:
-                        print(" Found ", dataname, " in ",newdir)
-                    # Found one, add to the list
-                    csvfilepaths.append(filepath)
-
-        # File found, add to the list
-        else:
-            csvfilepaths.append(filepath)
+        filepath = get_data_from_folder(curdir, dataname=dataname)
+        csvfilepaths.append(filepath)
 
     # Final folder list with data
     if debug:
@@ -237,15 +260,16 @@ def get_data(parpath  = None,
 
     # Create defaults tags or get them from the file
     if "tags" not in xdict.keys():
-        tags = csvfilepaths[0].parent.parent.name # Migght be long!
+        tags = csvfilepaths[0].parent.parent.name  # Might be long!
     else:
         tags = xdict["tags"]
 
     return nyears, csvfilepaths, tags
 
+
 ###############################################################################
 if __name__ == "__main__":
 
-    get_data(parpath=None, debug=True) # Demo mode
+    get_data(parpath=None, debug=True)  # Demo mode
     # get_data(parpath="parameter.yaml", debug=True) # Local file
     print("... completed")
