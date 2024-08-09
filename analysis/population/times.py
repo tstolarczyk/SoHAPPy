@@ -71,7 +71,7 @@ def sigmax_after_delay(pop, sigmx_min=5, tmin=1*u.d):
 
         print(f"{'Source':<10s}: {'Date':>10s}   {'sigma':>5s}   {'%':>5s}")
 
-        for s, t, sig, d5s in zip(late.name,late.tmx*u.s, late.sigmx, late.d5s):
+        for s, t, sig, d5s in zip(late.name,late.tmx.values*u.s, late.sigmx.values, late.d5s.values):
 
             print(f"{s:10s}: {t_fmt(t):>8.2f}   {sig:>5.1f}   {d5s:>5.2f}"
                   ,end="")
@@ -197,7 +197,7 @@ def time_to_detection(sub_pop, binw=1, yscale="log", title="generic", **kwargs):
         axx = inset_axes(ax0, width="50%", height=1.2,loc="upper center")
         axx.hist(var[mask][var[mask]<1]*60,
                                 bins=range(0,60,1),alpha=0.5)
-        axx.axvline(107/60,ls=":",label=" Swift + LST delays")
+        axx.axvline(107/60,ls=":",label=" Alert + CTAO delays")
         axx.set_xlabel("$\Delta t$ (min)")
         axx.set_ylabel("$min^{-1}$")
         axx.legend()
@@ -470,7 +470,7 @@ if __name__ == "__main__":
     sig_vs_time_errors(pop.g_tot,(pop.g_tot.sigmx>=20), yscale="log", ax=ax1, title=title)
     title = "All - " + "$5 < \sigma_{max} < 20$"
     sig_vs_time_errors(pop.g_tot,(pop.g_tot.sigmx>=5) & (pop.g_tot.sigmx<20),
-                       xscale="linear", yscale="linear", ax=ax2, title=title)
+                        xscale="linear", yscale="linear", ax=ax2, title=title)
     stamp(pop.tag[0],axis=fig)
     plt.tight_layout()
 
