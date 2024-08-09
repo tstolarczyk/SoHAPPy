@@ -7,6 +7,8 @@ counts and excess counts.
 
 @author: Stolar
 """
+
+import gammapy
 import collections
 
 import numpy as np
@@ -522,8 +524,9 @@ def excess_counts(ds, elapsed = 0*u.s,
             ax.bar(Ecenter, npred, width = width_r,
                    alpha = alpha_model, align="edge", color=color)
 
-        ax.axvline(ds.energy_range[0],ls="--",color="grey")
-        ax.axvline(ds.energy_range[1],ls="--",color="grey")
+        print("PLEASE REIMPLEMENT IN excess_counts")
+        # ax.axvline(ds.energy_range[0],ls="--",color="grey")
+        # ax.axvline(ds.energy_range[1],ls="--",color="grey")
         # ds._plot_energy_range(ax=ax, label="") # Show the dataset energy masking
 
 
@@ -567,6 +570,9 @@ def residuals(ds, ax = None, elapsed=0, **kwargs):
         Arbitrary Keyword Arguments.
 
     """
-    ds.plot_residuals(ax=ax,**kwargs)
+    if gammapy.__version__ < "1.2":
+        ds.plot_residuals(ax=ax,**kwargs)
+    else:
+        ds.plot_residuals_spectral(ax=ax,**kwargs)
 
     return(-250, 50) # Not satisfactory but 'panels' request these 2 numbers...
