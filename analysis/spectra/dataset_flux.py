@@ -7,6 +7,9 @@ Created on Thu Dec 10 16:49:31 2020
 import sys
 import numpy as np
 
+
+import gammapy
+
 import matplotlib.pyplot as plt
 
 import astropy.units as u
@@ -363,7 +366,7 @@ def models_plot(dsets):
 
 #------------------------------------------------------------------------------
 def extract_flux_points(ds, index=2, sigm_ul=2,
-                            emin=None, emax=None, debug=False):
+                            emin=None, emax=None, debug=False, model="PowerLaw"):
     """
     Extract flux points.
     The flux is extracted from the execess number assuming a certain model
@@ -400,9 +403,12 @@ def extract_flux_points(ds, index=2, sigm_ul=2,
     model_init = ds.models # Will be put back in place later
 
     # Fit model
-    model_fit = PowerLawSpectralModel(index     = index,
+    if model== "PowerLaw":
+        model_fit = PowerLawSpectralModel(index     = index,
                                       amplitude = 1e-13*u.Unit("cm-2 s-1 GeV-1"),
                                       reference = 1000*u.GeV,name="pl")
+    else:
+        sys.exit(f" Model {model:s} is not implemented")
 
     # Replace simulated ds model by the fit model
     ds.models = SkyModel(spectral_model=model_fit, name="Fit to data")
@@ -424,20 +430,29 @@ def extract_flux_points(ds, index=2, sigm_ul=2,
     fex = fpe.run(datasets = ds)
 
     # Replace with a limit of significance lower than sigm_ul
-    fex.table["is_ul"] = fex.table["ts"] < sigm_ul**2
+    print("PLEASE REIMPLEMENT extract_flux_points")
+    # fex.table["is_ul"] = fex.table["ts"] < sigm_ul**2
 
     # Put the original model back in place
     ds.models = model_init
 
     if debug:
         print(f" --{ds.name:}-- assuming a powerlaw with index = {index:3.1f}")
-        for i in range(len(energies)-1):
-            print("{:7.2f} - {:7.2f} : {:5.2e} -{:5.2e} +{:5.2e}"
-                  .format(fex.table["e_min"].quantity[i],
-                          fex.table["e_max"].quantity[i],
-                          fex.table["dnde"].quantity[i].value,
-                          fex.table["dnde_errn"].quantity[i].value,
-                          fex.table["dnde_errp"].quantity[i]))
+        if gammapy.__version__ < "1.2":
+            for i in range(len(energies)-1):
+                print("{:7.2f} - {:7.2f} : {:5.2e} -{:5.2e} +{:5.2e}"
+                      .format(fex.table["e_min"].quantity[i],
+                              fex.table["e_max"].quantity[i],
+                              fex.table["dnde"].quantity[i].value,
+                              fex.table["dnde_errn"].quantity[i].value,
+                              fex.table["dnde_errp"].quantity[i]))
+        else:
+            for i in range(len(energies)-2):
+                print("{:7.2f} - {:7.2f} : {:5.2e} -{:5.2e} +{:5.2e}"
+                      .format(fex.energy_min[i],
+                              fex.energy_max[i],
+                              fex.dnde.data[i][0][0],
+                              fex.norm_err.data[i][0][0]))
 
     return fex
 
