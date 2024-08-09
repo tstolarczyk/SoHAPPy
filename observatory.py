@@ -13,7 +13,7 @@ __all__ = ["xyz"]
 
 ### Site positions
 xyz = {
-    "CTA":
+   "CTAO":
          { "North": EarthLocation.from_geocentric( float(5327448.9957829),
                                                    float(-1718665.73869569),
                                                    float(3051566.90295403),
