@@ -448,90 +448,90 @@ class Analysis():
 
         return sigma
 
-    ###------------------------------------------------------------------------
-    def summary(self, log = None):
+    # ##-----------------------------------------------------------------------
+    def summary(self, log=None):
 
         log.prt(f" GRB {self.slot.grb.name[5:]:<4} {self.slot.loc:<s}")
         log.prt(f"  z    = {self.slot.grb.z:6.2f}")
         log.prt(f"  Eiso = {self.slot.grb.Eiso:6.2e}")
         log.prt("  Detection")
-        log.prt(f"   - Visible : {t_fmt(self.slot.tstart):6.2f} -"\
+        log.prt(f"   - Visible : {t_fmt(self.slot.tstart):6.2f} -"
                 " {t_fmt(self.slot.tstop)):4.2f}")
         log.prt(f"   - Slices  : {len(self.slot.slices):d}")
         log.prt(f"   - Delay   : {t_fmt(self.slot.delay):6.2f} ")
         log.prt(f"   - sigmax  : {self.sigmx:<6.2f} @ {self.tmx:<6.2f}")
         log.prt(f"   - 5 sigma @ {self.t5s:<6.2f}")
 
-    ###------------------------------------------------------------------------
-    def print(self, log = None):
+    # ##-----------------------------------------------------------------------
+    def print(self, log=None):
         """
         Dump results
         """
 
         if self.d5s/self.nstat >= self.det_level:
             message = "5 sigma detected at " \
-                      + str(round(100*self.d5s/self.nstat,1))+"%"
+                      + str(round(100*self.d5s/self.nstat, 1))+"%"
         elif self.d3s/self.nstat >= self.det_level:
             message = "3 sigma detected at " \
-                      + str(round(100*self.d3s/self.nstat,1))+"%"
+                      + str(round(100*self.d3s/self.nstat, 1))+"%"
         else:
             message = "NOT detected    "
 
-        log.prt("| Analysis     |  ===> ",end="")
-        log.highlight(f"{message:42s}",end="")
+        log.prt("| Analysis     |  ===> ", end="")
+        log.highlight(f"{message:42s}", end="")
         log.prt("|")
-        #.....................................................................
+        # .....................................................................
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
         log.prt(" Window : {:6.3f} - {:6.3f} * Delay: {:6.2f} * {:3d} slices"
-               .format(t_fmt(self.slot.tstart),t_fmt(self.slot.tstop),
-                       t_fmt(self.slot.delay),len(self.slot.slices)))
+                .format(t_fmt(self.slot.tstart), t_fmt(self.slot.tstop),
+                        t_fmt(self.slot.delay), len(self.slot.slices)))
         log.prt("+" + 64*"-" + "+")
 
-        #.....................................................................
+        # .....................................................................
         message = "  RESULTS      : {}{:<10s}"\
-                   .format(14*" ",self.name+"_"+self.loca)
+            .format(14*" ", self.name+"_"+self.loca)
         log.highlight("{:66s}".format(message))
         log.prt("+" + 64*"-" + "+")
         log.prt("  Max. sigma           = {:>8.1f}  +/- {:<8.1f}"
-              .format(self.sigmx,self.esigmx))
+                .format(self.sigmx, self.esigmx))
 
         log.prt("                  time = {:>8.2f}  +/- {:<8.2f} {:5s}"
-               .format(t_fmt(self.tmx).value,
-                       t_fmt(self.etmx.to(self.tmx.unit)).value,
-                       t_fmt(self.tmx).unit))
+                .format(t_fmt(self.tmx).value,
+                        t_fmt(self.etmx.to(self.tmx.unit)).value,
+                        t_fmt(self.tmx).unit))
         log.prt("                  alt. = {:>8.2f}  +/- {:<8.2f} {:5s}"
-               .format(self.altmx.value,self.ealtmx.value,self.altmx.unit))
+                .format(self.altmx.value, self.ealtmx.value, self.altmx.unit))
         log.prt("                   az. = {:>8.2f}  +/- {:<8.2f} {:5s}"
-               .format(self.azmx.value,self.eazmx.value,self.azmx.unit))
+                .format(self.azmx.value, self.eazmx.value, self.azmx.unit))
         log.prt("           S, B counts = {:>8.1f} {:0.1f}"
-              .format(self.nexmx,self.nbmx))
+                .format(self.nexmx, self.nbmx))
         log.prt("        on, off counts = {:>8.1f} {:0.1f}"
-              .format(self.nexmx + self.nbmx,
-                      self.nbmx/self.alpha))
+                .format(self.nexmx + self.nbmx,
+                        self.nbmx/self.alpha))
         log.prt("+" + 64*"-" + "+")
         log.prt("                           3 sig                   5 sig")
         log.prt("+" + 64*"-" + "+")
         log.prt(" Time ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
-              .format(t_fmt(self.t3s).unit,
-                      t_fmt(self.t3s).value,
-                      t_fmt(self.et3s).value,
-                      self.t5s.to(t_fmt(self.t3s).unit).value ,
-                      self.et5s.to(t_fmt(self.t3s).unit).value))
+                .format(t_fmt(self.t3s).unit,
+                        t_fmt(self.t3s).value,
+                        t_fmt(self.et3s).value,
+                        self.t5s.to(t_fmt(self.t3s).unit).value,
+                        self.et5s.to(t_fmt(self.t3s).unit).value))
         log.prt(" Alt. ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
-              .format(self.alt3s.unit,self.alt3s.value, self.ealt3s.value,
-                                 self.alt5s.value, self.ealt5s.value))
+                .format(self.alt3s.unit, self.alt3s.value, self.ealt3s.value,
+                        self.alt5s.value, self.ealt5s.value))
         log.prt(" Az.  ({:3s})     = {:>8.2f}  +/- {:<8.2f}  {:>8.2f}  +/- {:<8.2f}"
-              .format(self.az3s.unit , self.az3s.value, self.eaz3s.value,
-                                  self.az5s.value, self.eaz5s.value))
+                .format(self.az3s.unit , self.az3s.value, self.eaz3s.value,
+                        self.az5s.value, self.eaz5s.value))
         log.prt(" Det. level (%) =  {:>8.2f}                {:>8.2f}"
-              .format(100*self.d3s/self.nstat,100*self.d5s/self.nstat))
+                .format(100*self.d3s/self.nstat, 100*self.d5s/self.nstat))
         log.prt(" S, B           = {:>8.1f}, {:<8.1f}      {:>8.1f}, {:<8.1f}"
-              .format(self.nex3s,self.nb3s,self.nex5s,self.nb5s))
+                .format(self.nex3s, self.nb3s, self.nex5s, self.nb5s))
         log.prt(" On, Off        = {:>8.1f}, {:<8.1f}      {:>8.1f}, {:<8.1f}"
-              .format(self.nex3s + self.nb3s,
-                      self.nb3s/self.alpha,
-                      self.nex5s + self.nb5s,
-                      self.nb5s/self.alpha))
+                .format(self.nex3s + self.nb3s,
+                        self.nb3s/self.alpha,
+                        self.nex5s + self.nb5s,
+                        self.nb5s/self.alpha))
         log.prt(66*"+")
         log.prt(f"{'SoHAPPy!':>}")
 
@@ -557,13 +557,13 @@ class Analysis():
         def head_fmt(kh, vh):
             if kh == "name":
                 return ">10s"
-            if kh in ("radec",'   ra   dec'):
+            if kh in ("radec", '   ra   dec'):
                 return ">14s"
             if isinstance(vh, str):
                 return ">10s"
             if isinstance(vh, int):
                 return ">4s"
-            if isinstance(vh, (float, np.float32, np.float64)) :
+            if isinstance(vh, (float, np.float32, np.float64)):
                 return ">10s"
             if isinstance(vh, (astropy.time.core.Time,
                                astropy.units.quantity.Quantity)):
@@ -571,8 +571,8 @@ class Analysis():
 
             return ""
 
-        def val_fmt(k,v):
-            if k =="name":
+        def val_fmt(k, v):
+            if k == "name":
                 return ">10s"
             if k in ("radec", '   ra   dec'):
                 return ">13s"
@@ -582,8 +582,8 @@ class Analysis():
                 return ">4d"
             if isinstance(v, astropy.time.core.Time):
                 return ">10.2f"
-            if isinstance(v, (float,np.float32,np.float64)) :
-                if abs(v)<1e9:
+            if isinstance(v, (float, np.float32, np.float64)):
+                if abs(v) < 1e9:
                     return ">10.2f"
                 else:
                     return ">10.2e"
@@ -591,7 +591,7 @@ class Analysis():
 
         def values(var):
             if isinstance(var, astropy.coordinates.sky_coordinate.SkyCoord):
-                var = [ y for y in [var.ra.value, var.dec.value]]
+                var = [y for y in [var.ra.value, var.dec.value]]
                 return f"{var[0]:>6.2f} {var[1]:>6.2f}"
             if isinstance(var, astropy.units.quantity.Quantity):
                 return var.value
@@ -599,7 +599,7 @@ class Analysis():
                 return var.mjd
             return var
 
-        ### ------------------------------------------------------------
+        # ##------------------------------------------------------------
 
         # Table header
         if header:
@@ -609,13 +609,13 @@ class Analysis():
                     # Pay attention to identical member names
                     if k in self.ignore or k in grb.ignore:
                         continue
-                    if k=="radec":
-                        k=f"{'ra':>6s} {'dec':>6s}"
+                    if k == "radec":
+                        k = f"{'ra':>6s} {'dec':>6s}"
                     if debug:
                         print(f"> {k}: {v} -> {values(v)} head_fmt(v) = {head_fmt(k,values(v))}")
-                    print("{val:{fmt}}".format(val=k,fmt=head_fmt(k,values(v))),
-                                            end=" ",file=pop)
-            print("",file=pop)
+                    print("{val:{fmt}}".format(val=k, fmt=head_fmt(k,values(v))),
+                                            end=" ", file=pop)
+            print("", file=pop)
 
         # Table data
         for data in (self.__dict__.items(), grb.__dict__.items()):
@@ -627,7 +627,7 @@ class Analysis():
                     print(f"> {key}: {val}, values(val) = {val_fmt(key,values(val))}")
                 print(f"{values(val):{val_fmt(key, values(val))}}",
                       end=" ",file=pop)
-        print("",file=pop)
+        print("", file=pop)
 
         return False
 
@@ -651,21 +651,21 @@ class Analysis():
         if filename is None:
             sys.exit("Output file not defined)")
 
-        outfile  = open(filename,"wb")
-        pickle.dump(self,outfile)
+        outfile = open(filename, "wb")
+        pickle.dump(self, outfile)
         outfile.close()
 
         print(f" Saving analysis to file : {filename}")
 
-    ###------------------------------------------------------------------------
-    def show(self,pdf=None):
+    # ##-----------------------------------------------------------------------
+    def show(self, pdf=None):
 
         fig_sig = self.plot_sigma_vs_time()
 
         if self.nstat > 1:
-            fig_n = None # self.plot_non_vs_noff()
+            fig_n = None  # self.plot_non_vs_noff()
         else:
-            fig_n = None # Otherwise plot one single point
+            fig_n = None  # Otherwise plot one single point
 
         fig_vis = self.plot_story(ref="VIS")
         fig_grb = self.plot_story(ref="GRB")
@@ -677,16 +677,16 @@ class Analysis():
             pdf.savefig(fig_vis)
             pdf.savefig(fig_grb)
 
-        # used to pause plot display in interactive mode on a shell script. In the
-        # abscence of a call to that function figures will stack on the screen during
-        # the run and all disappear at the end of the run.
-        # Using this, figures will be stacked on screen and displayed for each event
-        # until they are closed by the user.
+        # used to pause plot display in interactive mode on a shell script.
+        # In the abscence of a call to that function figures will stack on the
+        # screen during the run and all disappear at the end of the run.
+        # Using this, figures will be stacked on screen and displayed for each
+        # event until they are closed by the user.
         plt.show(block=True)
 
         return
 
-    ###----------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def plot_sigma_vs_time(self):
         """
 
@@ -699,77 +699,79 @@ class Analysis():
 
         # If only one MC trial, no max significance distribution
         if self.nstat > 1:
-            fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15,5),
+            fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15, 5),
                                            gridspec_kw={'width_ratios': [2, 1]})
         else:
-            fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
+            fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
 
         # Measurement points and units
         base_unit = self.slot.slices[0].tobs().unit
         t_s = np.asarray([s.tobs().value for s in self.slot.slices])*base_unit
         t_unit = t_fmt(self.tmx).unit
 
-        t_s    = t_s.to(t_unit)
-        tmax   = self.tmx.to(t_unit)
-        t3s    = self.t3s.to(t_unit)
-        t5s    = self.t5s.to(t_unit)
+        t_s  = t_s.to(t_unit)
+        tmax = self.tmx.to(t_unit)
+        t3s  = self.t3s.to(t_unit)
+        t5s  = self.t5s.to(t_unit)
 
         with quantity_support():
 
             ### Mean significance at each slice
-            ax1.errorbar(t_s, self.sigma_mean, yerr = self.sigma_std, fmt  ='o')
+            ax1.errorbar(t_s, self.sigma_mean, yerr=self.sigma_std,
+                         fmt='o')
 
-            for t, sig, errs, c, tag  in zip(
+            for t, sig, errs, c, tag in zip(
                                 [tmax, t3s, t5s],
                                 [self.sigmx, 3, 5],
                                 [self.esigmx, 0, 0],
                                 [colmx, col3, col5],
-                                [r"$\sigma_{max}$",r"$3\sigma$",r"$5\sigma$"]
+                                [r"$\sigma_{max}$", r"$3\sigma$", r"$5\sigma$"]
                                               ):
-            #     if len(t)>0:
                 import matplotlib
                 if matplotlib.__version__ < "3.4.2":
-                    # Does not support Quantity erros
-                    ax1.errorbar(x    = np.mean(t).value, y    = sig,
-                                  xerr = np.std(t).value,  yerr = errs,
-                                  fmt="o",color=c,label = tag)
-                    ax1.set_xlabel('Observation duration ('+str(t_unit)+")")
+                    # Does not support Quantity errors
+                    ax1.errorbar(x=np.mean(t).value, y=sig,
+                                 xerr=np.std(t).value, yerr=errs,
+                                 fmt="o", color=c, label=tag)
+                    ax1.set_xlabel('Obs. duration (' + str(t_unit) + ")")
 
                 else:
-                    ax1.errorbar(x    = np.mean(t), y    = sig,
-                                  xerr = np.std(t),  yerr = errs,
-                                  fmt="o",color=c, label = tag)
-                    ax1.set_xlabel('Observation duration ('+ax1.get_xlabel()+")")
+                    ax1.errorbar(x=np.mean(t), y=sig,
+                                 xerr=np.std(t), yerr=errs,
+                                 fmt="o", color=c, label=tag)
+                    ax1.set_xlabel('Obs. duration ('+ax1.get_xlabel()+")")
 
                 xmin, xmax = ax1.get_xlim()
                 ymin, ymax = ax1.get_ylim()
-                ax1.vlines(np.mean(t), ymin = ymin, ymax = self.sigmx,
-                            alpha=0.5,ls=":",color=c)
-                ax1.hlines(sig, xmin=xmin,ls=":", xmax = np.mean(t),
-                            alpha=0.5,color=c)
+                ax1.vlines(np.mean(t), ymin=ymin, ymax=self.sigmx,
+                           alpha=0.5, ls=":", color=c)
+                ax1.hlines(sig, xmin=xmin, ls=":", xmax=np.mean(t),
+                           alpha=0.5, color=c)
 
             ax1.set_ylabel(r"Significance $\sigma$")
             ax1.legend()
 
             import matplotlib
             if matplotlib.__version__ >= "3.5.0":
-                ax1.set_xscale("log", nonpositive='clip') # 3.5.0
+                ax1.set_xscale("log", nonpositive='clip')  # 3.5.0
             else:
-                ax1.set_xscale("log", nonposx='clip') # 3.1.1
-            ax1.grid(which='both',alpha=0.2)
-            title = self.name+"_"+self.loca +' ('+str(self.nstat)+' iter.)'
-            ax1.set_title(title,loc="right")
+                ax1.set_xscale("log", nonposx='clip')  # 3.1.1
+
+            ax1.grid(which='both', alpha=0.2)
+            ttl = self.name+"_" + self.loca
+            ttl += ' (' + str(self.nstat) + ' iter.)'
+            ax1.set_title(ttl, loc="right")
 
             # Sigma max distribution (if niter > 1)
-            if self.nstat >1 :
+            if self.nstat > 1:
                 ax2.hist(self.smax_list,
-                         bins  = max(int(self.nstat/2),1), # Cannot be < 1
-                         range = [self.sigmx -3*self.esigmx,
-                                  self.sigmx +3*self.esigmx],
+                         bins=max(int(self.nstat/2), 1),  # Cannot be < 1
+                         range=[self.sigmx - 3*self.esigmx,
+                                self.sigmx + 3*self.esigmx],
                          alpha=0.5,
-                         color = "grey",
-                         label = r" {:5.1} $\pm$ {:5.1}"
-                         .format(self.sigmx,self.esigmx))
+                         color="grey",
+                         label=r" {:5.1} $\pm$ {:5.1}"
+                         .format(self.sigmx, self.esigmx))
                 ax2.set_xlabel(r"$\sigma_{max}$")
                 ax2.set_ylabel('Trials')
 
@@ -777,9 +779,8 @@ class Analysis():
 
         return fig
 
-    ###----------------------------------------------------------------------------
-    def plot_non_vs_noff(self,ax=None,logscale=True):
-
+    # ##-----------------------------------------------------------------------
+    def plot_non_vs_noff(self, ax=None, logscale=True):
         """
         Plot Non versus Noff from the background and excess counts.
         Draw the error bars from the variances.
@@ -798,15 +799,15 @@ class Analysis():
 
         """
 
-        if ax == None:
-            fig, ax = plt.subplots(nrows=1,ncols=1,figsize=(10,5))
+        if ax is None:
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
         else:
             fig = ax.get_figure()
 
-        nexlist = [self.nex_3s_list, self.nex_5s_list, self.nex_mx_list ]
-        nblist  = [self.nb_3s_list,  self.nb_5s_list,  self.nb_mx_list]
+        nexlist = [self.nex_3s_list, self.nex_5s_list, self.nex_mx_list]
+        nblist = [self.nb_3s_list, self.nb_5s_list, self.nb_mx_list]
         collist = [col3, col5, colmx]
-        taglist = [r"$3\sigma$",r"$5\sigma$",r"$\sigma_{max}$"]
+        taglist = [r"$3\sigma$", r"$5\sigma$", r"$\sigma_{max}$"]
 
         for nex, nb, col, tag in zip(nexlist, nblist, collist, taglist):
 
