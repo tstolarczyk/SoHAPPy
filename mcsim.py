@@ -7,6 +7,7 @@ prepare the data for analysis.
 
 @author: Stolar
 """
+import warnings
 
 import sys
 import numpy as np
@@ -26,21 +27,21 @@ from dataset_tools import check_dataset
 from gammapy.utils.random import get_random_state
 from gammapy.maps import RegionNDMap, MapAxis
 if gammapy.__version__ > "1":
-    from gammapy.maps import  RegionGeom
+    from gammapy.maps import RegionGeom
 
 # Bigger texts and labels
 import seaborn as sns
-sns.set_context("poster") # talk, notebook, paper
+sns.set_context("poster")  # talk, notebook, paper
 
 # Avoid deprecation Astropy warnings in gammapy.maps
-import warnings
 with warnings.catch_warnings():
     from gammapy.data import Observation
 
     from gammapy.datasets import SpectrumDataset
-    from gammapy.makers   import SpectrumDatasetMaker
+    from gammapy.makers import SpectrumDatasetMaker
 
 __all__ = ['MonteCarlo']
+
 
 ###############################################################################
 class MonteCarlo():
@@ -50,15 +51,15 @@ class MonteCarlo():
     It makes an aperture photometry count simulation of a GRB (on-off method)
     along the GRB time slices.
     """
-    ###------------------------------------------------------------------------
-    def __init__(self,
-                 niter  = 1,
-                 fluctuate = True,
-                 nosignal  = False,
-                 seed = 'random-seed',
-                 name = "Unknown",
-                 dbg  = 0):
 
+    # ##-----------------------------------------------------------------------
+    def __init__(self,
+                 niter=1,
+                 fluctuate=True,
+                 nosignal=False,
+                 seed='random-seed',
+                 name="Unknown",
+                 dbg=0):
         """
         Initialize class members to default values
 
@@ -91,16 +92,16 @@ class MonteCarlo():
 
         """
 
-        self.niter     = niter     # Number of trials
-        self.fluctuate = fluctuate # Poisson fluctuate the count numbers
-        self.nosignal  = nosignal  # Force signal count to zero
-        self.slot      = None      # The time slot (slices) of this simulation
-        self.name      = name
-        self.dbg       = dbg
+        self.niter = niter     # Number of trials
+        self.fluctuate = fluctuate  # Poisson fluctuate the count numbers
+        self.nosignal = nosignal  # Force signal count to zero
+        self.slot = None      # The time slot (slices) of this simulation
+        self.name = name
+        self.dbg = dbg
 
         # The random state is reinitialised here and would lead to the
         # same sequence for all GRB if the seed is a fixed number
-        self.rnd_state =  get_random_state(seed)
+        self.rnd_state = get_random_state(seed)
 
         # Data set list
         # Not a `Datasets` object, just my own list so far
@@ -108,13 +109,12 @@ class MonteCarlo():
         # (i.e. for N or S, 2 for Both)
         self.dset_list = [[]]
 
-        self.mcerr = -999 # Only for the status messages !
+        self.mcerr = -999  # Only for the status messages !
         self.mctime = 0.00
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     @staticmethod
-    def welcome(subarray ,log=None):
-
+    def welcome(subarray, log=None):
         """
         Welcome and informative messages.
 
@@ -135,20 +135,22 @@ class MonteCarlo():
         log.banner(f"+{'LAUNCHING SIMULATION':^78s}+")
         log.banner(f"+{78*'=':78s}+")
 
-        log.prt(f"   On-region size             : N: {mcf.on_size[subarray['North']]:5}" \
-                    f" -  S: {mcf.on_size[subarray['South']]:5}")
+        log.prt(f"   On-region size             : "
+                f"N: {mcf.on_size[subarray['North']]:5}"
+                f" -  S: {mcf.on_size[subarray['South']]:5}")
 
-        log.prt(f"   Offset from center         : N: {mcf.offset[subarray['North']]:5}"\
-                    f" -  S: {mcf.offset[subarray['South']]:5}")
+        log.prt(f"   Offset from center         : "
+                f"N: {mcf.offset[subarray['North']]:5}"
+                f" -  S: {mcf.offset[subarray['South']]:5}")
 
         log.prt(f"   Eff. area cont.            : {mcf.containment}")
         log.prt(f"   Min 'on' and 'off' counts  : {mcf.nLiMamin}")
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def run(self, slot, ana,
-                        boost    = True,
-                        savedset = False,
-                        dump_dir = None):
+            boost=True,
+            savedset=False,
+            dump_dir=None):
         """
         Run simulations of the current grb for a given site.
         A simulation is based on a series of observations related to the GRB
@@ -177,28 +179,28 @@ class MonteCarlo():
 
         """
 
-        self.slot   = slot
-        self.mctime = time.time() # Starts chronometer
+        self.slot = slot
+        self.mctime = time.time()  # Starts chronometer
 
         # Prepare to dump the slices if requested and an anomaly was found
         if dump_dir is not None:
-            (fslice, dump_name) = self.dump_slices(phase="open",dir=dump_dir)
+            (fslice, dump_name) = self.dump_slices(phase="open", dir=dump_dir)
             dump = False
 
-        ### Create list of Datasets,and get all counts, once for all
+        # ## Create list of Datasets,and get all counts, once for all
         self.dset_list = self.create_dataset_list()
 
-        ###############################################
-        ### Monte Carlo iterations
-        ###############################################
+        # ##############################################
+        # ## Monte Carlo iterations
+        # ##############################################
 
-        iMC=1
-        if self.dbg>0:
-            print("\n",self.name,": ",end="")
+        iMC = 1
+        if self.dbg > 0:
+            print("\n", self.name, ": ", end="")
 
         while iMC <= self.niter:
-            if (iMC <= 10 or np.mod(iMC,10) == 0) and self.dbg>0:
-                print("#",iMC," ",end="")
+            if (iMC <= 10 or np.mod(iMC, 10) == 0) and self.dbg > 0:
+                print("#", iMC, " ", end="")
 
             # Get running cumulated counts
             (non_t, noff_t) = self.onoff_counts_along_time(ana.alpha)
@@ -211,31 +213,31 @@ class MonteCarlo():
                 break
 
             # Dump slice stat if requested
-            if dump_dir is not None: # dump slices to track problems
-                status = self.dump_slices(iMC  = iMC,
-                                          data = [non_t,noff_t, sigma],
-                                          file = fslice)
+            if dump_dir is not None:  # dump slices to track problems
+                status = self.dump_slices(iMC=iMC,
+                                          data=[non_t, noff_t, sigma],
+                                          file=fslice)
                 if not dump:
-                    dump= status # If True, dump unchanged
+                    dump = status  # If True, dump unchanged
 
-            if self.dbg> 2 and self.niter <10:
+            if self.dbg > 2 and self.niter < 10:
                 self.plot_onetrial(iMC)
 
-            iMC += 1 # End of MC loop
+            iMC += 1  # End of MC loop
 
         # Close special file for slice dumping
-        if dump_dir is not None :
-            self.dump_slices(phase= "close",
-                             dump = dump, name=dump_name, file=fslice)
+        if dump_dir is not None:
+            self.dump_slices(phase="close",
+                             dump=dump, name=dump_name, file=fslice)
 
-        if self.dbg>0:
-            print() # terminate the iteration counting line
+        if self.dbg > 0:
+            print()  # terminate the iteration counting line
 
         # Timing
         self.mctime = (time.time() - self.mctime)/self.niter
-        self.mcerr  = ana.err # Only for the status messages !
+        self.mcerr = ana.err  # Only for the status messages !
 
-    ###------------------------------------------------------------------------
+    # ##------------------------------------------------------------------------
     def onoff_counts_along_time(self, alpha):
         """
         Compute on and off counts in the field of view for all slices using
@@ -258,38 +260,39 @@ class MonteCarlo():
 
         """
 
-        non_vs_time   = []
-        noff_vs_time  = []
+        non_vs_time = []
+        noff_vs_time = []
         non = noff = ns = nb = 0
 
-        header = True # for debuging
+        header = True  # for debuging
 
         # cumulate on and off counts along slices
         for ds_site in self.dset_list:
 
             # Cumulate on and off counts from potentially several sites
             for ds in ds_site:
-                ns   = ds.npred_signal().data[ds.mask_safe].sum()
-                nb   = ds.npred_background().data[ds.mask_safe].sum()
+                ns = ds.npred_signal().data[ds.mask_safe].sum()
+                nb = ds.npred_background().data[ds.mask_safe].sum()
 
                 if self.nosignal:
                     ns = 0
 
-                non  += ns+nb
+                non += ns+nb
                 noff += nb/alpha
 
                 if self.dbg > 2:
                     if header:
                         print()
                     header = check_dataset(ds,
-                                     deeper = (True if self.dbg>3 else False),
-                                     masked = True,
-                                     show_header = header)
+                                           deeper=(True if self.dbg > 3
+                                                   else False),
+                                           masked=True,
+                                           show_header=header)
 
             # Fluctuate (summed site if required)
-            if self.fluctuate :
-                non   = self.rnd_state.poisson(non)
-                noff  = self.rnd_state.poisson(noff)
+            if self.fluctuate:
+                non = self.rnd_state.poisson(non)
+                noff = self.rnd_state.poisson(noff)
 
             # Much faster to append list element than array
             # elemenst(because it creates new objects)
@@ -299,14 +302,13 @@ class MonteCarlo():
             # End of loop over slices / datasets
 
         # Access to arrays is much faster than access to lists
-        non_vs_time     = np.array(non_vs_time)
-        noff_vs_time    = np.array(noff_vs_time)
+        non_vs_time = np.array(non_vs_time)
+        noff_vs_time = np.array(noff_vs_time)
 
         return (non_vs_time, noff_vs_time)
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def create_dataset_list(self):
-
         """
         Create the :obj:`dataset` list as a list of list to handle more than
         one irf per slice (GRB seen on both sites).
@@ -470,14 +472,14 @@ class MonteCarlo():
         for aslice in self.slot.slices:
 
             # Note: the spectrum is related to the slice, not the site
-            model  = self.slot.grb.models[aslice.fid()]
+            model = self.slot.grb.models[aslice.fid()]
 
             # The reference time and duration of the observation
             # Note that this is the start of the slice
             # Not necessarilty the point at which the flux and altitude
             # are evaluated
-            tref = self.slot.grb.t_trig + aslice.ts1() # start of slice
-            dt   = aslice.ts2() - aslice.ts1()
+            tref = self.slot.grb.t_trig + aslice.ts1()  # start of slice
+            dt = aslice.ts2() - aslice.ts1()
 
             # Each slice can have more than one IRF since it can be observed
             # from both sites in some cases.
@@ -486,14 +488,14 @@ class MonteCarlo():
 
             for ip, perf in enumerate(aslice.irf()):
 
-                array   = perf.subarray
-                kzen    = perf.kzen
+                array = perf.subarray
+                kzen = perf.kzen
                 on_size = mcf.on_size[array]
-                offset  = mcf.offset[array]
+                offset = mcf.offset[array]
 
                 # The on-region is on the GRB
-                on_region = CircleSkyRegion(center = self.slot.grb.radec,
-                                            radius = on_size)
+                on_region = CircleSkyRegion(center=self.slot.grb.radec,
+                                            radius=on_size)
 
                 # Create the observation - The pointing is not on the GRB
                 on_ptg = SkyCoord(self.slot.grb.radec.ra + offset,
@@ -501,68 +503,92 @@ class MonteCarlo():
 
                 # with warnings.catch_warnings(): # because of t_trig
                 #     warnings.filterwarnings("ignore")
-                obs = Observation.create(obs_id   = aslice.idt(),
-                                         pointing = on_ptg,
-                                         livetime = dt,
-                                         irfs     = perf.irf,
-                                         deadtime_fraction = 0,
-                                         reference_time = tref)
+                obs = Observation.create(obs_id=aslice.idt(),
+                                         pointing=on_ptg,
+                                         livetime=dt,
+                                         irfs=perf.irf,
+                                         deadtime_fraction=0,
+                                         reference_time=tref)
 
                 # Create dataset - correct for containment - add model
-                ds_name  = aslice.site()+"-"+str(aslice.idt())+"-"+str(ip)
+                ds_name = (aslice.site() + "-"
+                           + str(aslice.idt()) + "-" + str(ip))
 
                 # Reconstructed energy axis
-                # Stacking requires same original binning -> uses largest interval
+                # Stacking requires same original binning -> uses largest
+                # interval
                 # Ensure that all possible edges are in, later apply masking
                 # Use the Optimised binning
                 # There is a bug in 0.17 (unit not taken into account
-                # correctly)preventig from simply writing
+                # correctly) preventig from simply writing
                 # erec_axis = MapAxis.from_edges(erec_edges,name="energy")
-                e_reco = MapAxis.from_edges(mcf.erec_edges[array].to("TeV").value,
-                                            unit   ="TeV",
-                                            name   ="energy",
-                                            interp ="log")
+                e_reco = MapAxis\
+                         .from_edges(mcf.erec_edges[array].to("TeV").value,
+                                     unit="TeV",
+                                     name="energy",
+                                     interp="log")
                 e_true = perf.etrue
 
-                if gammapy.__version__ < "1":
-                    ds_empty = SpectrumDataset.create(e_reco = e_reco,
-                                                      e_true = e_true,
-                                                      region = on_region,
-                                                      name   = ds_name)
+                if gammapy.__version__ < "1.2":
+                    ds_empty = SpectrumDataset.create(e_reco=e_reco,
+                                                      e_true=e_true,
+                                                      region=on_region,
+                                                      name=ds_name)
                 else:
                     geom = RegionGeom.create(region=on_region, axes=[e_reco])
-                    ds_empty = SpectrumDataset.create(geom = geom,
-                                                      energy_axis_true = e_true,
-                                                      name   = ds_name)
+                    ds_empty = SpectrumDataset.create(geom=geom,
+                                                      energy_axis_true=e_true,
+                                                      name=ds_name)
 
                 maker = SpectrumDatasetMaker(
-                        selection=["exposure", "background","edisp"])
+                        selection=["exposure", "background", "edisp"])
 
                 ds = maker.run(ds_empty, obs)
 
                 # Compute containment factor
-                # The PSF being given versus true energy, using the reconstructed energy
-                # axis to compute the factor assumes that the reconstructed energy is
-                # strictly equals to the true energy, which is certainly not the case at
-                # the lowest energies.
-                # Maybe this could desserve a specific study.
-                if gammapy.__version__ < "1":
-                    radii = perf.irf['psf'].containment_radius(energy   = e_reco.center,
-                                                           theta    = mcf.offset[array],
-                                                           fraction = mcf.containment)[0]
-                else:
-                    radii = perf.irf['psf'].containment_radius(energy_true = e_reco.center,
-                                                          offset    = mcf.offset[array],
-                                                          fraction = mcf.containment)[0]
+                # Energy approximation:
+                # The PSF being given versus true energy, using the
+                # reconstructed energy axis to compute the factor assumes that
+                # the reconstructed energy is strictly equals to the true
+                # energy, which is certainly not the case at the lowest
+                # energies. Maybe this could desserve a specific study.
 
-                factor  = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[array]))
+                if gammapy.__version__ < "1.2":
+                    # This returns a list of infividual quantities,
+                    # [1°, 2.2°, 4°], initially within a list (i.e. [[a,b,c]],
+                    # thus justifying taking the first element)
+                    radii = perf.irf['psf']\
+                            .containment_radius(energy=e_reco.center,
+                                                theta=mcf.offset[array],
+                                                fraction=mcf.containment)[0]
+                else:
+                    radii = perf.irf['psf']\
+                            .containment_radius(energy_true=e_reco.center,
+                                                offset=mcf.offset[array],
+                                                fraction=mcf.containment)
+
+                # Angle computation in numpy:
+                # The containment radius return an astropy Qauntity in degree.
+                # It can be checked that numpy handles correctly the conversion
+                # to radian (i.e. np.cos(180*u.deg ) returns the dimensionless
+                # Quantity -1). If this would not have been the case, the
+                # angles in that formula are small enough so that even not
+                # converted, and still in degrees, the result would still be
+                # approximately valid. If the angle theta is small, then
+                # cos(theta) is close to 1 -theta²/2. The factor simplifies as
+                # the ratios of the theta²/2, thus the conversion factor 180/pi
+                # does not count.
+                factor = (1-np.cos(radii))/(1 - np.cos(mcf.on_size[array]))
 
                 # If factor is too large above threshold, error
-                idx = np.where((e_reco.center)[np.where(factor>1 )] >= mcf.erec_min[array][kzen])
-                if np.size(idx) != 0 :
+                idx = np.where((e_reco.center)[np.where(factor > 1)]
+                               >= mcf.erec_min[array][kzen])
+
+                if np.size(idx) != 0:
                     # Get guilty energies
                     print(f" E = {e_reco.center[idx]:}")
-                    print(f" R = {radii[idx].value:} - max = {mcf.on_size[array].value}")
+                    print(f" R = {radii[idx].value:} - "
+                          f"max = {mcf.on_size[array].value}")
                     print(f" F = {factor[idx]}")
                     sys.exit(f"{__name__}.py: IRF, Initial region too small")
 
@@ -573,18 +599,18 @@ class MonteCarlo():
                 # Sept 2020.
 
                 # ds.exposure.data   *= mcf.containment
-                ds.exposure        *= mcf.containment
+                ds.exposure *= mcf.containment
                 ds.background.data *= factor.value.reshape((-1, 1, 1))
-                ds.models           = model
-                mask = ds.mask_safe.geom.energy_mask(energy_min = mcf.erec_min[array][kzen],
-                                                     energy_max = mcf.erec_max[kzen])
+                ds.models = model
+                mask = ds.mask_safe.geom\
+                    .energy_mask(energy_min=mcf.erec_min[array][kzen],
+                                 energy_max=mcf.erec_max[kzen])
 
                 mask = mask & ds.mask_safe.data
-                if gammapy.__version__ == "0.18.2":
-                    ds.mask_safe = RegionNDMap(ds.mask_safe.geom,data=mask)
+                if gammapy.__version__ <= "0.18.2":
+                    ds.mask_safe = RegionNDMap(ds.mask_safe.geom, data=mask)
                 else:
                     ds.mask_safe = mask
-
                 dset_site.append(ds)
 
             dset_list.append(dset_site)
@@ -597,8 +623,8 @@ class MonteCarlo():
 
         return dset_list
 
-    ###------------------------------------------------------------------------
-    def status(self,log=None):
+    # ##------------------------------------------------------------------------
+    def status(self, log=None):
         """
         Display the simulation status
 
@@ -621,13 +647,13 @@ class MonteCarlo():
             message = "Successful ({:5.3f} s)".format(self.mctime)
 
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
-        log.prt("| Simulation   |  ===> ",end="")
-        log.failure(f"{message:42s}",end="")
+        log.prt("| Simulation   |  ===> ", end="")
+        log.failure(f"{message:42s}", end="")
         log.prt("|")
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
 
-    ###------------------------------------------------------------------------
-    def dump_slices(self, phase = None,**kwargs):
+    # ##------------------------------------------------------------------------
+    def dump_slices(self, phase=None, **kwargs):
         """
         Print out the list of on and off counts and the corresponding
         Li & Ma value. If `non` and `off` are less than a minimum value
@@ -655,19 +681,19 @@ class MonteCarlo():
         if phase == "open":
             # Open output file
             from pathlib import Path
-            name  = self.slot.grb.id+"-"+ self.slot.site+"_slices.txt"
-            name  = Path(Path(kwargs["dir"]),name)
-            fslice  = open(name,"w")
+            name = self.slot.grb.id+"-" + self.slot.site + "_slices.txt"
+            name = Path(Path(kwargs["dir"]), name)
+            fslice = open(name, "w")
 
-            print("{:9s}".format("iMC / dt"),end="",file = fslice)
+            print("{:9s}".format("iMC / dt"), end="", file=fslice)
 
             dt_cumul = 0*u.s
             for s in self.slot.slices:
                 dt_cumul += s.ts2()-s.ts1()
-                print("{:12.1f}".format(dt_cumul), end="",file = fslice)
-            print(file=fslice) # Line feed
+                print("{:12.1f}".format(dt_cumul), end="", file=fslice)
+            print(file=fslice)  # Line feed
 
-            print("   ---",name," opened - header written")
+            print("   ---", name, " opened - header written")
             return (fslice, name)
 
         elif phase == "close":
@@ -681,36 +707,35 @@ class MonteCarlo():
                 print("   --- No anomaly - file deleted")
             return
 
-        else: # Print slice features
+        else:  # Print slice features
             status = False
             fslice = kwargs["file"]
-            [non,noff,sigma] = kwargs["data"]
+            [non, noff, sigma] = kwargs["data"]
 
             # Check if non or noff below limit
-            badon  = np.where( non < mcf.nLiMamin)
+            badon = np.where(non < mcf.nLiMamin)
             badoff = np.where(noff < mcf.nLiMamin)
 
             # If an anomaly is found, the status become true, the file will
             # not be deleted, and the anomalous event is written out
-            if len(non[badon]) + len(noff[badoff]) :
+            if len(non[badon]) + len(noff[badoff]):
                 status = True
             else:
                 return False
 
             # Dump
-            for name in ["non", "noff","sigma"]:
+            for name in ["non", "noff", "sigma"]:
                 d = eval(name)
-                print("{:3d} {:5s}".format(kwargs["iMC"],name),end="",
-                      file = fslice)
+                print("{:3d} {:5s}".format(kwargs["iMC"], name), end="",
+                      file=fslice)
                 for x in d:
-                    print("{:14.1f}".format(x.item()), end="",file = fslice)
+                    print("{:14.1f}".format(x.item()), end="", file=fslice)
                 print(file=fslice)
 
             return status
 
-    ###------------------------------------------------------------------------
-    def write(self,filename = None):
-
+    # ##-----------------------------------------------------------------------
+    def write(self, filename=None):
         """
         Save the present class to disk for further use in particular a
         spectral analysis
@@ -729,13 +754,13 @@ class MonteCarlo():
         if filename is None:
             sys.exit("Output file not defined)")
 
-        outfile  = open(filename,"wb")
-        pickle.dump(self,outfile)
+        outfile = open(filename, "wb")
+        pickle.dump(self, outfile)
         outfile.close()
 
         print(f" Saving simulation to file : {filename}")
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def plot_onetrial(self, itrial):
         """
         Display information obtained after one Monte Carlo trial.
@@ -758,23 +783,23 @@ class MonteCarlo():
         print(" One trial plots")
 
         nplots = len(self.dset_list)
-        ncols  = min(5, nplots)
-        nrows  = 1 if ncols <= nplots else int((nplots)/ncols)+1
+        ncols = min(5, nplots)
+        nrows = 1 if ncols <= nplots else int((nplots)/ncols) + 1
 
-        ### ----------------
-        ### Predicted counts
-        ### ----------------
-        fig, ax = plt.subplots(ncols=ncols,nrows=nrows,
-                               figsize = (4*ncols,5*nrows),
+        # ## ----------------
+        # ## Predicted counts
+        # ## ----------------
+        fig, ax = plt.subplots(ncols=ncols, nrows=nrows,
+                               figsize=(4*ncols, 5*nrows),
                                sharey=True)
         iplot = 0
 
         for jrow, icol in itertools.product(range(nrows), range(ncols)):
 
             if nplots != 1:
-                ax0 = ax[jrow][icol] if (nrows>1) else ax[icol]
+                ax0 = ax[jrow][icol] if (nrows > 1) else ax[icol]
             else:
-                ax0=ax
+                ax0 = ax
 
             if iplot < nplots:
                 # self.dset_list[iplot].plot_counts(ax=ax0)
@@ -796,5 +821,5 @@ class MonteCarlo():
                 ax0.set_xlabel(None)
             iplot += 1
 
-        fig.suptitle("Trial "  +str(itrial))
+        fig.suptitle("Trial " + str(itrial))
         fig.tight_layout(w_pad=0)
