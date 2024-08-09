@@ -116,21 +116,21 @@ class Slot():
         """
 
         self.phys = True
-
         for sls in self.slices:
             sls.dress(self.grb,
                       irf_dir = irf_dir,  arrays  = arrays,
-                       opt    = self.opt, zenith  = zenith)
+                      opt     = self.opt, zenith  = zenith)
 
         # After dressing, two consecutives slices can be associated to the
-        # same spectrum id and should be merged
+        # same spectrum id and should be merged ONLY if the IRFs have not
+        # been associated yet.
         to_be_compacted = True
 
         while to_be_compacted:
 
             fidlist = [slc.fid() for slc in self.slices]
             if len(fidlist) != len(set(fidlist)):
-                self.compact()
+                to_be_compacted = self.compact() # Returns True or False
             else:
                 to_be_compacted = False
 
@@ -148,14 +148,22 @@ class Slot():
         """
 
         prev_fid = -999
+        prev_irf_files = [Path("")]
         newslices = []
         idt = 0
 
         for i, slc in enumerate(self.slices):
 
             fid = slc.fid()
+            irf_files  = [resp.filename for resp in slc.irf()]
 
-            if fid == prev_fid:
+            # Check if prevois IRFs are identical
+            if prev_irf_files == irf_files: # Same IRFs -> can be merge
+                tobemerged = True
+            else: # Not same IRF -> CANNOT be merged
+                tobemerged = False
+
+            if fid == prev_fid and tobemerged:
                 # Change end-time of prev-spec to this spec
                 # print(" Slice ",i," merged with slice ",i-1)
                 self.slices[i-1].merge(slc)
@@ -164,8 +172,14 @@ class Slot():
                 newslices.append(slc)
                 idt+=1
             prev_fid = fid
+            prev_irf_files = irf_files
 
-        self.slices = newslices
+        if len(self.slices) == len(newslices):
+            # Nothing was compacted
+            return False
+        else:
+            self.slices = newslices
+            return True
 
     #--------------------------------------------------------------------------
     def copy(self,name=None):
@@ -196,8 +210,8 @@ class Slot():
 
         """
 
-        Apply visibility window and delay to the slot, i.e. change time
-        boundaries and re-dress when needed.
+        Apply visibility window and delay to the slot, i.e. change the time
+        boundaries.
 
         Parameters
         ----------
@@ -208,7 +222,7 @@ class Slot():
 
         Returns
         -------
-        None.
+        False if no slice survive to the reorganisation, True otherwise.
 
         """
 
@@ -234,9 +248,9 @@ class Slot():
             ticks.append(slc.ts2().value)
 
         # Create visibility start and stop time and store
-        shift = True
-        tstart =[]
-        tstop = []
+        shift  = True
+        tstart = []
+        tstop  = []
         for tvis in self.grb.vis[self.loc].t_true:
             if len(tvis) == 0:
                 continue
@@ -252,14 +266,14 @@ class Slot():
                 ticks.append(time0)
                 ticks.append(time1)
                 if shift :
-                    shift=False
+                    shift = False
 
         if len(tstart) == 0:
             # If delays are such that all slices disappear, then
             # the GRB become not visible
             return False
 
-        ticks=list(set(ticks)) # FIRST remove duplicated entries
+        ticks = list(set(ticks)) # FIRST remove duplicated entries
         ticks.sort() # THEN Sort (because 'set' change the order)
 
         # Now loop over all intervals and add to slot
@@ -273,13 +287,12 @@ class Slot():
                 idx+=1
                 newslices.append(slc)
 
-        # Create a slot from existing and replace content
+        # Create a slot from existing and replace the contents
         self.slices = newslices
         self.name   = "Visible"
         self.tstart = self.slices[0].ts1()
         self.tstop  = self.slices[-1].ts2()
         self.delay  = delay # Loose the delay information after merging
-        #self.dress(name = self.name)
 
         return True
 
@@ -398,7 +411,7 @@ class Slot():
         ### GRB lightcurve neareEref ---
         iref = np.argmin(np.abs(eref - self.grb.Eval))
         axa.plot(self.grb.tval, self.grb.fluxval[:,iref],
-                marker="o", ls=":", lw=0,color="grey",
+                marker="o", ls=":", lw=1, color="grey",
                 markeredgecolor = "black",
                 markeredgewidth = 1.,
                 markerfacecolor = "white",
