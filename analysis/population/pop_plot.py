@@ -18,6 +18,7 @@ from niceplot import MyLabel, single_legend, stamp, projected_scatter, col_size,
 from historical import plot_historical, historical
 from population import Pop
 from pop_io import get_data
+from envelope import lower_limit
 
 # Bigger texts and labels
 sns.set_context("notebook") # poster, talk, notebook, paper
@@ -128,7 +129,8 @@ def coverage(varx, vary,
              lblx   = "",          lbly   ="",
              xscale = "log",       yscale ="log",
              title  = "dummy",
-             nbin=25, alpha=0.5):
+             nbin=25, alpha=0.5,
+             projs = True):
     """
 
 
@@ -169,7 +171,10 @@ def coverage(varx, vary,
 
     """
 
-    fig, ax, axh, axv = projected_scatter()
+    if projs:
+        fig, ax, axh, axv = projected_scatter()
+    else:
+        fig, ax = plt.subplots(figsize=(10,6))
 
     ### --------------------
     ### Central scatter plot
@@ -181,12 +186,11 @@ def coverage(varx, vary,
                marker=".", color="black",s=10, alpha=0.5, label="All")
 
     # Detected population
+    xdet = np.log10(pop[mask][varx]) if xscale=="log" else pop[mask][varx]
+    ydet = np.log10(pop[mask][vary]) if yscale=="log" else pop[mask][vary]
+
     colors, sizes = col_size(pop[mask].sigmx)
-    ax.scatter(np.log10(pop[mask][varx]) if xscale=="log" else pop[mask][varx],
-               np.log10(pop[mask][vary]) if yscale=="log" else pop[mask][vary],
-               marker="o", s= sizes, c=colors, alpha = alpha)
-
-
+    ax.scatter(xdet,ydet, marker="o", s= sizes, c=colors, alpha = alpha)
 
     plot_historical(ax,historical(), obs=["H.E.S.S"])
 
@@ -208,116 +212,179 @@ def coverage(varx, vary,
     ax.grid("both",ls="--")
 
     patches = vals_legend(alpha = alpha)
-    fig.legend(title="$\sigma_{max}$",handles=patches, bbox_to_anchor=[0.98, 1.01],ncol=2)
 
-    single_legend(ax)
-
-    ### --------------------
-    ### horizontal data
-    ### --------------------
-    hist_mask = (ref[varx] >= xrange[0]) & (ref[varx] <= xrange[1])
-
-    xref = np.log10(ref[hist_mask][varx]) if xscale=="log" else ref[hist_mask][varx]
-    _, bins, _ = axh.hist(xref, bins = nbin, facecolor="none",edgecolor="black")
-
-    x = np.log10(pop[mask][varx]) if xscale=="log" else pop[mask][varx]
-    axh.hist(x, bins = bins, color="purple",alpha=0.3)
-
-    if xscale == "log":
-        axh.set_xlim(xmin = np.log10(xrange[0]), xmax=np.log10(xrange[1]))
+    if projs:
+        single_legend(ax)
+        fig.legend(title="$\sigma_{max}$",handles=patches,
+                   bbox_to_anchor=[0.98, 1.01],ncol=2)
     else:
-        axh.set_xlim(xmin = xrange[0], xmax=xrange[1])
+        fig.legend(title="$\sigma_{max}$ - " + title,handles=patches,
+                   bbox_to_anchor=[0.9, 0.85],ncol=2)
 
-    axh.set_title(tag+" - " + title)
-    axh.set_yscale("log")
+    if projs:
+        ### --------------------
+        ### horizontal data
+        ### --------------------
+        hist_mask = (ref[varx] >= xrange[0]) & (ref[varx] <= xrange[1])
 
-    ### --------------------
-    ### Vertical data
-    ### --------------------
-    hist_mask = (ref[vary] >= yrange[0]) & (ref[vary] <= yrange[1])
+        xref = np.log10(ref[hist_mask][varx]) if xscale=="log" else ref[hist_mask][varx]
+        _, bins, _ = axh.hist(xref, bins = nbin, facecolor="none",edgecolor="black")
 
-    yref = np.log10(ref[hist_mask][vary]) if yscale=="log" else ref[hist_mask][vary]
-    _, bins, _ = axv.hist(yref, bins = nbin,
-                          facecolor="none",edgecolor="black",orientation="horizontal",
-                          label=MyLabel(yref ,label="All"))
+        x = np.log10(pop[mask][varx]) if xscale=="log" else pop[mask][varx]
+        axh.hist(x, bins = bins, color="purple",alpha=0.3)
 
-    y = np.log10(pop[mask][vary]) if yscale=="log" else pop[mask][vary]
-    axv.hist(y,bins = bins,
-             color="purple",alpha=0.3,orientation="horizontal",
-             label = MyLabel(y ,label="Detected"))
-    axv.set_xscale(yscale)
+        if xscale == "log":
+            axh.set_xlim(xmin = np.log10(xrange[0]), xmax=np.log10(xrange[1]))
+        else:
+            axh.set_xlim(xmin = xrange[0], xmax=xrange[1])
 
-###############################################################################
+        axh.set_title(tag+" - " + title)
+        axh.set_yscale("log")
+
+        # ## --------------------
+        # ## Vertical data
+        # ## --------------------
+        hmask = (ref[vary] >= yrange[0]) & (ref[vary] <= yrange[1])
+
+        yref = np.log10(ref[hmask][vary]) if yscale == "log" else ref[hmask][vary]
+        _, bins, _ = axv.hist(yref, bins=nbin,
+                              facecolor="none", edgecolor="black",
+                              orientation="horizontal",
+                              label=MyLabel(yref, label="All"))
+
+        y = np.log10(pop[mask][vary]) if yscale == "log" else pop[mask][vary]
+        axv.hist(y, bins=bins,
+                 color="purple", alpha=0.3, orientation="horizontal",
+                 label=MyLabel(y, label="Detected"))
+        axv.set_xscale(yscale)
+
+    return ax  # Central plot
+
+
+# #############################################################################
 if __name__ == "__main__":
 
-    nyears, files, tag = get_data(parpath=None,debug=True)
-    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
+    import os
+    os.environ["HAPPY_IN"] = "D:\\CTAO\SoHAPPy\input"
+    os.environ["HAPPY_OUT"] = "D:\\CTAO\SoHAPPy\output"
 
-    # Read population
-    pop   = Pop(files, tag=tag, nyrs= nyears)
+    # Use default as a demo
+    # nyears, files, tag = get_data(parpath=None,debug=True)
+
+    # Select a particular data set and read population
+    nyears, files, tag = get_data(parpath="parameter.yaml", debug=False)
+
+    # Read population - and compute population see in North or South (x2 in nulber)
+    pop   = Pop(files, tag=tag, nyrs=nyears)
 
     # Population seen in North or South (x2 in number)
     popNS = pop.grb[(pop.grb.loca == "North") | (pop.grb.loca == "South")]
 
-    # Plot one-dim variabale coverage
-    fig, ax = plt.subplots(nrows=3, ncols=2, figsize=(15,10))
+    # ## ----------------------------------
+    # ## Plot one-dim variabale coverage
+    # ## ----------------------------------
+    fig, ax = plt.subplots(nrows=3, ncols=2, figsize=(15, 10))
 
     # Loop over the reference population and superimpose selected data
     for icol, grbs, weight, tag in zip(range(2),
-                               [popNS, pop.g_tot],
-                               [0.5, 1],
-                               [r"North & South 5$\sigma$","Combined 5$\sigma$"]):
+                                [popNS, pop.g_tot],
+                                [0.5, 1],
+                                [r"North & South 5$\sigma$","Combined 5$\sigma$"]):
         print(icol)
 
         # Selection
         grbs = grbs[grbs.d5s >= pop.eff_lvl]
 
         distri(pop, grbs, var="z", tag=tag,
-               var_range=[0, 4],
-               ax= ax[0][icol],
-               var_name="Redshift (z)",
-               weight = weight)
+                var_range=[0, 4],
+                ax= ax[0][icol],
+                var_name="Redshift (z)",
+                weight = weight)
 
         distri(pop, grbs ,var="Eiso", tag=tag,
-               var_range = [5.5e50, 5.5e55], var_log=True,
-               ax=ax[1][icol],
-               var_name=r"$log_{}10 E_{iso}$",
-               weight = weight)
+                var_range = [5.5e50, 5.5e55], var_log=True,
+                ax=ax[1][icol],
+                var_name=r"$log_{}10 E_{iso}$",
+                weight = weight)
 
         distri(pop, grbs ,var="Epeak", tag=tag,
-               var_range=[10, 1e5], var_log=True,
-               ax=ax[2][icol],
-               weight = weight)
+                var_range=[10, 1e5], var_log=True,
+                ax=ax[2][icol],
+                weight = weight)
 
         plt.tight_layout()
 
-    ### Plot coverage in 2-dim space
+    ### ------------------------------------------
+    ### Plot Eiso versus z coverage in 2-dim space
+    ### -------------------------------------------
+
+
     poplist  = [pop.g_n,pop.g_s,pop.g_tot]
     taglist  = ["North", "South", "Combined"]
     masklist = [pop.g_n.d5s   >= pop.eff_lvl,
                 pop.g_s.d5s   >= pop.eff_lvl,
                 pop.g_tot.d5s >= pop.eff_lvl]
-    title = r"Detected at $5\sigma \ (90\% \ C.L.)$"
+    # masklist = [pop.g_n.d5s   >= 0,
+    #             pop.g_s.d5s   >= 0,
+    #             pop.g_tot.d5s >= 0]
+    if pop.niter == 1:
+        title = r"Detected at $5\sigma$ - No count fluctuation"
+    else:
+        title = r"Detected at $5\sigma - ({:2.0f}\% \ C.L.)$".format(100*pop.eff_lvl)
 
-    # Eiso versus z
     varx    = "z"
     vary    = "Eiso"
-    lblx    = "$z$"
+    lblx    = "Redshift $z$"
     lbly    = "$E_{iso} \ (erg)$"
     xrange  = [0,5]
     yrange  = [1e50, 5e55]
 
-    alpha = 0.5
+    # Prepare lower limits from the max. detection population
+    nyears, files, tag = get_data(parpath="../../data/samples/max_detection_parameter.yaml",debug=False)
+    pop_max            = Pop(files, tag=tag, nyrs= nyears)
+    mask_max = (pop_max.g_n.d5s >= pop_max.eff_lvl) & (pop_max.g_n.z  <= 5)
+    fig, ax = plt.subplots()
+    pfit = lower_limit(pop_max.g_n, varx, vary, mask_max, ax=ax, logx=False, logy=True)
 
+    # Plot coverage
     for grbs, mask, tag in zip(poplist, masklist, taglist):
-        coverage(varx,vary,ref=pop.ref, pop=grbs,
+
+        # With projections
+        ax = coverage(varx,vary,ref=pop.ref, pop=grbs,
                       xrange=xrange,yrange=yrange,
                       lblx = lblx, lbly = lbly,
                       xscale="linear",
                       mask=mask,
                       title=title)
+
+        # Plot lower limits from max detection
+        xlim = ax.get_xlim()
+        xsample = np.linspace(xlim[0],xlim[1],20)
+        ax.plot(xsample, np.polyval(pfit, xsample), ls="--", alpha=0.5,
+                color= "red")
+
         stamp(pop.tag[0], axis=fig, x=1.04, y = 0.5, rotation=270)
 
+        # # Without projections
+        # ax = coverage(varx,vary,ref=pop.ref, pop=grbs,
+        #           xrange=xrange,yrange=yrange,
+        #           lblx = lblx, lbly = lbly,
+        #           xscale="linear",
+        #           mask=mask,
+        #           title=tag,
+        #           projs=False)
+
+        # # Plot lower limits from max detection
+        # xlim = ax.get_xlim()
+        # xsample = np.linspace(xlim[0],xlim[1],20)
+        # ax.plot(xsample, np.polyval(pfit, xsample), ls="--", alpha=0.5,
+        #         color= "red")
+
+        stamp(pop.tag[0], axis=plt.gcf(), x=1.04, y = 0.5, rotation=270)
+
+    ### ----------------------------------------------
+    ### Plot Eiso versus Epeak coverage in 2-dim space
+    ### ----------------------------------------------
     # Eiso versus Epeak
     varx    = "Epeak"
     vary    = "Eiso"
