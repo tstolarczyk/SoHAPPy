@@ -32,7 +32,7 @@ sns.set_context("talk") # poster, talk, notebook, paper
 
 __all__ = ["detection_level","plot_sigmax_all","plot_sigmax","high_sigma",
            "plot_high_sigma_all", "sigmax_above_threshold",
-           "rate_above_threshold","plot_sigmax_cumulative"]
+           "rate_above_threshold"]
 
 ###----------------------------------------------------------------------------
 def detection_level(pop, glist, bins=25, **kwargs):
@@ -335,7 +335,7 @@ def sigmax_above_threshold(pop, sigmin=0):
     None.
 
     """
-    heading(f"Source with mean maximal sigma above {sigmin:5.1f}")
+    heading(f"Source ids with mean maximal sigma above {sigmin:5.1f}")
 
     poplist = [pop.g_n,pop.g_n0,pop.g_s,pop.g_s0,pop.g_b]
     taglist = ["North","N only","South","S only","Both"]
@@ -348,8 +348,10 @@ def sigmax_above_threshold(pop, sigmin=0):
             if sig>= sigmin:
                 print(" - ",name," :",sig)
 
+
+
 ###----------------------------------------------------------------------------
-def rate_above_threshold(pop, duration=None):
+def rate_above_threshold(pop, tobs=1, plot=True):
     """
     Print detection rates for various mean maximal significance thresholds.
 
@@ -365,14 +367,21 @@ def rate_above_threshold(pop, duration=None):
     None.
 
     """
-    if duration is None:
-        duration = pop.nyears
 
-    heading(f"Detection rate with mean sigmax above sig for {duration:} years")
+    poplist = [pop.g_n,  pop.g_s, pop.g_n0, pop.g_s0, pop.g_b]
+    taglist = ["North","South", "N only","S only","Both"]
+    siglist = [1, 3, 5, 10, 20, 50, 100, 200]
 
-    poplist = [pop.g_n,pop.g_n0,pop.g_s,pop.g_s0,pop.g_b]
-    taglist = ["North","N only","South","S only","Both"]
-    siglist = [-0.5, 3, 5, 10, 20, 50, 100, 200]
+    # Compute values for each population, for a duration.
+    vals = {}
+    vtot = {}
+    for gpop, tag in zip(poplist, taglist):
+        vals[tag] = [len(gpop[gpop.sigmx>= sig])*tobs/pop.nyears for sig in siglist]
+
+    vtot = [len(pop.g_tot[pop.g_tot.sigmx>=sig])*tobs/pop.nyears for sig in siglist]
+
+    # Create and display table with numerical results
+    heading(f"Detection rate with mean sigmax above sig for {tobs:} years")
 
     print(f"{'Sig min':>10s}",end="")
     for tag in taglist:
@@ -380,79 +389,55 @@ def rate_above_threshold(pop, duration=None):
     print(f"{'Tot':>8s}")
     print(60*"-")
 
-    for sig in siglist:
+    for isig, sig in enumerate(siglist):
+
+        # One line per min sigma
         print(f"{sig:>10.1f}",end="")
-        ntot = len(pop.g_tot[pop.g_tot.sigmx>=sig])
-        for p  in poplist:
-            n = len(p[p.sigmx>=sig])
-            print(f"{duration*n/pop.nyears:>8.2f}",end="")
-        print(f"{duration*ntot/pop.nyears:>8.2f}")
+        for site in vals.keys():
+            print(f"{vals[site][isig]:>8.2f}",end="")
+
+        print(f"{vtot[isig]:>8.2f}") # Total statistics
 
     print(60*"-")
 
-###----------------------------------------------------------------------------
-def plot_sigmax_cumulative(pop, bins=10):
-    """
-    Show the detection rates as a function of the mean maximal significance
-    threshold.
+    # Display results in a plot
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,8))
+    if plot:
 
-    Parameters
-    ----------
-    pop : Pop instance
-        Data on disk.
-    nbin : TYPE, optional
-        DESCRIPTION. The default is 10.
+        for gpop, tag in zip(poplist, taglist):
+            plt.plot(siglist, vals[tag], label=tag, marker="o")
+        plt.plot(siglist, vtot, label="Total", marker="o")
 
-    Returns
-    -------
-    None.
+        ax.axvline(50,color="grey",alpha=0.5,ls="--")
+        ax.text(50*1.05,0.5,"$50\sigma$",size=12)
 
-    """
+        ax.axvline(20,color="grey",alpha=0.5, ls="--")
+        ax.text(20*1.05,0.5,"$20\sigma$",size=12)
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,6))
+        ax.axvline(5,color="grey",alpha=0.5,ls=":")
+        ax.text(5*1.05,0.5,"$5\sigma$",size=12)
 
-    for g, tag, w in zip([pop.g_tot,
-                          pop.g_b,
-                          pd.concat([pop.g_n,pop.g_s],axis=0)],
-                          ["All", "Both", "0.5*(N+S)"],
-                          [1, 1, 0.5]):
-
-        mask = g.sigmx > 0
-        var = np.log10(g[mask].sigmx)
-
-        n, bins = np.histogram(var, bins, weights=w*np.ones(len(var)))
-
-        ncum = np.cumsum(n)
-        ax.plot(bins[:-1] + 0.5*(bins[1:]-bins[:-1]),
-                (max(ncum)-ncum)*10/pop.nyears,alpha=1,
-                marker="o",label=tag)
-
-
-
-        # Display some sigma values
-        ax.axvline(np.log10(50),color="grey",alpha=0.5,ls="--")
-        ax.text(np.log10(50)*1.05,0.5,"$50\sigma$",size=12)
-
-        ax.axvline(np.log10(20),color="grey",alpha=0.5, ls="--")
-        ax.text(np.log10(20)*1.05,0.5,"$20\sigma$",size=12)
-
-        ax.axvline(np.log10(5),color="grey",alpha=0.5,ls=":")
-        ax.text(np.log10(5)*1.05,0.5,"$5\sigma$",size=12)
+        # Indicate rates
+        ax.text(min(siglist), 1.1 , "One per decade", alpha=0.7, size=12)
+        ax.text(min(siglist), 11. , "One per year", alpha=0.7, size=12)
 
         ax.set_xlabel("$Log_{10}$ $\sigma_{max}$")
-        ax.set_ylabel("Rate above $\sigma_{max}$ for 10 yr of operation")
+        ax.set_ylabel("Rate above $\sigma_{max}$ for "+str(tobs)+" yr of operation")
         ax.set_yscale("log")
+        ax.set_xscale("log")
+
         single_legend(ax,bbox_to_anchor=[1.0,1.0])
         ax.grid(which="minor",ls=":")
         ax.grid(which="major",ls="-")
 
-    stamp(pop.tag[0], axis=fig, where="bottom")
+        stamp(pop.tag[0], axis=fig, where="bottom")
+        plt.tight_layout()
 
 ###############################################################################
 if __name__ == "__main__":
 
-    nyears, files, tag = get_data(parpath=None,debug=True)
-    # nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
+    # nyears, files, tag = get_data(parpath=None,debug=True)
+    nyears, files, tag = get_data(parpath="parameter.yaml",debug=False)
 
     pop = Pop(files, tag=tag, nyrs= nyears)
 
@@ -461,9 +446,9 @@ if __name__ == "__main__":
     ### ------------------
 
     # Detection rate versus minimal significance normalised to duration
-    rate_above_threshold(pop, duration=1)
+    rate_above_threshold(pop, tobs=10)
 
-    # Mean maximal siginificance above threshold
+    # Mean maximal significance above threshold
     sigmax_above_threshold(pop, sigmin=100)
 
     ### ------------------
@@ -478,6 +463,3 @@ if __name__ == "__main__":
 
     # Highest significance values
     plot_high_sigma_all(pop, inset=False)
-
-    # Rate versus mean maximal siginificance threshold
-    plot_sigmax_cumulative(pop)
