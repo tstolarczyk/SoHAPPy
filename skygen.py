@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 import astropy.units as u
-from   astropy.io import fits
+from astropy.io import fits
 from astropy.time import Time
 from astropy.coordinates import Angle, SkyCoord
 
@@ -41,6 +41,7 @@ from niceplot import MyLabel, draw_sphere
 
 __all__ = ["Skies"]
 
+
 ###############################################################################
 class Skies():
     """
@@ -51,8 +52,8 @@ class Skies():
     This class handles the parameters and function to generate visibilities
     from a number of sources within a certain time period defined by 2 years
     (from beginning of first year to the end of last year).
-    The output files are written in a `folder/visibility` subfolder where folder
-    as a fixed naming convention:
+    The output files are written in a `folder/visibility` subfolder where
+    folder as a fixed naming convention:
 
         ``keyword_year1_Nyears_version``
 
@@ -82,20 +83,21 @@ class Skies():
 
 
     """
-    prfx       = "ev" # Prefix before the id number
+    prfx = "ev" # Prefix before the id number
 
     #--------------------------------------------------------------------------
-    def __init__(self, year1 = 9999, nyears = 1,
-                       first =    1, Nsrc   = 1,
-                       version    = "1",
-                       duration   = 3.0,
-                       visibility = "strictmoonveto",
-                       cfg_path   = None,
-                       output     = Path("skygen_vis"),
-                       seed       = 2022,
-                       newpos     = False,
-                       newdate    = False,
-                       debug      = False):
+    def __init__(self,
+                 year1 = 9999, nyears = 1,
+                 first =    1, Nsrc=1,
+                 version    = "1",
+                 duration   = 3.0,
+                 visibility = "strictmoonveto",
+                 cfg_path   = None,
+                 output     = Path("skygen_vis"),
+                 seed       = 2022,
+                 newpos     = False,
+                 newdate=False,
+                 debug=False):
         """
         Create de default object from external parameters.
 
