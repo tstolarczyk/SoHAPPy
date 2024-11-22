@@ -47,6 +47,7 @@ from configuration import Configuration
 from niceprint import Log, failure, heading
 
 from grb import GammaRayBurst
+
 from timeslot import Slot
 from mcsim import MonteCarlo
 from analyze import Analysis
@@ -69,13 +70,14 @@ def welcome(log):
         See :class:`Log` for details.
 
     """
+    sub_title = '(Simulation of High-energy Astrophysics Processes in Python)'
     log.prt(datetime.now())
 
     log.prt(f"+{78*'-':78s}+")
     log.prt(f"+{'':^78s}+")
     log.prt(f"+{'SoHAPPy with GammaPy '+gammapy.__version__:^78s}+")
     log.prt(f"+{'('+__version__+')':^78s}+")
-    log.prt(f"+{'(Simulation of High-energy Astrophysics Processes in Python)':^78s}+")
+    log.prt(f"+{sub_title:^78s}+")
     log.prt(f"+{'':^78s}+")
     log.prt(f"+{78*'-':78s}+")
     log.prt("Documentation : https://tstolarczyk.github.io/SoHAPPy-doc")
@@ -136,8 +138,10 @@ def main():
     # Build the Configuration, from the defaults, a configuration file and
     # the command line arguments (sys.argv) if any.
     cf = Configuration.command_line()
+    filelist = cf.source_ids(infolder)
 
-    data_path = Path(infolder, cf.data_dir)  # Input data folder
+    # Now in srclist
+    # data_path = Path(infolder, cf.data_dir)  # Input data folder
 
     if cf.prompt_dir is not None:
         cf.prompt_dir = Path(infolder, cf.prompt_dir)
@@ -200,7 +204,7 @@ def main():
 
         first = True  # Actions for first GRB only
 
-        for item in cf.srclist:
+        for item, fname in enumerate(filelist):
 
             # If silence required, keep at least the event number for crashes
             if cf.silent:
@@ -208,54 +212,76 @@ def main():
                     print("Processing items :", end=" ")
                 print(item, end=' ')
 
-            # Get GRB
-            if isinstance(item, int):  # from a number as an indentifier
-                fname = Path(data_path, cf.prefix+str(item)+cf.suffix)
-
-                if not cf.test_prompt:  # Afterglow + time integrated prompt
-                    if not fname.is_file():
-                        failure(f" SKIPPING - File not found {fname:}")
-                        continue
-                    grb = GammaRayBurst.from_fits(fname,
-                                                  prompt=cf.prompt_dir,
-                                                  ebl=cf.ebl_model,
-                                                  emax=cf.emax,
-                                                  dt=cf.tshift,
-                                                  magnify=cf.magnify,
-                                                  tmax=cf.tmax)
-                else:  # Prompt component alone
-
-                    pname = Path(Path(cf.infolder, cf.prompt_dir,
-                                      "events_"+str(item)+".fits"))
-                    if not cf.use_afterglow:
-                        fname = None
-
-                    grb = GammaRayBurst.prompt(pname, fname,
-                                               ebl=cf.ebl_model,
-                                               magnify=cf.magnify,
-                                               emax=cf.emax,
-                                               tmax=cf.tmax)
-
-            elif isinstance(item, str):  # this is a GRB name string
+            if Path(fname).suffix != ".yaml":
+                grb = GammaRayBurst.from_fits(Path(fname),
+                                              prompt=cf.prompt_dir,
+                                              ebl=cf.ebl_model,
+                                              elimit=cf.elimit,
+                                              tlimit=cf.tlimit,
+                                              dt=cf.tshift,
+                                              magnify=cf.magnify)
+            else:
                 if cf.visibility == "built-in":
-                    sys.exit(" Error: yaml file with `built-in` visibility")
-                grb = GammaRayBurst.historical_from_yaml(item,
+                    sys.exit(" Error: GRB hsitorical yaml file cannot have "
+                             " a built-in` visibility")
+                grb = GammaRayBurst.historical_from_yaml(fname,
                                                          ebl=cf.ebl_model,
-                                                         magnify=cf.magnify,
-                                                         tmax=cf.tmax)
+                                                         elimit=cf.elimit,
+                                                         tlimit=cf.tlimit,
+                                                         magnify=cf.magnify)
+
+            # Get GRB
+            # if isinstance(item, int):  # from a number as an indentifier
+            #     fname = Path(data_path, cf.prefix + str(item).zfill(cf.dgt)
+            #                  + cf.suffix)
+
+            #     if not cf.test_prompt:  # Afterglow + time integrated prompt
+            #         if not fname.is_file():
+            #             failure(f" SKIPPING - File not found {fname:}")
+            #             continue
+            #         grb = GammaRayBurst.from_fits(fname,
+            #                                       prompt=cf.prompt_dir,
+            #                                       ebl=cf.ebl_model,
+            #                                       elimit=cf.elimit,
+            #                                       tlimit=cf.tlimit,
+            #                                       dt=cf.tshift,
+            #                                       magnify=cf.magnify)
+            #     else:  # Prompt component alone
+
+            #         pname = Path(Path(cf.infolder, cf.prompt_dir,
+            #                           "events_"+str(item)+".fits"))
+            #         if not cf.use_afterglow:
+            #             fname = None
+
+            #         grb = GammaRayBurst.prompt(pname, fname,
+            #                                    ebl=cf.ebl_model,
+            #                                    magnify=cf.magnify,
+            #                                    elimit=cf.elimit,
+            #                                    tlimit=cf.tlimit)
+
+            # elif isinstance(item, str):  # this is a GRB name string
+            #     if cf.visibility == "built-in":
+            #         sys.exit(" Error: yaml file with `built-in` visibility")
+            #     grb = GammaRayBurst.historical_from_yaml(item,
+            #                                              ebl=cf.ebl_model,
+            #                                              elimit=cf.elimit,
+            #                                              tlimit=cf.tlimit,
+            #                                              magnify=cf.magnify)
 
             # Assign visibilities
             for loc in ["North", "South"]:
                 grb.set_visibility(item, loc,
                                    observatory=cf.observatory,
                                    info=visinfo,
+                                   tmin=cf.tmin,
+                                   tmax=cf.tmax,
                                    n_night=cf.maxnight,
                                    n_skip=cf.skip)
 
             # Printout grb, visibility windows, display plots
 
             if cf.save_fig and cf.show > 0:
-                pdf_out = PdfPages(Path(grb.id+"_booklet.pdf"))
+                pdf_out = PdfPages(Path(res_dir, item+"_booklet.pdf"))
             else:
                 pdf_out = None
 
@@ -263,8 +289,11 @@ def main():
                or cf.dbg > 0 or cf.nsrc == 1:
                 heading(grb.id)
                 log.prt(grb)
+                heading("VISIBILITIES")
                 grb.vis["North"].print(log=log)
+                grb.vis["North"].summary(grb.t_trig)
                 grb.vis["South"].print(log=log)
+                grb.vis["South"].summary(grb.t_trig)
 
             if cf.show > 0:
                 grb.plot(pdf=pdf_out)
@@ -294,6 +323,9 @@ def main():
                 mc = MonteCarlo(niter=cf.niter,
                                 fluctuate=cf.do_fluctuate,
                                 nosignal=(cf.magnify == 0),
+                                emin=cf.emin,
+                                emax=cf.emax,
+                                edense=cf.edense,
                                 seed=cf.seed,
                                 name=name,
                                 dbg=cf.dbg)
@@ -407,7 +439,6 @@ def main():
 
     if cf.remove_tar:
         os.remove(sim_filename)
-
         os.remove(Path(res_dir, cf.filename.name))  # Remove the copy !
 
         # After CTRL-C in Spyder, or when the code crashes, the log file
@@ -434,16 +465,18 @@ if __name__ == "__main__":
     print(" argv : ", sys.argv, " len = ", len(sys.argv))
     if len(sys.argv[1:]) <= 1:
         print("------------------> Execute examples")
-        sys.argv = ["", "-c","config_test.yaml"]
+        # sys.argv = ["", "-c", "config_ref_prod10000.yaml", "-f", "1304"]
+        # sys.argv = ["", "-c", "data/config_ref_1000.yaml", "-f", "1"]
+        # sys.argv = ["", "-c", "data/config_ref_1000.yaml"]
+        sys.argv = ["", "-c", "data/config_ref_omega.yaml", "-f", "343"]
+        # sys.argv = ["", "-c", "data/config_ref_omega_test.yaml", "-f", "343"]
+        # sys.argv = ["", "-c", "config_test.yaml"]
         # sys.argv = ["",  "--first", "[1, 12]",  "--nsrc",  "5"]
         # sys.argv = ["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
-        # sys.argv=["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
-        # sys.argv= ["", "-c","data/config_ref.yaml","-f","343" ]
-        # sys.argv= ["", "-c","config_maximal_detection14h.yaml", ]
-        # sys.argv= ["", "-c","data/historical/config_180720B.yaml", ]
-        # sys.argv= ["", "-c","data/historical/config_190114C_TK.yaml"]
-        # sys.argv= ["", "--first", "1", "--nsrc", "3",
+        # sys.argv =["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
+        # sys.argv = ["", "-c","config_maximal_detection14h.yaml", ]
+        # sys.argv = ["", "--first", "1", "--nsrc", "3",
         #            "--visibility", "strictmoonveto_9999_1_interactive_test",
         #            "-d", "0"]
-                   # "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
+        # "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
     main()
