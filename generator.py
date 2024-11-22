@@ -21,15 +21,16 @@ from niceprint import heading
 
 __all__ = ["slurm_cmd", "decode_command_line"]
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def slurm_cmd(job_cmd,
-              nproc       = 1,
-              mem_per_cpu = "2G",
-              duration    = "00:30:00",
-              name        = "SoHAPPy"):
+              nproc=1,
+              mem_per_cpu="2G",
+              duration="10:00:00",
+              name="SoHAPPy"):
     """
-    Note: When run on Spyder, a 1000 source production occupy 1.6 Gb of memory on
-    a classical laptop, thus justifying the `mem_per_cpu` default value.
+    Note: When run on Spyder, a 1000 source production occupy 1.6 Gb of memory
+    on a classical laptop, thus justifying the `mem_per_cpu` default value.
 
     Parameters
     ----------
@@ -41,10 +42,10 @@ def slurm_cmd(job_cmd,
         Memory per cpu core. The default is "1G".
     duration : string, optional
         Estimated duration (optimise the choice of the bach queue).
-        The default is "00:30:00" (30 minutes).
+        The default is "10:00:00" (10 hours).
     name : string, optional
-        Job name, will appear using the `squeue` command (list of running jobs).
-        The default is "SoHAPPy".
+        Job name, will appear using the `squeue` command (list of running
+        jobs). The default is "SoHAPPy".
 
     Returns
     -------
@@ -53,39 +54,45 @@ def slurm_cmd(job_cmd,
 
     """
 
-    cmd  = "sbatch"
-    cmd += " -c "  + str(nproc)
-    cmd += " --mem-per-cpu "+mem_per_cpu
-    cmd += " -t "+ duration
-    cmd += " -J "+ name
-    cmd += " --wrap '"+ job_cmd+"'"
+    cmd = "sbatch"
+    cmd += " -c " + str(nproc)
+    cmd += " --mem-per-cpu " + mem_per_cpu
+    cmd += " -t " + duration
+    cmd += " -J " + name
+    cmd += " --wrap '" + job_cmd+"'"
 
     return cmd
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def decode_command_line():
     """
     Decode the current command line.
 
     Returns
     -------
-    parszer object
+    parser object
         List of arguments in the command line.
 
     """
 
-    parser = argparse.ArgumentParser(description="Generate batch scripts for SoHAPPy",
+    parser = argparse.ArgumentParser(description="Generate scripts",
                                      epilog="---")
     parser.add_argument('-C', '--Code',
-                        help ="Code to be run",
+                        help="Code to be run",
                         required=True)
     parser.add_argument('-P', '--Pop',
-                        help ="Population statistics",
+                        help="Population statistics",
                         default=10,
                         type=int)
     parser.add_argument('-S', '--Sets',
-                        help ="Number of sets",
+                        help="Number of sets",
                         default=2,
+                        type=int)
+
+    parser.add_argument('-B', '--Begin',
+                        help="Starting identifier",
+                        default=1,
                         type=int)
 
     parser.set_defaults(batch=True)
@@ -93,14 +100,15 @@ def decode_command_line():
     parser.add_argument('--batch',
                         dest='batch',
                         action='store_true',
-                        help = "Create batch commands")
+                        help="Create batch commands")
 
     parser.add_argument('--nobatch',
                         dest='batch',
                         action='store_false',
-                        help = "Does not create batch commands")
+                        help="Does not create batch commands")
 
     return parser.parse_known_args()  # Separate known arguments from others
+
 
 ###############################################################################
 if __name__ == '__main__':
@@ -116,31 +124,35 @@ if __name__ == '__main__':
         #               "-S", "2",
         #               "--nobatch",
         #               "-c", r"data/config_ref.yaml"]
-        sys.argv=["", "-C", "SoHAPPy.py","-V","strictmoonveto","-P","10",
-                      "-S", "3", "--nobatch", "-d", 0]
+        sys.argv = ["", "-C", "SoHAPPy.py", "-V", "strictmoonveto",
+                    "-P", "2570",
+                    "-S", "10", "--nobatch", "-d", "0", "-B", "6001", ]
 
     # Get command line arguments and debrief
     args, extra_args = decode_command_line()
     cmd = ' '.join(f'--{k} {v}' for k, v in vars(args).items())
 
     # Debrief
-    print(" Equivalent command line:",cmd)
+    print(" Equivalent command line:", cmd)
     print(f" Arguments to be passed to {args.Code:} : {extra_args:}")
 
     # Prepare job slicing
-    dsets = subset_ids(args.Pop, args.Sets)
-    print(" Slicing:",dsets)
+    dsets = subset_ids(args.Begin, args.Pop, args.Sets)
+    print(" Slicing:", dsets)
 
     print()
     print(" Generated commands: ")
 
     # Open output script file
-    outname = Path(args.Code).stem+"_"+str(args.Pop)+"_"+str(args.Sets)
+    outname = Path(args.Code).stem + "_"\
+        + str(args.Begin).zfill(5) + "_"\
+        + str(args.Pop).zfill(5) + "_"\
+        + str(args.Sets)
     extname = ".ps1" if platform.system() == "Windows" else ".sh"
     if args.batch:
-        fbatch  = open("batch_"+outname+extname,"w")
+        fbatch = open("batch_"+outname+extname, "w")
     else:
-        finter  = open("interactive_"+outname+extname,"w")
+        finter = open("interactive_"+outname+extname, "w")
 
     # Special action to transform the config filename into a resolved path name
     if "-c" in extra_args:
@@ -154,8 +166,8 @@ if __name__ == '__main__':
     for [id1, id2] in dsets:
 
         # Pass extra arguments to external code
-        sys.argv = [args.Code]   + extra_args + \
-                 [ "-f", str(id1), "-N", str(id2-id1+1) ]
+        sys.argv = [args.Code] + extra_args + \
+                 ["-f", str(id1), "-N", str(id2 - id1 + 1)]
 
         if args.Code.find("skygen") != -1:
             sky = Skies.command_line()
@@ -166,16 +178,16 @@ if __name__ == '__main__':
             job_cmd = cf.cmd_line
 
         else:
-            print("generator.py : ",args.Code, "Not handled")
+            print("generator.py : ", args.Code, "Not handled")
 
         # Create batch command if requested - display and write commands
         if args.batch:
             batch_cmd = slurm_cmd(job_cmd, name="SoHAPPy")
-            print(" > ",batch_cmd)
-            print(batch_cmd, file = fbatch)
+            print(" > ", batch_cmd)
+            print(batch_cmd, file=fbatch)
         else:
-            print(" >",job_cmd)
-            print("python "+job_cmd, file = finter)
+            print(" >", job_cmd)
+            print("python " + job_cmd, file=finter)
 
     # Close the script file
     if args.batch:
