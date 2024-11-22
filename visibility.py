@@ -25,6 +25,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.ticker import AutoMinorLocator
+
 from astropy.visualization import quantity_support
 
 import astropy.units as u
@@ -35,11 +37,12 @@ from astropy.io import fits
 
 from observatory import xyz as obs_loc
 from niceprint import Log, t_str
+from niceplot import single_legend
+
 from utilities import get_filename, Df, Dp
 
 from astroplan import Observer, FixedTarget, moon_illumination
-from moon import moon_alt_plot, moonlight_plot, moon_dist_plot, \
-                 moon_alt_period_plot
+from moon import moonlight_plot, moon_dist_plot, moon_alt_period_plot
 
 __all__ = ["Visibility"]
 
@@ -79,7 +82,8 @@ class Visibility():
     def __init__(self,
                  pos=SkyCoord(0*u.deg, 0*u.deg, frame='icrs'),
                  site=None,
-                 window=[0, 0],
+                 tmin=None,
+                 tmax=None,
                  status="Empty", name="Dummy"):
         """
         Create a Visibility instance with default values.
@@ -91,9 +95,12 @@ class Visibility():
             The default is SkyCoord(0*u.deg,0*u.deg, frame='icrs').
         site : string, optional
             A keyword describing the site (e.g. `North`). The default is None.
-        window : python list of float, optional
-            A list with the start and stop time of the source.
-            The default is [0,0].
+        tmin : float, optional
+            The start of the observation after the explosion.
+            The default is minus infinity.
+        tmax : float, optional
+            The end time of the observation after the explosion.
+            The default is infinity.
         status : string, optional
             A keyword cahracterising this visibility. The default is "Empty".
         name : string, optional
@@ -108,8 +115,8 @@ class Visibility():
         self.status = status  # Status of the instance, e.g. `recomputed`
         self.site = site
         self.target = FixedTarget(coord=pos, name="Source")
-        self.tstart = window[0]
-        self.tstop = window[1]
+        self.tstart = tmin
+        self.tstop = tmax
         self.name = name
 
         # GRB Minimal allowed altitude
@@ -1238,171 +1245,13 @@ class Visibility():
         return matching
 
     # ##-----------------------------------------------------------------------
-    def plot_old(self,
-                 grb,
-                 moon_alt=True,
-                 moon_dist=True,
-                 ax=None,
-                 dt_before=0.25*u.day,  # Before trigger
-                 dt_after=0.25*u.day,  # After visibility window
-                 nalt=250):
-        """
-        Plot the night, above-the-horizon and visibility periods, the altitude
-        evolution with time as well as a lightcurve for a fixed reference
-        energy.
-
-        Parameters
-        ----------
-        ax : An axis instance
-            Plots on this axis
-        dt_before : astropy Quantity time, optional
-            Time period for plotting before the trigger.
-            The default is 0.25*u.day.
-        dt_after : astropy Quantity time, optional
-            Time period for plotting after the trigger.
-            The default is 0.5*u.day.
-        nalt : int, optional
-            Number of points to sample the altitude evolution with time.
-            The default is 25.
-        inset : bool, optional
-            IfTrue, the figure will be plotted in an inset of the main plot.
-            They are simplified and the time is referred to the trigger time.
-
-        """
-
-        import matplotlib.pyplot as plt
-        import matplotlib.dates as mdates
-        from astropy.visualization import quantity_support
-
-        if moon_alt:
-            if moon_dist:
-                ratio = {'height_ratios': [7, 2, 2]}
-                nrows = 3
-                ysize = 10
-            else:
-                ratio = {'height_ratios': [7, 2]}
-                nrows = 2
-                ysize = 9
-        else:
-            ratio = {'height_ratios': [1]}
-            nrows = 1
-            ysize = 7
-
-        fig, ax = plt.subplots(nrows=nrows, ncols=1, sharex=True,
-                               gridspec_kw=ratio,
-                               figsize=(17, ysize))
-
-        with warnings.catch_warnings() and quantity_support():
-            warnings.filterwarnings("ignore")
-
-            duration = self.tstop - self.tstart + dt_after + dt_before
-            duration = duration.to(u.d)
-            dt = np.linspace(0, duration.value, nalt)
-            tobs = self.tstart - dt_before + dt*duration.unit
-
-            # Minimal altitude
-            ax[0].axhline(y=self.altmin.value,
-                          ls="--", color="tab:blue", label="Min. Alt.")
-
-            # ## GRB (main plot)
-            grb.plot_altitude_and_flux(tobs, site=self.site, ax=ax[0])
-            ax[0].set_title(self.name)
-            ax[0].grid("both", ls="--", alpha=0.5)
-
-            # GRB above horizon
-            minalt, maxalt = ax[0].get_ylim()
-            ymax = self.altmin.value/(maxalt - minalt)
-            self.period_plot(self.t_event,
-                             ax=ax[0], color="tab:blue", alpha=0.2,
-                             tag="Above horizon",
-                             ymin=0., ymax=ymax)
-
-            # ## Moon if requested
-            if moon_alt or moon_dist:
-                radec = get_moon(tobs, self.site)  # Moon position along time
-
-                if moon_alt:
-                    # ## Moon veto periods
-                    self.period_plot(self.t_moon_up,
-                                     ax=ax[1], color="tab:orange", alpha=0.2,
-                                     tag="Moon veto")
-                    ax[1].grid("both", ls="--", alpha=0.5)
-
-                    # ## Moon altitude
-                    alt = radec.transform_to(AltAz(location=self.site,
-                                                   obstime=tobs)).alt
-                    moon_alt_plot(tobs, alt, ax=ax[1], alpha=0.5)
-                    ax[1].axhline(y=self.moon_maxalt,
-                                  color="darkblue", alpha=1, ls=":")
-
-                    if moon_dist:
-                        # ## Moon distance and brigthness
-                        moon_dist_plot(grb.radec, tobs, radec, site=self.site,
-                                       ax=ax[2], alpha=0.5)  # Distance
-                        self.period_plot(self.t_moon_up,
-                                         ax=ax[2], color="tab:orange",
-                                         alpha=0.2, tag="Moon veto")
-                        ax[2].grid("both", ls="--", alpha=0.5)
-                        ax[2].axhline(y=self.moon_mindist,
-                                      color="purple", ls=":",
-                                      alpha=1, label="Min. distance")
-
-                        axx = ax[2].twinx()
-                        moonlight_plot(tobs, ax=axx)  # Brightness
-                        # Phase (correlated to Brightness)
-                        # moonphase_plot(tobs,ax=axx)
-
-                        axx.axhline(y=self.moon_maxlight,
-                                    color="tab:orange", ls=":",
-                                    label="Max. illumination")
-
-            # ## Nights on all plots
-            for axis in ax:
-                if len(self.t_twilight) != 0:
-                    self.period_plot(self.t_twilight,
-                                     ax=axis, color="black",
-                                     alpha=0.1, tag="Night")
-
-            # ## Visibility windows - if the GRB is visible
-            if self.vis:
-                for axis in ax:
-                    if len(self.t_true) != 0:
-                        self.period_plot(self.t_true,
-                                         ax=axis,
-                                         color="tab:green",
-                                         color2="red",
-                                         tag=["Start", "Stop"])
-
-            # Reduce legends on all plots
-            import collections
-            for axis in ax:
-                handles, labels = axis.get_legend_handles_labels()
-                by_label = collections.OrderedDict(zip(labels, handles))
-                axis.legend(by_label.values(), by_label.keys(),
-                            loc='center left', bbox_to_anchor=(1.1, 0.5),
-                            fontsize=12)
-
-            axis = ax[nrows-1]
-
-            axis.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
-            axis.set_xlabel("Date (DD-HH:MM) UTC")
-            axis.tick_params(axis='x', rotation=45)
-            axis.set_xlabel("Date")
-            axis.grid("both", ls="--", alpha=0.5)
-            axis.set_xlim([min(tobs).datetime, max(tobs).datetime])
-
-        fig.tight_layout(h_pad=0, w_pad=0)
-
-        return fig
-
-    # ##-----------------------------------------------------------------------
     def plot(self,
              grb,
-             moon=True,
+             moon=False,
              ax=None,
              dt_before=0.25*u.day,  # Before trigger
              dt_after=0.25*u.day,   # After visibility window
-             nalt=250):
+             nalt=1000):
         """
         Plot the night, above-the-horizon and visibility periods, the altitude
         evolution with time as well as a lightcurve for a fixed reference
@@ -1427,20 +1276,16 @@ class Visibility():
 
         """
 
-        from niceplot import single_legend
-
-        if moon:
+        if moon:  # 2 plots
             ratio = {'height_ratios': [3, 1]}
-            nrows = 2
             ysize = 8
-        else:
+            fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True,
+                                   gridspec_kw=ratio, figsize=(12, ysize))
+        else:  # 1 plot
             ratio = {'height_ratios': [1]}
-            nrows = 1
             ysize = 6
-
-        fig, ax = plt.subplots(nrows=nrows, ncols=1, sharex=True,
-                               gridspec_kw=ratio,
-                               figsize=(12, ysize))
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, ysize))
+            ax = [ax]
 
         with warnings.catch_warnings() and quantity_support():
             warnings.filterwarnings("ignore")
@@ -1457,8 +1302,7 @@ class Visibility():
 
             # Altitude versus time
             grb.plot_altitude(tobs, site=self.site, ax=ax[0])
-            ax[0].set_title(self.name)
-            ax[0].grid("both", ls="--", alpha=0.5)
+            ax[0].set_title(self.name + " - " + grb.t_trig.iso)
 
             # Minimal altitude
             ax[0].axhline(y=self.altmin.value,
@@ -1513,7 +1357,7 @@ class Visibility():
             # ## Visibility windows on all plots - if the GRB is visible
             # ##--------------------------
             if self.vis:
-                for axis in ax:
+                for axis in fig.axes:
                     if len(self.t_true) != 0:
                         self.period_plot(self.t_true,
                                          ax=axis, color="tab:green",
@@ -1523,7 +1367,7 @@ class Visibility():
             # ## Nights on all plot
             # ##--------------------------
             if len(self.t_twilight) != 0:
-                for axis in ax:
+                for axis in fig.axes:
                     self.period_plot(self.t_twilight,
                                      ax=axis, color="black", alpha=0.1,
                                      tag="Night")
@@ -1536,18 +1380,31 @@ class Visibility():
         for axis in fig.axes:
             axis.tick_params(direction="in", which="both")
 
+        # Secondary ticks
+        for axis in ax:
+            # Ticks
+            axis.xaxis.set_minor_locator(AutoMinorLocator(6))  # n-1 ticks
+            axis.yaxis.set_minor_locator(AutoMinorLocator(4))  # n-1 ticks
+            axis.tick_params(which='minor', length=4)
+
+            # Grid
+            axis.grid(which="major", ls="-", alpha=1.0, lw=1, axis="x")
+            axis.grid(which="major", ls="-", alpha=1.0, axis="y")
+            axis.grid(which="minor", ls=":", alpha=0.5, axis="both")
+
         # Group legend labels into a single box, without repetition
         single_legend(fig,
                       loc='center left',
                       bbox_to_anchor=(1.02, 0.5),
                       fontsize=12)
 
-        # Display dates on x-axis
-        axis = ax[nrows-1]
+        # Display dates on last x-axis
+        axis = ax[-1]
 
-        axis.xaxis.set_major_formatter(mdates.DateFormatter('%d-%H:%M'))
+        axis.xaxis.set_major_formatter(mdates.DateFormatter('%d - %H:%M'))
         axis.set_xlabel("Date (DD-HH:MM) UTC")
-        axis.tick_params(axis='x', rotation=45)
+        for label in axis.get_xticklabels(which='major'):
+            label.set(rotation=45, horizontalalignment='right')
         axis.set_xlabel("Date")
         axis.set_xlim([min(tobs).datetime, max(tobs).datetime])
 
@@ -1607,7 +1464,7 @@ if __name__ == "__main__":
     """
     import seaborn as sns
     # Bigger texts and labels
-    sns.set_context("notebook")  # poster, talk, notebook, paper
+    sns.set_context("paper")  # poster, talk, notebook, paper
 
     # Complies with gamapy 1.2 installation
     import os
@@ -1623,7 +1480,7 @@ if __name__ == "__main__":
 
     # Read default configuration
     cf = Configuration()
-    cf.find_and_read()
+    cf.find_and_read(name="data/config_ref_1000.yaml")
 
     # Supersede some parameters
     cf.prompt_dir = None
@@ -1651,7 +1508,7 @@ if __name__ == "__main__":
                                       prompt=cf.prompt_dir,
                                       ebl="dominguez")
 
-        # If the grb date is changed, start and stop shall be changed too
+        # # If the grb date is changed, start and stop shall be changed too
         print(" >>>> ", grb.t_trig)
         tnew = {357: "2028-03-18T00:57:37",
                 355: "2028-01-26T05:00:49",
@@ -1669,7 +1526,7 @@ if __name__ == "__main__":
         for loc in ["North", "South"]:
             grb.set_visibility(item, loc, info=visinfo)
             grb.vis[loc].print(log)
-            grb.vis[loc].plot(grb)
+            grb.vis[loc].plot(grb, moon=False)
 
     log.close()
 
