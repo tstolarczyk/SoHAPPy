@@ -10,11 +10,14 @@ prepare the data for analysis.
 import warnings
 
 import sys
-import numpy as np
+import os
 import time
 import pickle
+from pathlib import Path
+import itertools
 
-import gammapy
+import numpy as np
+
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from regions import CircleSkyRegion
@@ -25,13 +28,8 @@ import mcsim_config as mcf
 from dataset_tools import check_dataset
 
 from gammapy.utils.random import get_random_state
-from gammapy.maps import RegionNDMap, MapAxis
-if gammapy.__version__ > "1":
-    from gammapy.maps import RegionGeom
-
-# Bigger texts and labels
-import seaborn as sns
-sns.set_context("poster")  # talk, notebook, paper
+from gammapy.maps import MapAxis
+from gammapy.maps import RegionGeom
 
 # Avoid deprecation Astropy warnings in gammapy.maps
 with warnings.catch_warnings():
@@ -59,6 +57,11 @@ class MonteCarlo():
                  nosignal=False,
                  seed='random-seed',
                  name="Unknown",
+                 emin=None,
+                 emax=None,
+                 edense=False,
+                 tmin=None,
+                 tmax=None,
                  dbg=0):
         """
         Initialize class members to default values
@@ -102,6 +105,15 @@ class MonteCarlo():
         # The random state is reinitialised here and would lead to the
         # same sequence for all GRB if the seed is a fixed number
         self.rnd_state = get_random_state(seed)
+
+        # Energy boundaries for specific studies
+        self.emin = emin if emin is not None else -np.inf
+        self.emax = emax if emax is not None else np.inf
+        self.edense = edense
+
+        # Time boundaries for specific studies
+        self.tmin = tmin if tmin is not None else 0*u.s
+        self.tmax = tmax if tmax is not None else 30*u.d
 
         # Data set list
         # Not a `Datasets` object, just my own list so far
@@ -149,7 +161,6 @@ class MonteCarlo():
     # ##-----------------------------------------------------------------------
     def run(self, slot, ana,
             boost=True,
-            savedset=False,
             dump_dir=None):
         """
         Run simulations of the current grb for a given site.
@@ -167,8 +178,6 @@ class MonteCarlo():
         boost : Boolen, optional
             If True, skip simulations if the firsts are not detected.
             The default is True.
-        savedset : Boolean, optional
-            If True, save the dataset to disk. The default is False.
         dump_dir : String, optional
             If defined, will dump information on problematic slices to a text
             file. The default is None.
@@ -284,8 +293,7 @@ class MonteCarlo():
                     if header:
                         print()
                     header = check_dataset(ds,
-                                           deeper=(True if self.dbg > 3
-                                                   else False),
+                                           deeper=(self.dbg > 3),
                                            masked=True,
                                            show_header=header)
 
@@ -339,8 +347,8 @@ class MonteCarlo():
             discussions with Gammapy developpers on the Gammapy slack channel
             (Nov. 2:sup:nd, 2020).
             Note that the :obj:`mask_safe` is not considered in the printout or
-            peek functions and has to be obtained by hand (Could be corrected in
-            further versions): this is implemented in the
+            peek functions and has to be obtained by hand (Could be corrected
+            in further versions): this is implemented in the
             :func:`dataset_tools.check_dataset`  function.
 
             *Discussion on masking binning with A. Donath, dec. 3rd, 2020*
@@ -361,40 +369,41 @@ class MonteCarlo():
             unbinned likelihood case. Only for flux points computation, e.g.
             to get a significant point at high energies, bin should have enough
             statistics. This can be done since v0.18.2 using
-            :obj:`SpectrumDatasetOnOff.resample_energy_axis()` to re-group the data
-            before model fitting*
+            :obj:`SpectrumDatasetOnOff.resample_energy_axis()` to re-group the
+            data before model fitting*
 
         * A word on stacking
             In order to be stacked, datasets should be based on the same
             energy axis, which is indeed implemented in SoHAPPy.
-            Two observation have usually different IRfs, and in particular energy
-            thresholds. The thresholds are take into account by masking, as
-            mentionned aboce.
+            Two observation have usually different IRfs, and in particular
+            energy thresholds. The thresholds are take into account by masking,
+            as mentionned above.
             Stacking in gammapy is intended to merge observations that were to
             large in data volue to be handled together, and or to sum-up
-            consecutive observations of the same object. Stacking 2 observations
-            results in a longer observation with the same model, in particular the
-            same zspectral model, with an observation livetime being the sum of the
-            two initial observation livetime. It is not intended to sum-ip two
-            observations done at the same time, with the same livetime.
+            consecutive observations of the same object. Stacking 2
+            observations results in a longer observation with the same model,
+            in particular the same spectral model, with an observation livetime
+            being the sum of the two initial observation livetimes.
+            It is not intended to sum-up two observations done at the same
+            time, with the same livetime.
             As a consequence the gammapy stacking cannot be used to "merge"
             the simultaneous observations of two sites. This would result in a
-            livetime larger than the simultaneous observations and would therefore
-            shift the observation times in the consecutive time slices.
-            There was a tentative to modify this in reducing the livetime
-            ds_stacked.livetime /= 2, and multiplying the attached spectrum by 2
-            to keep the predicted count number coherent. But this causes problems
-            later in the analysis.
+            livetime larger than the simultaneous observations and would
+            therefore shift the observation times in the consecutive time
+            slices. There was a tentative to modify this in reducing the
+            livetime ds_stacked.livetime /= 2, and multiplying the attached
+            spectrum by 2 to keep the predicted count number coherent. But this
+            causes problems later in the analysis.
             As a consequence, it is chosen to keep track of each observation
             identity, having a dataset for each time slice on a given site, and
             two datasets for slice in common on two sites (or more).
-            The aperture photometry nalysis then simply adds-up the cont numbers
-            from the two sites, whereas the spectrum extraction handles the
-            situation outside the simulation code, in a separate notebook.
+            The aperture photometry nalysis then simply adds-up the cont
+            numbers from the two sites, whereas the spectrum extraction handles
+            the situation outside the simulation code, in a separate notebook.
 
         * Saving datasets
-            The choice made here is to save the simulation to disk as a bin file
-            which has the advantage to have all information saved.
+            The choice made here is to save the simulation to disk as a bin
+            file which has the advantage to have all information saved.
             An alternative is to save the dataset list only.
 
             *Discussion on the  slack channel with A. Donath (Nov. 27th, 2020)*
@@ -410,11 +419,15 @@ class MonteCarlo():
 
             path = "$GAMMAPY_DATA/joint-crab/spectra/hess/"
 
-            obs_1 = SpectrumDatasetOnOff.from_ogip_files(path + "pha_obs23523.fits")
-            obs_2 = SpectrumDatasetOnOff.from_ogip_files(path + "pha_obs23592.fits")
+            obs_1 = SpectrumDatasetOnOff
+                    .from_ogip_files(path + "pha_obs23523.fits")
+            obs_2 = SpectrumDatasetOnOff
+                    .from_ogip_files(path + "pha_obs23592.fits")
 
-            model_1 = SkyModel(PowerLawSpectralModel(), name="model-1", datasets_names=[obs_1.name])
-            model_2 = SkyModel(PowerLawSpectralModel(), name="model-2", datasets_names=[obs_2.name])
+            model_1 = SkyModel(PowerLawSpectralModel(), name="model-1",
+                               datasets_names=[obs_1.name])
+            model_2 = SkyModel(PowerLawSpectralModel(), name="model-2",
+                               datasets_names=[obs_2.name])
             obs_1.models = [model_1]
             obs_2.models = [model_2]
             datasets = Datasets([obs_1, obs_2])
@@ -433,24 +446,24 @@ class MonteCarlo():
                 spectral:
                     type: PowerLawSpectralModel
                     parameters:
-                    - {name: index, value: 2.0, unit: '', min: .nan, max: .nan, frozen: false,
-                        error: 0}
-                    - {name: amplitude, value: 1.0e-12, unit: cm-2 s-1 TeV-1, min: .nan, max: .nan,
-                        frozen: false, error: 0}
-                    - {name: reference, value: 1.0, unit: TeV, min: .nan, max: .nan, frozen: true,
-                        error: 0}
+                    - {name: index, value: 2.0, unit: '', min: .nan, max: .nan,
+                       frozen: false, error: 0}
+                    - {name: amplitude, value: 1.0e-12, unit: cm-2 s-1 TeV-1,
+                       min: .nan, max: .nan, frozen: false, error: 0}
+                    - {name: reference, value: 1.0, unit: TeV, min: .nan,
+                       max: .nan, frozen: true, error: 0}
                 datasets_names: ['23523']
             -   name: model-2
                 type: SkyModel
                 spectral:
                     type: PowerLawSpectralModel
                     parameters:
-                    - {name: index, value: 2.0, unit: '', min: .nan, max: .nan, frozen: false,
-                        error: 0}
-                    - {name: amplitude, value: 1.0e-12, unit: cm-2 s-1 TeV-1, min: .nan, max: .nan,
-                        frozen: false, error: 0}
-                    - {name: reference, value: 1.0, unit: TeV, min: .nan, max: .nan, frozen: true,
-                        error: 0}
+                    - {name: index, value: 2.0, unit: '',
+                       min: .nan, max: .nan, frozen: false, error: 0}
+                    - {name: amplitude, value: 1.0e-12, unit: cm-2 s-1 TeV-1,
+                       min: .nan, max: .nan, frozen: false, error: 0}
+                    - {name: reference, value: 1.0, unit: TeV, min: .nan,
+                       max: .nan, frozen: true, error: 0}
                 datasets_names: ['23592']
             covariance: test/test_models_covariance.dat
 
@@ -521,24 +534,28 @@ class MonteCarlo():
                 # Use the Optimised binning
                 # There is a bug in 0.17 (unit not taken into account
                 # correctly) preventig from simply writing
-                # erec_axis = MapAxis.from_edges(erec_edges,name="energy")
-                e_reco = MapAxis\
-                         .from_edges(mcf.erec_edges[array].to("TeV").value,
-                                     unit="TeV",
-                                     name="energy",
-                                     interp="log")
+                # erec_axis = MapAxis.from_edges(erec_edges, name="energy")
+                if self.edense:
+                    e_rec = mcf.erec_spectral.to("TeV").value
+                else:
+                    e_rec = mcf.erec_sparse.to("TeV").value
+
+                e_reco = MapAxis.from_edges(e_rec,
+                                            unit="TeV",
+                                            name="energy",
+                                            interp="log")
                 e_true = perf.etrue
 
-                if gammapy.__version__ < "1.2":
-                    ds_empty = SpectrumDataset.create(e_reco=e_reco,
-                                                      e_true=e_true,
-                                                      region=on_region,
-                                                      name=ds_name)
-                else:
-                    geom = RegionGeom.create(region=on_region, axes=[e_reco])
-                    ds_empty = SpectrumDataset.create(geom=geom,
-                                                      energy_axis_true=e_true,
-                                                      name=ds_name)
+                # gammapy.__version__ < "1.2":
+                # ds_empty = SpectrumDataset.create(e_reco=e_reco,
+                #                                   e_true=e_true,
+                #                                   region=on_region,
+                #                                   name=ds_name)
+
+                geom = RegionGeom.create(region=on_region, axes=[e_reco])
+                ds_empty = SpectrumDataset.create(geom=geom,
+                                                  energy_axis_true=e_true,
+                                                  name=ds_name)
 
                 maker = SpectrumDatasetMaker(
                         selection=["exposure", "background", "edisp"])
@@ -553,22 +570,22 @@ class MonteCarlo():
                 # energy, which is certainly not the case at the lowest
                 # energies. Maybe this could desserve a specific study.
 
-                if gammapy.__version__ < "1.2":
-                    # This returns a list of infividual quantities,
-                    # [1°, 2.2°, 4°], initially within a list (i.e. [[a,b,c]],
-                    # thus justifying taking the first element)
-                    radii = perf.irf['psf']\
-                            .containment_radius(energy=e_reco.center,
-                                                theta=mcf.offset[array],
-                                                fraction=mcf.containment)[0]
-                else:
-                    radii = perf.irf['psf']\
+                # gammapy.__version__ < "1.2":
+                # This returns a list of infividual quantities,
+                # [1°, 2.2°, 4°], initially within a list (i.e. [[a,b,c]],
+                # thus justifying taking the first element)
+                #     radii = perf.irf['psf']\
+                #             .containment_radius(energy=e_reco.center,
+                #                                 theta=mcf.offset[array],
+                #                                 fraction=mcf.containment)[0]
+
+                radii = perf.irf['psf']\
                             .containment_radius(energy_true=e_reco.center,
                                                 offset=mcf.offset[array],
                                                 fraction=mcf.containment)
 
                 # Angle computation in numpy:
-                # The containment radius return an astropy Qauntity in degree.
+                # The containment radius return an astropy Quantity in degree.
                 # It can be checked that numpy handles correctly the conversion
                 # to radian (i.e. np.cos(180*u.deg ) returns the dimensionless
                 # Quantity -1). If this would not have been the case, the
@@ -603,14 +620,17 @@ class MonteCarlo():
                 ds.background.data *= factor.value.reshape((-1, 1, 1))
                 ds.models = model
                 mask = ds.mask_safe.geom\
-                    .energy_mask(energy_min=mcf.erec_min[array][kzen],
-                                 energy_max=mcf.erec_max[kzen])
+                    .energy_mask(energy_min=max(mcf.erec_min[array][kzen],
+                                                min(e_reco.edges)),
+                                 energy_max=min(mcf.erec_max[kzen],
+                                                max(e_reco.edges))
+                                 )
 
                 mask = mask & ds.mask_safe.data
-                if gammapy.__version__ <= "0.18.2":
-                    ds.mask_safe = RegionNDMap(ds.mask_safe.geom, data=mask)
-                else:
-                    ds.mask_safe = mask
+                # gammapy.__version__ <= "0.18.2":
+                #    ds.mask_safe = RegionNDMap(ds.mask_safe.geom, data=mask)
+
+                ds.mask_safe = mask
                 dset_site.append(ds)
 
             dset_list.append(dset_site)
@@ -644,7 +664,7 @@ class MonteCarlo():
         elif self.mcerr > 0 and self.mcerr != self.niter:
             message = f"Aborted at trial {self.mcerr:>3d}"
         else:
-            message = "Successful ({:5.3f} s)".format(self.mctime)
+            message = f"Successful ({self.mctime:5.3f} s)"
 
         log.prt("+" + 14*"-" + "+" + 49*"-" + "+")
         log.prt("| Simulation   |  ===> ", end="")
@@ -680,18 +700,17 @@ class MonteCarlo():
 
         if phase == "open":
             # Open output file
-            from pathlib import Path
-            name = self.slot.grb.id+"-" + self.slot.site + "_slices.txt"
+            name = self.slot.grb.id + "-" + self.slot.site + "_slices.txt"
             name = Path(Path(kwargs["dir"]), name)
-            fslice = open(name, "w")
+            with open(name, "w", encoding="utf-8") as fslice:
 
-            print("{:9s}".format("iMC / dt"), end="", file=fslice)
+                print(f"{'iMC / dt':9s}", end="", file=fslice)
 
-            dt_cumul = 0*u.s
-            for s in self.slot.slices:
-                dt_cumul += s.ts2()-s.ts1()
-                print("{:12.1f}".format(dt_cumul), end="", file=fslice)
-            print(file=fslice)  # Line feed
+                dt_cumul = 0*u.s
+                for s in self.slot.slices:
+                    dt_cumul += s.ts2() - s.ts1()
+                    print(f"{dt_cumul:12.1f}", end="", file=fslice)
+                print(file=fslice)  # Line feed
 
             print("   ---", name, " opened - header written")
             return (fslice, name)
@@ -702,15 +721,14 @@ class MonteCarlo():
             print("   --- Slice file closed")
             if kwargs["dump"] is False:
                 # If no anaomaly detected ever, delete file
-                import os
                 os.remove(kwargs["name"])
                 print("   --- No anomaly - file deleted")
-            return
+            return None
 
         else:  # Print slice features
             status = False
             fslice = kwargs["file"]
-            [non, noff, sigma] = kwargs["data"]
+            [non, noff, _] = kwargs["data"]
 
             # Check if non or noff below limit
             badon = np.where(non < mcf.nLiMamin)
@@ -725,11 +743,10 @@ class MonteCarlo():
 
             # Dump
             for name in ["non", "noff", "sigma"]:
-                d = eval(name)
-                print("{:3d} {:5s}".format(kwargs["iMC"], name), end="",
-                      file=fslice)
+                d = globals()[name]  # Gives value for the name
+                print(f"{kwargs['iMC']:3d} {name:5s}", end="", file=fslice)
                 for x in d:
-                    print("{:14.1f}".format(x.item()), end="", file=fslice)
+                    print(f"{x.item():14.1f}", end="", file=fslice)
                 print(file=fslice)
 
             return status
@@ -754,9 +771,8 @@ class MonteCarlo():
         if filename is None:
             sys.exit("Output file not defined)")
 
-        outfile = open(filename, "wb")
-        pickle.dump(self, outfile)
-        outfile.close()
+        with open(filename, "wb") as outfile:
+            pickle.dump(self, outfile)
 
         print(f" Saving simulation to file : {filename}")
 
@@ -776,7 +792,6 @@ class MonteCarlo():
         None.
 
         """
-        import itertools
 
         # sys.exit("{}.py: plot_onetrial to be reimplemented",__name__)
 
