@@ -10,12 +10,12 @@ import os
 from pathlib import Path
 import astropy.units as u
 
-__all__ = ["t_str", "t_fmt","heading","textcol",
-           "warning","failure","success","highlight","banner", "Log"]
+__all__ = ["t_str", "t_fmt", "heading", "textcol",
+           "warning", "failure", "success", "highlight", "banner", "Log"]
 
-#------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 def t_str(t, digit=2):
-
     """
     Transform a time quantity into a string (used for plot labels).
 
@@ -34,9 +34,10 @@ def t_str(t, digit=2):
     """
 
     t = t_fmt(t)
-    return str( round(t.value,digit)) +" "+ str(t.unit)
+    return str(round(t.value, digit)) + " " + str(t.unit)
 
-#------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 def t_fmt(t, digit=None):
     """
     A utility to have reasonable duration format displayed.
@@ -55,7 +56,7 @@ def t_fmt(t, digit=None):
 
     # Get and format livetimes
     t = t.to(u.s)
-    if   t.value > 1.5*3600*24:
+    if t.value > 1.5*3600*24:
         t = t.to(u.d)
     elif t.value > 1.5*3600:
         t = t.to(u.h)
@@ -63,13 +64,13 @@ def t_fmt(t, digit=None):
         t = t.to(u.min)
 
     if digit is not None:
-        return round(t.value,digit)*t.unit
+        return round(t.value, digit)*t.unit
 
     return t
 
-###----------------------------------------------------------------------------
-def heading(title, deco="-"):
 
+# ##---------------------------------------------------------------------------
+def heading(title, deco="-"):
     """
     Display a centered heading with 2 decorated lines above and below a title
 
@@ -89,9 +90,9 @@ def heading(title, deco="-"):
     print(f"+{title:^78s}+")
     print(f"+{78*deco:78s}+\n")
 
-###----------------------------------------------------------------------------
-def textcol(text,t="black",b="white",s=None):
 
+# ##----------------------------------------------------------------------------
+def textcol(text, t="black", b="white", s=None):
     """
     Change text color.
     See:
@@ -132,19 +133,19 @@ def textcol(text,t="black",b="white",s=None):
 
     """
 
-    color = {"black" :"0",
-             "red"   :"1",
-             "green" :"2",
-             "yellow":"3",
-             "blue"  :"4",
-             "purple":"5",
-             "cyan"  :"6",
-             "white" :"7"}
-    style = {"normal"   :"0",
-             "bold"     :"1",
-             "underline":"2",
-             "negative1":"3",
-             "negative2":"5"}
+    color = {"black": "0",
+             "red": "1",
+             "green": "2",
+             "yellow": "3",
+             "blue": "4",
+             "purple": "5",
+             "cyan": "6",
+             "white": "7"}
+    style = {"normal": "0",
+             "bold": "1",
+             "underline": "2",
+             "negative1": "3",
+             "negative2": "5"}
 
     code = "\033["
     if s is not None:
@@ -158,7 +159,8 @@ def textcol(text,t="black",b="white",s=None):
 
     return code+text+endcode
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def warning(text, **kwarg):
     """
     Display a warning message
@@ -175,9 +177,10 @@ def warning(text, **kwarg):
     None.
 
     """
-    print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
+    print(textcol(text, t="purple", b="white", s="bold"), **kwarg)
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 def failure(text, **kwarg):
     """
     Display a failure message
@@ -194,10 +197,11 @@ def failure(text, **kwarg):
     None.
 
     """
-    print(textcol(text,t="red",s="bold"),**kwarg)
+    print(textcol(text, t="red", s="bold"), **kwarg)
 
-###----------------------------------------------------------------------------
-def success(text,**kwarg):
+
+# ##---------------------------------------------------------------------------
+def success(text, **kwarg):
     """
     Display a success message.
 
@@ -213,10 +217,11 @@ def success(text,**kwarg):
     None.
 
     """
-    print(textcol(text,t="green", b="black",s="bold"),**kwarg)
+    print(textcol(text, t="green", b="black", s="bold"), **kwarg)
 
-###----------------------------------------------------------------------------
-def highlight(text,**kwarg):
+
+# ##---------------------------------------------------------------------------
+def highlight(text, **kwarg):
     """
     Display a failure message
 
@@ -232,10 +237,11 @@ def highlight(text,**kwarg):
     None.
 
     """
-    print(textcol(text,s="bold"),**kwarg)
+    print(textcol(text, s="bold"), **kwarg)
 
-###----------------------------------------------------------------------------
-def banner(text,**kwarg):
+
+# ##---------------------------------------------------------------------------
+def banner(text, **kwarg):
     """
     Display a banner message
 
@@ -251,9 +257,10 @@ def banner(text,**kwarg):
     None.
 
     """
-    print(textcol(text,t="black",b="yellow",s="bold"),**kwarg)
+    print(textcol(text, t="black", b="yellow", s="bold"), **kwarg)
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 class Log():
 
     """
@@ -261,9 +268,8 @@ class Log():
 
     """
 
-    ###------------------------------------------------------------------------
-    def __init__(self, log_name = None, talk = True):
-
+    # ##-----------------------------------------------------------------------
+    def __init__(self, log_name=None, talk=True):
         """
         Initialize the log book, with display either on Screen or in a log
         file, or both
@@ -281,17 +287,16 @@ class Log():
 
         """
 
-        self.write = False # Disable print out to file
-        self.talk  = talk  # Enbale/disable print out on screen
+        self.write = False  # Disable print out to file
+        self.talk = talk  # Enbale/disable print out on screen
         self.log_file = None
-
 
         if log_name is not None:
 
-            log_name = Path(log_name) # In case this would not be a Path
+            log_name = Path(log_name)  # In case this would not be a Path
 
             try:
-                self.log_file = open(log_name,'w')
+                self.log_file = open(log_name, 'w')
             except IOError:
                 print(f"Failure opening {log_name}: locked?")
 
@@ -307,7 +312,7 @@ class Log():
         # if not name.absolute().parent.exists(): # Check folder exists
         #     name.absolute().parent.mkdir(parents=True, exist_ok=True)
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def close(self, delete=False):
 
         if self.write:
@@ -317,53 +322,54 @@ class Log():
         else:
             warning("No log file opened - cannot close")
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def prt(self, text, func=print, **kwarg):
 
         if self.talk:
-            func(text,**kwarg)
+            func(text, **kwarg)
         if self.write is True:
-            func(text,**kwarg,file=self.log_file)
+            func(text, **kwarg, file=self.log_file)
 
-    ###------------------------------------------------------------------------
-    def warning(self,text,**kwarg):
+    # ##-----------------------------------------------------------------------
+    def warning(self, text, **kwarg):
         if self.talk:
             warning(text)
             # print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
         if self.write is True:
-            print("*** WARNING *** "+text,**kwarg,file=self.log_file)
+            print("*** WARNING *** "+text, **kwarg, file=self.log_file)
 
-    ###------------------------------------------------------------------------
-    def failure(self,text,**kwarg):
+    # ##-----------------------------------------------------------------------
+    def failure(self, text, **kwarg):
         if self.talk:
             failure(text, **kwarg)
         if self.write is True:
-            print("*** FAILURE *** "+text,**kwarg,file=self.log_file)
+            print("*** FAILURE *** "+text, **kwarg, file=self.log_file)
 
-    ###------------------------------------------------------------------------
-    def success(self,text,**kwarg):
+    # ##-----------------------------------------------------------------------
+    def success(self, text, **kwarg):
         if self.talk:
-            print(textcol(text,t="green", b="black",s="bold"),**kwarg)
+            print(textcol(text, t="green", b="black", s="bold"), **kwarg)
         if self.write is True:
-            print("*** SUCCESS *** "+text,**kwarg,file=self.log_file)
+            print("*** SUCCESS *** "+text, **kwarg, file=self.log_file)
 
-    ###------------------------------------------------------------------------
-    def highlight(self,text,**kwarg):
+    # ##-----------------------------------------------------------------------
+    def highlight(self, text, **kwarg):
         if self.talk:
-            print(textcol(text,s="bold"),**kwarg)
+            print(textcol(text, s="bold"), **kwarg)
         if self.write is True:
-            print("*** LOOK ! *** "+text,**kwarg,file=self.log_file)
+            print("*** LOOK ! *** "+text, **kwarg, file=self.log_file)
 
-    ###------------------------------------------------------------------------
-    def banner(self,text,**kwarg):
+    # ##-----------------------------------------------------------------------
+    def banner(self, text, **kwarg):
         if self.talk:
-            print(textcol(text,t="black",b="yellow",s="bold"),**kwarg)
+            print(textcol(text, t="black", b="yellow", s="bold"), **kwarg)
         if self.write is True:
-            print(" **** " + text + " *** ",**kwarg,file=self.log_file)
+            print(" **** " + text + " *** ", **kwarg, file=self.log_file)
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 if __name__ == "__main__":
     log = Log()
-    log.failure("test failure",end="\n")
+    log.failure("test failure", end="\n")
     log.failure("test 2 failure")
-    log.close(delete = True)
+    log.close(delete=True)
