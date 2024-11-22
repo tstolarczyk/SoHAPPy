@@ -13,7 +13,8 @@ from irf import IRF
 
 __all__ = ["Slice"]
 
-###----------------------------------------------------------------------------
+
+# ##---------------------------------------------------------------------------
 class Slice():
     """
     A (time) slice is a time window associated to a physical flux, an
@@ -25,8 +26,9 @@ class Slice():
     these various hypothesis highly depends on the slice length and how the
     flux varies in the slice.
     """
-    #--------------------------------------------------------------------------
-    def __init__(self,idt, t1, t2, site="?"):
+
+    # -------------------------------------------------------------------------
+    def __init__(self, idt, t1, t2, site="?"):
         """
         This defines a so called naked slice. It has no physical information
         defined.
@@ -54,13 +56,13 @@ class Slice():
 
         """
 
-        self.__idt    = idt       # Slice identifier
-        self.__ts1    = t1        # Slice start
-        self.__ts2    = t2        # Slice stop
-        self.__tobs   = 0*u.s     # Observation point
-        self.__f_id   = -1        # Spectrum slice id in the grb object
-        self.__irf    = []        # Detector IRFs at obs. point
-        self.__site   = site      # Sites North, South, Both
+        self.__idt = idt       # Slice identifier
+        self.__ts1 = t1        # Slice start
+        self.__ts2 = t2        # Slice stop
+        self.__tobs = 0*u.s     # Observation point
+        self.__f_id =  -1        # Spectrum slice id in the grb object
+        self.__irf =   []        # Detector IRFs at obs. point
+        self.__site =  site      # Sites North, South, Both
 
     #--------------------------------------------------------------------------
     def idt(self) :
@@ -214,17 +216,17 @@ class Slice():
 
         """
         self.obs_point(opt)
-        self.get_flux(grb,self.__tobs)
-        self.get_perf(grb, irf_dir= irf_dir, arrays=arrays, zenith=zenith)
+        self.get_flux(grb, self.__tobs)
+        self.get_perf(grb, irf_dir=irf_dir, arrays=arrays, zenith=zenith)
 
-    #------------------------------------------------------------
+    # ------------------------------------------------------------
     def merge(self, next_slice):
         # Set end time of current slice to end time of another slce
         # Leaves the rest unchanged
         self.__ts2 = next_slice.ts2()
         self.__tobs = next_slice.tobs()
 
-    #------------------------------------------------------------
+    # ------------------------------------------------------------
     def obs_point(self, opt):
         """
         Get the observation point time depending on where the flux will be
@@ -242,7 +244,7 @@ class Slice():
 
         """
 
-        if   opt == "end":
+        if opt == "end":
             self.__tobs = self.__ts2
         elif opt == "start":
             self.__tobs = self.__ts1
@@ -251,10 +253,10 @@ class Slice():
         elif opt == "interp":
             self.__tobs = self.__ts2
         else:
-            self.__tobs=0*(self.__ts1.unit)
+            self.__tobs = 0*(self.__ts1.unit)
 
-    #------------------------------------------------------------
-    def get_flux(self,grb,t):
+    # -----------------------------------------------------------
+    def get_flux(self, grb, t):
         """
         Compute the flux to be associated to a given  time.
         So far get the flux at the closest measurement point.
