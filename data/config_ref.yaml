@@ -2,12 +2,12 @@
 #                         SoHAPPY reference Configuration file
 #=============================================================================#
 # This YAML file contains the steering parameters of SoHAPPy.
-# True and False are equivalent to python, whereas python None is coded as Null
-# Some parameter values can be superseded by the command line they are
+# True and False are equivalent to python, whereas python None is coded as
+# Null. Some parameter values can be superseded by the command line they are
 # indicated with an asterisk (*)
 # This file contains some values corresponding to the first reference studies
 # made with SoHAPPy. It is intended to processa a few files with the most
-# common options, including a informative messages. It can pe copied and
+# common options, including informative messages. It can pe copied and
 # adapted to other cases.
 #=============================================================================#
 # PHYSICS PARAMETERS
@@ -31,19 +31,13 @@
 #              Use "in-file" for the absorbed data in the input file (if any)
 # maxnight*  : Limit GRB data to a maximal number of nights
 # skip*      : Skip the first nights
-# emax       : Limit GRB data energy bins to Emax
-# tmax       : Limit GRB lightcurve in time to tmax
-
 #-----------------------------------------------------------------------------#
 ifirst      : 1 #"190114C"  "221009A" [980, 465, 785,343]
-nsrc        : 1
+nsrc        : 5
 visibility  : "strictmoonveto" #"built-in" #
 ebl_model   : "dominguez" #"gilmore"
 maxnight    : Null
 skip        : Null
-emax        : Null
-tmax        : Null
-
 #=============================================================================#
 # INPUT/OUPUT
 #-----------------------------------------------------------------------------#
@@ -53,13 +47,15 @@ tmax        : Null
 # irf_dir    : IRF subfolder - should contain a tag for the production used
 # prefix     : String added before the source identifier
 # suffix     : String added after the source id., including the file extension
+# dgt        : source id coding number of digits (add zeroes)
 #-----------------------------------------------------------------------------#
-out_dir      : "test_prod5"
-data_dir     : "lightcurves/long_1_1000/" #""lightcurves/long_ISM_finaltest" #
+out_dir      : "test_new10000_prod5"
+data_dir     : "lightcurves/100k_long_ISM/" #""lightcurves/long_ISM_finaltest" #
 prompt_dir   : Null # "lightcurves/prompt/ctagrbs_spop" # Null
 irf_dir      : "irf/Full/prod5-v0.1"
-prefix       : "Event"
-suffix       : ".fits.gz"
+prefix       : "event_"
+suffix       : "_long_ISM.fits"
+dgt          : 5
 #=============================================================================#
 # SIMULATION PARAMETERS
 #-----------------------------------------------------------------------------#
@@ -78,16 +74,18 @@ do_accelerate   : False
 #=============================================================================#
 # DETECTION PARAMETERS
 #-----------------------------------------------------------------------------#
+# observatory  : observatory keyword, to define the array positions
 # array_North  : IRF subarrays in North (FullArray, MST...)
 # array_South  : IRF subarrays in South (FullArray, MST...)
 # dtslew_North : Maximum slewing time delay in North
 # dtslew_South : Maximum slewing time delay in South
-# fixslew      : If True use ma. slewing value, otherwise a random delay < dtslew
+# fixslew      : If True use slewing value, otherwise a random delay < dtslew
 # dtswift      : Alert latency (e.g. SWIFT latency, with amean value of 77 s)
 # fixswift     : If True, use above value.
 #                If False, latency generated from Swift data
 # swiftfile    : Latency dsitribution data file in the input base folder
 #-----------------------------------------------------------------------------#
+observatory    : "CTAO"
 array_north    : "4LSTs09MSTs"
 array_south    : "14MSTs37SSTs"
 dtslew_north   : "30 s"
@@ -123,6 +121,13 @@ remove_tar   : False
 #-----------------------------------------------------------------------------#
 # det_level      : Detection confidence level
 # alpha          : one over the number of on-off regions
+# elimit         : Limit sepctral data to this maximal value
+# tlimit         : Limit lightcurve data to this limit (ref.: trigger)
+# emin           : Analysis minimal energy - supersede IRF threshold
+# emax           : Analysis Maximal energy - supersed  IRF max. energy
+# edense         : If True, use a denser binning for spectral analysis
+# tmin           : Start analysis beyond this value (passed to Visibility)
+# tmax           : Stop the analysis beyond this value (passed to Visibility)
 # obs_point      : Observation position in the time slice
 # test_prompt    : If True test prompt alone (experimental)
 # use_afterglow  : Prompt characteristics from the afterglow with same id.
@@ -134,6 +139,13 @@ remove_tar   : False
 #-----------------------------------------------------------------------------#
 det_level       : 0.9
 alpha           : 0.2
+elimit          : Null   # Limit sepctral data to this maximal value
+tlimit          : Null   # Limit lightcurve data to this limit (ref.: trigger)
+emin            : Null   # Analysis minimal energy - supersede IRF threshold
+emax            : Null   # Analysis Maximal energy - supersed  IRF max. energy
+edense          : False  # If True, use a denser binning for spectral analysis
+tmin            : Null   # Start analysis beyond this value
+tmax            : Null   # Stop the analysis beyond this value
 obs_point       : "end"  # Observation position in the time slice
 test_prompt     : False  # If True test prompt alone (experimental)
 use_afterglow   : False  # Prompt characteristics from the afterglow with same id.
