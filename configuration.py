@@ -10,6 +10,7 @@ This module is organised around the :class:`Configuration` class.
 import sys
 import os
 import ast
+import json
 
 import argparse
 from pathlib import Path
@@ -25,43 +26,45 @@ from visibility import Visibility
 
 __all__ = ['Configuration']
 
+
 ###############################################################################
 class Configuration():
     """
+    SoHAPPy steering parameters and input/output.
+
     This class handles all the external parameters required to run a simulation
     and the corresponding analysis. It also handles the tools to build the
     input and output folder names, and create the necessary output folders
     if they do not exist.
     """
 
-    ignore    = ["filename","dtslew", "arrays", "dbg", "srclist"]
+    ignore = ["filename", "dtslew", "arrays", "dbg"]
     """Keyword to be ignored when dumping the Configuration class instance to
     a file on disk"""
 
-    quantities = ["dtslew_south","dtslew_north","dtswift"]
+    quantities = ["dtslew_south", "dtslew_north", "dtswift"]
     """ Class members that should be handled as quantities and not strings"""
 
-    def_conf   = Path("data","config_ref.yaml")
+    def_conf = Path("data", "config_ref.yaml")
     """Default configuration file name"""
 
-    ###-----------------------------------------------------------------------
+    # ##----------------------------------------------------------------------
     def __init__(self):
         """
-        Parameter definitions and default values
+        Parameter definitions and default values.
 
         Returns
         -------
         None.
 
         """
-
         self.filename = None
 
-        ### -----------------
-        ### PHYSICS PARAMETERS
-        ### -----------------
-        self.ifirst  = 1  # id to start with, or a list (then nsrc is not used)
-        self.nsrc    = 1  # integer, number of sources to be read
+        # ## -----------------
+        # ## PHYSICS PARAMETERS
+        # ## -----------------
+        self.ifirst = 1  # id to start with, or a list (then nsrc is not used)
+        self.nsrc = 1  # integer, number of sources to be read
 
         # visibility can be :
         # - "built-in" (read from the data file if it exists);
@@ -73,27 +76,26 @@ class Configuration():
 
         # Possible EBL models are from gammapy or Gilmore data on disk.
         self.ebl_model = "dominguez"
-        self.maxnight  = None # Limit data to a maximal number of nights
-        self.skip      = None # Number of first nights to be skipped
-        self.emax      = None # Limit data energy bins to Emax
-        self.tmax      = None # Limit lightcurve time bins to tmax
+        self.maxnight = None  # Limit data to a maximal number of nights
+        self.skip = None  # Number of first nights to be skipped
 
-        ### -----------------
-        ### INPUT/OUPUT
-        ### -----------------
-        self.data_dir   = "lightcurves/LONG_FITS/" #Afterglow subfolder
-        self.out_dir    = "test" # Result subfolder
-        self.prompt_dir = None # Prompt subfolder (if None, not considered)
-        self.irf_dir    = "irf/Full/prod3-v2" # IRF subfolder
-        self.datafile   = "data.txt"   # Population main output file name
-        self.prefix     = "Event" # Prefix file name, followed by a number
-        self.suffix     = "" # Suffix file name, following a number
+        # ## -----------------
+        # ## INPUT/OUPUT
+        # ## -----------------
+        self.data_dir = "lightcurves/long_1_1000/"  # Afterglow subfolder
+        self.out_dir = "test"  # Result subfolder
+        self.prompt_dir = None  # Prompt subfolder (if None, not considered)
+        self.irf_dir = "irf/Full/prod3-v2"  # IRF subfolder
+        self.datafile = "data.txt"  # Population main output file name
+        self.prefix = "Event"  # Prefix file name, followed by a number
+        self.suffix = ""  # Suffix file name, following a number
+        self.dgt = 0  # Add leading zero to have a coding over "dgt" characters
 
-        ### -----------------
-        ### SIMULATION PARAMETERS
-        ### -----------------
-        self.niter = 1 # Number of Monte Carlo trials
-        self.seed  = 2021  # Choose ‘random-seed’ to randomize
+        # ## -----------------
+        # ## SIMULATION PARAMETERS
+        # ## -----------------
+        self.niter = 1  # Number of Monte Carlo trials
+        self.seed = 2021  # Choose ‘random-seed’ to randomize
 
         # If True Statistical fluctuations are enabled,
         # If False niter forced to one
@@ -107,9 +109,9 @@ class Configuration():
         # Observation position in the time slice
         self.obs_point = "end"
 
-        ### -----------------
-        ### DETECTION PARAMETERS
-        ### -----------------
+        # ## -----------------
+        # ## DETECTION PARAMETERS
+        # ## -----------------
 
         # Fraction of trials above significance threshold to declare a
         # detection at that threshold
@@ -118,11 +120,11 @@ class Configuration():
         # Number of on over off regions for detection
         self.alpha = 0.2
 
-        self.observatory  = "CTAO"
-        self.array_north  = "FullArray"  # IRF subarrays in North
-        self.array_south  = "FullArray"  # IRF subarrays in South
-        self.dtslew_north = 30*u.s # Maximum slewing time delay in North
-        self.dtslew_south = 30*u.s # Maximum slewing time delay in South
+        self.observatory = "CTAO"
+        self.array_north = "FullArray"  # IRF subarrays in North
+        self.array_south = "FullArray"  # IRF subarrays in South
+        self.dtslew_north = 30*u.s  # Maximum slewing time delay in North
+        self.dtslew_south = 30*u.s  # Maximum slewing time delay in South
 
         self.dtslew = {"North": self.dtslew_north,
                        "South": self.dtslew_south}
@@ -130,10 +132,10 @@ class Configuration():
                        "South": self.array_south}
 
         # If True use max. slewing value, otherwise a random delay < dtslew
-        self.fixslew  = True
+        self.fixslew = True
 
         # Alert latency (e.g. SWIFT latency, with amean value of 77 s)
-        self.dtswift  = 77*u.s
+        self.dtswift = 77*u.s
 
         # If True, use above value. If False, latency generated from Swift data
         self.fixswift = True
@@ -141,51 +143,65 @@ class Configuration():
         # SWIFT Latency distribution data file in input base folder
         self.swiftfile = "data/swift/Swift_delay_times.txt"
 
-        ### -----------------
-        ### DEBUGGING / BOOKKEEPING
-        ### -----------------
+        # ## -----------------
+        # ## DEBUGGING / BOOKKEEPING
+        # ## -----------------
 
         # From 0 to 3, increasingly talkative
         # if negative or zero : no plot (show=0)
         # 0: evt counting, 1: + some results, 2: + event details
         # 3: details for each trials
-        self.dbg        = 1
-        self.show       = 1
-        self.logfile    = "analysis.log" # log file
+        self.dbg = 1
+        self.show = 1
+        self.logfile = "analysis.log"  # log file
 
-        self.save_simu  = False  # If True, Simulation class saved to file
-        self.save_grb   = False  # If True, GRB class saved to disk
-        self.save_vis   = False  # If True, save computed visibility
-        self.save_fig   = False  # If True, plots saved to pdf file
+        self.save_simu = False  # If True, Simulation class saved to file
+        self.save_grb = False  # If True, GRB class saved to disk
+        self.save_vis = False  # If True, save computed visibility
+        self.save_fig = False  # If True, plots saved to pdf file
         self.remove_tar = False  # If True, remove tarred output files
-        self.silent     = True   # If True, nothing on screen (output to log (if dbg=0))
+        self.silent = True   # If True, nothing on screen, to log (if dbg=0))
 
-        self.cmd_line   = ""     # Command line arguments
+        self.cmd_line = ""     # Command line arguments
 
-        ### -----------------
-        ### EXPERTS/DEVELOPPERS ONLY
-        ### -----------------
-        self.test_prompt   = False # If True test prompt alone (experimental)
+        # ## -----------------
+        # ## EXPERTS/DEVELOPPERS ONLY
+        # ## -----------------
+        self.test_prompt = False  # If True test prompt alone (experimental)
 
         # Prompt characteristics from the afterglow with same id.
         self.use_afterglow = False
 
         # Shitf in time - Useful for tests
-        self.tshift        = 0.    # float (days)
+        self.tshift = 0.    # float (days)
 
         # Force fixed zenith
-        self.fixed_zenith  = None  # If a value ("20 deg"), freezes zenith
+        self.fixed_zenith = None  # If a value ("20 deg"), freezes zenith
 
         # Multiplicative factor of the input flux
-        self.magnify       = 1
+        self.magnify = 1
 
         # Store detailed information on slices if True
-        self.write_slices  = False
+        self.write_slices = False
 
-        # Bulld the source list to be processed
-        self.srclist = self.source_ids()
+        # Limit data energy bins to Elimit
+        self.elimit = None
 
-    ###------------------------------------------------------------------------
+        # Limit lightcurve time bins to tlimit
+        self.tlimit = None
+
+        # Analysis minimal and maximal energies - supersede IRF threshold
+        self.emin = None
+        self.emax = None
+
+        # Observation minimal and maximal times - supersede GRB data
+        self.tmin = None
+        self.tmax = None
+
+        # If True, use a denser binning for spectral analysis
+        self.edense = False
+
+    # ##-----------------------------------------------------------------------
     @classmethod
     def command_line(cls):
         """
@@ -202,7 +218,7 @@ class Configuration():
             Current instance.
 
         """
-        inst = cls() # Initialize default
+        inst = cls()  # Initialize default
 
         # Define the command line arguments - default values will come from
         # the configuration file and are not known at this stage
@@ -212,46 +228,55 @@ class Configuration():
         # are not used here.
         parser = argparse.ArgumentParser(description="SoHAPPy", epilog="---")
 
+        # ifirst can be an integer, a string (either a GRB identifier or a
+        # filename) or a list of string or integer. using ast.literal_evl is
+        # tricky. So ifirst is considered to be a string and is analysed
+        # later when assigned to the ifirst class variable.
+        # parser.add_argument('-f', '--first', nargs='+',
+        #                     help="First source id, or a list, or a file",
+        #                     type=ast.literal_eval,  # Any type
+        #                     default="None")
+
         parser.add_argument('-f', '--first', nargs='+',
-                            help ="First source id",
-                            type = ast.literal_eval, # Any type
-                            default = None)
+                            help="First source id, or a list, or a file",
+                            default="None")
 
         parser.add_argument('-N', '--nsrc',
-                            help ="Number of source files",
-                            type = int)
+                            help="Number of source files",
+                            default=1,
+                            type=int)
 
         parser.add_argument('-n', '--niter',
-                            help ="Number of Monte Carlo iteration",
-                            type = int)
+                            help="Number of Monte Carlo iteration",
+                            type=int)
 
         parser.add_argument('-c', '--config',
-                            default = inst.def_conf,
-                            help ="Configuration file name")
+                            default=inst.def_conf,
+                            help="Configuration file name")
 
         parser.add_argument('-m', '--maxnight',
-                            help ="Maximal number of nights")
+                            help="Maximal number of nights")
 
         parser.add_argument('-s', '--skip',
-                            help ="Number of nights to skip")
+                            help="Number of nights to skip")
 
         parser.add_argument('-V', '--visibility',
-                            help ="Visibility keyword")
+                            help="Visibility keyword")
 
         parser.add_argument('-d', '--debug',
-                            help ="Debugging level",
+                            help="Debugging level",
                             default=None,
-                            type = int)
+                            type=int)
 
-        parser.set_defaults(save = None)
+        parser.set_defaults(save=None)
         parser.add_argument('--save',
                             dest='save',
                             action='store_true',
-                            help= "Save simulation")
+                            help="Save simulation")
         parser.add_argument('--nosave',
                             dest='save',
                             action='store_false',
-                            help = "Do not save simulation")
+                            help="Do not save simulation")
 
         args, _ = parser.parse_known_args()
 
@@ -262,23 +287,27 @@ class Configuration():
         # Supersede parameters if given
         if args.first is not None:
             # If a list is given but it has only one item, get the item
-            if len(args.first) != 1 :
+            if len(args.first) != 1:
                 inst.ifirst = args.first
             else:
                 warning("Unique item list converted to the item")
                 inst.ifirst = args.first[0]
+                if inst.ifirst.isdigit():
+                    inst.ifirst = int(inst.ifirst)
+                elif "[" in inst.ifirst and "]" in inst.ifirst:
+                    inst.ifirst = ast.literal_eval(inst.ifirst)
         if args.nsrc is not None:
-            inst.nsrc       = args.nsrc
+            inst.nsrc = args.nsrc
         if args.niter is not None:
-            inst.niter      = args.niter
+            inst.niter = args.niter
         if args.maxnight is not None:
-            inst.maxnight   = args.input
+            inst.maxnight = int(args.maxnight)
         if args.skip is not None:
-            inst.skip       = args.input
+            inst.skip = int(args.skip)
         if args.visibility is not None:
             inst.visibility = args.visibility
         if args.debug is not None:
-            inst.dbg        = args.debug
+            inst.dbg = args.debug
         if args.save is not None:
             inst.save_simu = args.save
 
@@ -287,10 +316,10 @@ class Configuration():
             inst.prompt_dir = Path(inst.prompt_dir)
 
         # Show plots or not
-        inst.show = 0 if inst.dbg  < 0 else abs(inst.dbg)
+        inst.show = 0 if inst.dbg < 0 else abs(inst.dbg)
 
         # If debugging is requested, cannot be silent
-        if inst.dbg>0:
+        if inst.dbg > 0:
             inst.silent = False
 
         # If the simulation is saved, it is not fluctuated
@@ -302,11 +331,19 @@ class Configuration():
             inst.niter = 1
 
         # Bulld the source list to be processed
-        inst.srclist = inst.source_ids()
+        # inst.filelist = inst.source_ids()
 
         # Extract quantities
+        if inst.elimit is not None:
+            inst.elimit = u.Quantity(inst.elimit)
+        if inst.tlimit is not None:
+            inst.tlimit = u.Quantity(inst.tlimit)
+        if inst.emin is not None:
+            inst.emin = u.Quantity(inst.emin)
         if inst.emax is not None:
             inst.emax = u.Quantity(inst.emax)
+        if inst.tmin is not None:
+            inst.tmin = u.Quantity(inst.tmin)
         if inst.tmax is not None:
             inst.tmax = u.Quantity(inst.tmax)
 
@@ -317,39 +354,43 @@ class Configuration():
                        "South": inst.array_south}
 
         # Check contradictions in visibility request
-        if inst.visibility in ["permanent", "forced"] and inst.maxnight is not None:
-            failure(" Number of nights cannot be limited if 'permanent' or 'forced'")
+        if inst.visibility in ["permanent", "forced"] \
+           and inst.maxnight is not None:
+            failure(" Number of nights cannot be limited"
+                    " if 'permanent' or 'forced'")
             sys.exit(" Please correct inconsistency in configuration input")
 
         # Generate command line
         vals = parser.parse_args()
         inst.cmd_line = "python SoHAPPy.py "
-        for (k,v) in vars(vals).items():
+        for (k, v) in vars(vals).items():
 
             # if k in ["debug"]:
             #     inst.cmd_line += "--no"+k+" "  if v is False else "--"+k+" "
 
             # For reasons that I have not understood, the first source id. is
             # taken as a list even if there is one item
-            if isinstance(v, list) and len(v)==1:
+            if isinstance(v, list) and len(v) == 1:
                 v = v[0]
             if k in ["config"]:
-                inst.cmd_line += '--'+k+" "+ '"'+str(v)+'"' + " "
+                inst.cmd_line += '--' + k + " " + '"' + str(v) + '"' + " "
             else:
                 if v is not None:
-                    inst.cmd_line += "--"+k+" "+ str(v) + " "
+                    inst.cmd_line += "--" + k + " " + str(v) + " "
 
         return inst
 
-    ###-----------------------------------------------------------------------
-    def find_and_read(self, testname, debug=True):
-
+    # ##-----------------------------------------------------------------------
+    def find_and_read(self, name=None, debug=True):
         """
-        Check existence of the given file name, and read data if it exists.
+        Read steering parameters from a file.
+
+        Check existence of the given configuration file name, and read data if
+        it exists.
 
         Parameters
         ----------
-        testname : None, String or Path
+        name : None, String or Path
             A tentative configuration file name.
         debug : boolean, optional
             If True, talk a bit. The default is True.
@@ -359,46 +400,46 @@ class Configuration():
         None.
 
         """
+        self.filename = None  # Assume not given
 
-        self.filename = None # Assume not given
-
-        if testname is None: # No argument was given on the command line
-            basefolder   = Path(__file__).parent  # Where the code is
-            self.filename = Path(basefolder,Configuration.def_conf)
+        if name is None:  # No argument was given on the command line
+            basefolder = Path(__file__).parent  # Where the code is
+            self.filename = Path(basefolder, Configuration.def_conf)
             if debug:
                 print(" Using default config file")
 
-        else: # A name was given
-            if  Path(testname).is_file(): # The argument is an existing file
-                self.filename =  Path(testname)
+        else:  # A name was given
+            if Path(name).is_file():  # The argument is an existing file
+                self.filename = Path(name)
             else:
-                sys.exit(f"{__name__:}.py/build: "\
-                         f"{testname:} configuration file does not exist")
+                sys.exit(f"{__name__:}.py/build: "
+                         f"{name:} configuration file does not exist")
 
         # Read configuration file from file name
         self.read_from_yaml(debug=debug)
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def read_from_yaml(self, filename=None, debug=False):
-
         """
-        Read configuration file from a `yaml` file on disk.
+        Read the configuration data from a `yaml` file on disk.
 
         Parameters
         ----------
         filename : string, optional
             Configuration file name. The default is None.
 
+        debug : boolean, optional
+            If True, talk a bit. The default is True.
+
         Returns
         -------
         None.
 
         """
-
         if filename is not None:
             self.filename = Path(filename)
 
-        #---------------------------------------------------
+        # ---------------------------------------------------
         def obj_dic(record):
 
             # top = type('new', (object,), d)
@@ -406,7 +447,7 @@ class Configuration():
             for key, val in record.items():
 
                 # Do not read wrong/deprecated keywords
-                if key not in self.__dict__.keys():
+                if key not in self.__dict__:
                     print(f"{__name__:}.py: warning: {key:} ignored")
                     continue
 
@@ -414,19 +455,20 @@ class Configuration():
                     setattr(self, key, obj_dic(val))
                 elif isinstance(val, seqs):
                     setattr(self, key,
-                        type(val)(obj_dic(sv) if isinstance(sv, dict) else sv for sv in val))
+                            type(val)(obj_dic(sv) if isinstance(sv, dict)
+                                      else sv for sv in val))
                 else:
                     if key in self.quantities:
                         setattr(self, key, u.Quantity(val))
                     else:
                         setattr(self, key, val)
-        #---------------------------------------------------
+        # ---------------------------------------------------
 
         if debug:
-            print(">>> Read configuration from ",self.filename)
+            print(">>> Read configuration from ", self.filename)
 
         try:
-            file = open(self.filename, "r")
+            file = open(self.filename, "r", encoding="utf-8")
         except IOError:
             sys.exit(f"{__name__:}.py : {self.filename:} does not exist.")
 
@@ -434,19 +476,19 @@ class Configuration():
         obj_dic(data)
 
         # Bulld the source list to be processed
-        self.srclist = self.source_ids()
+        # self.filelist = self.source_ids()
 
-    ###------------------------------------------------------------------------
-    def write(self, out_name = None):
-
+    # ##-----------------------------------------------------------------------
+    def write(self, out_name=None):
         """
         Write current configuration to a `yaml` file for further use.
+
         Note that this does not copy the possible comments of the original
         file.
 
         Parameters
         ----------
-        filename : string, optional
+        out_name : string, optional
             Configuration file name. The default is None.
 
         Returns
@@ -454,29 +496,27 @@ class Configuration():
         None.
 
         """
-
         if out_name is None:
             out_name = Path("config_backup.yaml")
 
         # Create a dict with unnecessary keywords dropped and no quantities
         newdict = {}
-        for key ,val in self.__dict__.items():
+        for key, val in self.__dict__.items():
 
             if key in self.ignore:
                 continue
-            if isinstance(val,(u.Quantity, Path)):
+            if isinstance(val, (u.Quantity, Path)):
                 newdict[key] = str(val)
             else:
                 newdict[key] = val
 
-        file = open(out_name, 'w')
-        yaml.dump(newdict, file, sort_keys=False)
+        with open(out_name, 'w', encoding="utf-8") as file:
+            yaml.dump(newdict, file, sort_keys=False)
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def print(self, out=None):
-
         """
-        Print configuration class instance to screen and out file.
+        Print configuration class instance to screen and 'out' file.
 
         Parameters
         ----------
@@ -488,24 +528,24 @@ class Configuration():
         None.
 
         """
-
         if out is None:
             out = Log()
 
-        #----------------------------------------------------
+        # ----------------------------------------------------
         def title(txt):
             out.prt("")
             out.prt(f"=== {txt:<27s} {40*'=':40s}")
-        #----------------------------------------------------
+        # ----------------------------------------------------
 
         out.prt(72*"=")
         out.prt(f" Configuration file*     : {self.filename:} ")
 
-        ### -----------------
-        ### PHYSICS PARAMETERS
-        ### -----------------
+        # ## -----------------
+        # ## PHYSICS PARAMETERS
+        # ## -----------------
         title("Physics parameters")
-        if not isinstance(self.ifirst, list) and not isinstance(self.ifirst, str):
+        if not isinstance(self.ifirst, list) \
+           and not isinstance(self.ifirst, str):
             out.prt(f" Number of sources*        : {self.nsrc:>5d}")
             out.prt(f" First source*             : {self.ifirst:>5d}")
         else:
@@ -516,21 +556,21 @@ class Configuration():
         out.prt(f" Number of nights limit*   : {nnight}")
         nskip = self.skip if self.skip is not None else "0"
         out.prt(f" Night(s) skipped*         : {nskip}")
-        out.prt(f" Energy max. limit         : {self.emax:}",end=" ")
-        if self.emax is not None:
-            out.warning(" !" )
+        out.prt(f" Energy max. limit         : {self.elimit:}", end=" ")
+        if self.elimit is not None:
+            out.warning(" !")
         else:
             out.prt("")
 
-        out.prt(f" Time max. limit           : {self.tmax:}",end=" ")
-        if self.tmax is not None:
+        out.prt(f" Time max. limit           : {self.tlimit:}", end=" ")
+        if self.tlimit is not None:
             out.warning(" ! ")
         else:
             out.prt("")
 
-        ### -----------------
-        ### INPUT/OUPUT
-        ### -----------------
+        # ## -----------------
+        # ## INPUT/OUPUT
+        # ## -----------------
         title("Input/output")
         out.prt(f" Data subfolder            : {self.data_dir:}")
         out.prt(f" IRF subfolder             : {self.irf_dir}")
@@ -543,9 +583,9 @@ class Configuration():
         out.prt(f" Source file prefix        : {self.prefix:}")
         out.prt(f"             suffix        : {self.suffix:}")
 
-        ### -----------------
-        ### SIMULATION PARAMETERS
-        ### -----------------
+        # ## -----------------
+        # ## SIMULATION PARAMETERS
+        # ## -----------------
         title("Simulation")
         if not self.niter:
             sys.exit(f"{__name__:}.py: At least 1 trial is requested")
@@ -553,23 +593,24 @@ class Configuration():
             out.prt(f" Number of trials*          : {self.niter:>5d}")
         out.prt(f" Seed                       : {self.seed:}")
 
-        out.prt(f" Counts randomised          : {self.do_fluctuate:} ",end="")
+        out.prt(f" Counts randomised          : {self.do_fluctuate:} ", end="")
         if not self.do_fluctuate:
             out.warning("-> Only 1 trial")
-        else: out.prt("")
+        else:
+            out.prt("")
 
         out.prt(f" Stop if cannot be detected : {self.do_accelerate:}")
 
-        ### -----------------
-        ### DETECTION PARAMETERS
-        ### -----------------
+        # ## -----------------
+        # ## DETECTION PARAMETERS
+        # ## -----------------
         title("Detection")
         out.prt(f" Detection level            : {self.det_level}")
         out.prt(f" Alpha (1/n)                : {self.alpha}")
-        out.prt(f" Observtory                 : {self.observatory}")
-        out.prt(f" Site sub-arrays            : N:{self.array_north:} "\
+        out.prt(f" Observatory                : {self.observatory}")
+        out.prt(f" Site sub-arrays            : N:{self.array_north:} "
                 f"S:{self.array_south:}")
-        out.prt(f" Slewing time               : N:{self.dtslew_north:}"\
+        out.prt(f" Slewing time               : N:{self.dtslew_north:}"
                 f" S:{self.dtslew_south:}")
         out.prt(f"    Fixed                   : {self.fixslew}")
         out.prt(f" SWIFT delay fixed          : {self.fixswift}")
@@ -578,17 +619,18 @@ class Configuration():
         else:
             out.prt(f"            Read from : {self.swiftfile}")
 
-        ### -----------------
-        ### DEBUGGING / BOOKKEEPING
-        ### -----------------
+        # ## -----------------
+        # ## DEBUGGING / BOOKKEEPING
+        # ## -----------------
         title("Debugging / bookkeeping")
         out.prt(f" Debug mode*                : {self.dbg:>5d}")
         out.prt(f" out file                   : {self.logfile}")
         out.prt(f" Show plots                 : {self.show:>5d}")
-        out.prt(f" Save simulation            : {self.save_simu} ",end="")
+        out.prt(f" Save simulation            : {self.save_simu} ", end="")
         if self.save_simu:
             out.warning("-> Only 1 trial")
-        else: out.prt("")
+        else:
+            out.prt("")
         out.prt(f" Save computed visibility   : {self.save_vis}")
         out.prt(f" Save source class          : {self.save_grb}")
         out.prt(f" Save figures to pdf        : {self.save_fig}")
@@ -599,52 +641,75 @@ class Configuration():
         out.prt("+"+66*"-"+"+")
         out.prt(" Developments:")
 
-        ### -----------------
-        ### EXPERTS/DEVELOPPERS ONLY
-        ### -----------------
+        # ## -----------------
+        # ## EXPERTS/DEVELOPPERS ONLY
+        # ## -----------------
+        if self.tlimit is not None:
+            out.warning(f"Light curve time samples limited to {self.tlimit:}")
+        if self.elimit is not None:
+            out.warning(f"Energy samples limited to {self.elimit:}")
+        if self.emin is not None:
+            out.warning(f"Mimimal energy for analysis is {self.emin:}")
+        if self.emax is not None:
+            out.warning(f"Maximal energy for analysis is {self.emax:}")
+        if self.edense is True:
+            out.warning("Dense energy sampling for spectral analysis")
+        if self.tmin is not None:
+            out.warning(f"Mimimal observation time is {self.tmin:}")
+        if self.tmax is not None:
+            out.warning(f"Maximl observation time is {self.tmax:}")
         if self.test_prompt:
             out.warning(f"{'Test prompt simulation':60s}")
             if self.use_afterglow:
                 out.warning(f"{'-> use afterglow information':60s}")
         if self.fixed_zenith is not None:
             out.warning(f"Zenith angle fixed at value '{self.fixed_zenith}'")
-        if self.magnify !=1:
+        if self.magnify != 1:
             out.warning(f"GRB flux values are multiplied by {self.magnify}")
-        if self.tshift !=0:
+        if self.tshift != 0:
             out.warning(f"Times shifted by {self.tshift} days")
         if not self.silent:
             out.warning("Maximise screen output")
 
         if self.write_slices is True:
-            out.highlight("{'Slice information saved to disk (write_slices=True)':60s}")
+            out.highlight("Slice information disk-saved (write_slices=True)")
 
         out.prt("    --end\n")
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def create_output_folder(self, resfolder):
-
         """
         Create the code outptut folder.
+
         The convention is that the output folder refers to the folder name
         containing the lightcurves, a subfolder refering to the visibility
         which will be used.
 
         Parameters
         ----------
-        log : Log instance
-            Pointer to the logbook file.
+        resfolder : String
+            Output file name
 
         Returns
         -------
-        res_dir : pathlib Path
+        resdir : pathlib Path
             output folder.
 
         """
-
-        if len(self.srclist) > 1:
-            ext = "_" + str(min(self.srclist)) + "_"+str(max(self.srclist))
+        # Classical case of a series of integer from `ifirst` and `nsrc`
+        if isinstance(self.ifirst, int):
+            ext = "_" + str(self.ifirst).zfill(self.dgt)\
+                + "_"+str(self.ifirst+self.nsrc-1).zfill(self.dgt)
+        # ifirt is a string, and possibly a filenmae
+        elif isinstance(self.ifirst, str):
+            # If this is an existing file, its name (without path nor
+            # extension) is added to the lowest subfolder
+            if Path(self.ifirst).exists():
+                ext = "_" + str(Path(self.ifirst).stem)
+            else:
+                ext = "_" + str(self.ifirst)
         else:
-            ext = "_" + str(self.srclist[0])
+            ext = ""
 
         resdir = Path(resfolder,
                       Path(self.data_dir).name,
@@ -656,7 +721,7 @@ class Configuration():
         if not resdir.exists():
             warning(f"Creating {resdir}")
             try:
-                Path.mkdir(resdir,parents=True)
+                Path.mkdir(resdir, parents=True)
             except AssertionError:
                 sys.exit(f"{__name__:}.py: Could not create {resdir:}")
         else:
@@ -664,36 +729,114 @@ class Configuration():
 
         return resdir
 
-    ###------------------------------------------------------------------------
-    def source_ids(self):
-
+    # ##-----------------------------------------------------------------------
+    def source_ids(self, infolder, bunchsize=5000, debug=False):
         """
-        Obtain the source list from the input parameters.
-        `first` is either an integer (identifier of the first source to be
-        analysed) or a list with integers (identifiers) or string
-        (source names).
+        Obtain the data file list from the input parameters.
+
+        In the configuration file, 'first' can be:
+            - an integer, giving the file identifier (number) in a data set.
+              The list is build up to 'nsrc' which is also given in the
+              configuration file.
+            - a list of items, including integers and strings. The integers are
+              the file identifiers in a data set, whereas the string refers
+              to a GRB in the local 'data/samples/historical' folder.
+            - a json file absolute path containing the relative path file list
+              with respect to the HAPPY_IN variable (The json files can be
+              obtained for instance from the
+              'analysis/population/detectable.py' module).
+        When the given information is an integer, the file name is build from
+        the 'prefix', 'suffix' and 'data_dir' information in the configuration
+        file.
+        The file is searched for in the 'data_dir' subfolder, first in
+        subfolders corresponding to a larget set chunked in 'bunchsize'
+        subpopulation and then directly in that 'data_dir'.
 
         Returns
         -------
-        A list of source identifiers to be analysed.
+        A list of filenames to be simulated and analysed.
 
         """
+        srclist = None
 
         if not isinstance(self.ifirst, list):
-            if isinstance(self.ifirst, str):
+            # Start with the possibility to have a file, as a filename is also
+            # a string.
+            if Path(str(self.ifirst)).exists():
+
+                with open(str(self.ifirst), encoding="utf-8") as fdata:
+                    srclist = json.load(fdata)  # Complete file name
+                    self.nsrc = len(srclist)
+            # It is a string but not a filename (historical file)
+            elif isinstance(self.ifirst, str):
                 srclist = [self.ifirst]
+                self.nsrc = 1
+
+            # It is an integer, and lead to a list of integers
             elif isinstance(self.ifirst, int):
-                srclist = list(range(self.ifirst,self.ifirst+self.nsrc))
+                srclist = list(range(self.ifirst, self.ifirst+self.nsrc))
         else:
+            # It is a list
             srclist = self.ifirst
+            self.nsrc = len(srclist)
 
-        return srclist
+        # Build the file paths in-situ from the list of identifiers
+        filelist = []
+        fname = None
 
-    ###------------------------------------------------------------------------
-    def decode_visibility_keyword(self, folder = None, debug = False):
+        for src in srclist:
 
+            # from a number as an identifier
+            if isinstance(src, int):
+
+                name = self.prefix + str(src).zfill(self.dgt) + self.suffix
+
+                # First form the name with large population subfolders
+                # Large population have priority
+
+                fmin = str(int((src-1)/bunchsize)*bunchsize + 1)
+                fmax = str((int((src-1)/bunchsize) + 1)*bunchsize)
+                folder = fmin.zfill(self.dgt) + "_" + fmax.zfill(self.dgt)
+                fname = Path(infolder, self.data_dir, folder, name)
+                if debug:
+                    print("Try to find within bunched of ",
+                          bunchsize, ": ", fname)
+                    print(fname)
+
+                if not fname.exists():
+                    # Same name without subfolder
+                    fname = Path(infolder, self.data_dir, name)
+
+                    # We tried, but we failed
+                    if not fname.exists():
+                        sys.exit(" configuration/source_ids : "
+                                 "file not found even in bunched subfolders")
+
+            # From a string giving a relative path wrt HAPPY_IN
+            elif Path(infolder, src).exists():
+                fname = Path(infolder, src)
+
+            # From a string pointing to an historical GRB yaml file
+            elif isinstance(src, str):  # Historical GRB
+                fname = Path(Path(__file__).absolute().parent,
+                             "data/historical/GRB_"+src+".yaml")
+
+            # not understood, something wrong
+            else:
+                sys.exit(" configuration/source_ids : input encoding failed")
+
+            filelist.append(fname.as_posix())
+
+        print(f" Number of files to be processed : {len(filelist):}")
+
+        return np.array(filelist)
+
+    # ##-----------------------------------------------------------------------
+    def decode_visibility_keyword(self, folder=None):
         """
-        Decode the `visibility` keyword value and return an information
+        Decode the `visibility` keyword value.
+
+        Return an information
         to be handled at running time. The visibility keyword can be:
 
         * a visibility folder that should contain a suitable visibility `json`
@@ -721,68 +864,73 @@ class Configuration():
         -------
         a visibility information
             The information necessary to get the visibility at running time.
-            Various type of information in a single variable. It can be a string
-            or a dictionnary.
-
+            Various type of information in a single variable. It can be a
+            string or a dictionnary.
         """
-
         # Check predefined possibilities
-        if self.visibility in ["built-in","forced","permanent"]:
+        if self.visibility in ["built-in", "forced", "permanent"]:
             print(f" Visibilities from keyword: '{self.visibility}' ")
             return self.visibility
 
         # Check if referenced in visibility.yaml
-        vispar =  Visibility.params_from_key(self.visibility)
+        vispar = Visibility.params_from_key(self.visibility)
         if vispar is not None:
             return vispar
 
         # Check if the keyword corresponds to a visibility subfolder
+        if folder is None:
+            sys.exit("configuration/secode_visibility_keyword:"
+                     " Please give a folder name")
+
         test = Path(folder.parent)
         print(f"Accessing visibility in : {test:}")
 
         if not test.is_dir():
-            sys.exit(f"{__name__}.py : visibility Keyword supposed to be a folder and is not")
+            sys.exit(f"{__name__}.py : visibility Keyword supposed to be "
+                     "a folder and is not")
 
         # A folder is given
         # Find file name pattern from source identifiers
-        idmin = min(self.srclist)
-        idmax = max(self.srclist)
+        idmin = self.ifirst
+        idmax = self.ifirst + self.nsrc - 1
 
         # Complete version that find at least a valid file for the source
         # id range
 
         candidates = list(test.glob("*.json"))
         visfile = None
+
         for fname in candidates:
             # Get ids in the filename
             bnds = [int(s) for s in fname.stem.split("_") if s.isdigit()]
 
-            if len(bnds) == 4: # Range
+            if len(bnds) == 4:  # Range
                 bndmin = bnds[-2]
                 bndmax = bnds[-1]
-            elif len(bnds) == 3: # One source only
+            elif len(bnds) == 3:   # One source only
                 bndmin = bndmax = bnds[-1]
             # print(fname.name,": ",bnds,bndmin, bndmax )
 
-            if bndmin<= idmin and idmax<= bndmax:
+            if bndmin <= idmin and idmax <= bndmax:
                 visfile = fname
                 break
 
         # Load data from the visibility file
         if visfile is not None:
-            print(" Visibility data :",visfile)
-            with open(visfile,"r") as f:
-                import json
+            print(" Visibility data :", visfile)
+            with open(visfile, "r", encoding="utf-8") as f:
                 return json.load(f)
         else:
-            sys.exit(f"{__name__}.py : Visibility: Recomputation seems required")
+            sys.exit(f"{__name__}.py : Visibility: Recomputation "
+                     "seems required")
 
-    ###------------------------------------------------------------------------
+    # ##-----------------------------------------------------------------------
     def get_delay(self):
-
         """
-        Compute the overall delay to be applied to the start of detection
-        (satellite and telescope slewing), according to the user parameters.
+        Compute the overall delay to be applied to the start of detection.
+
+        Includes the satellite and telescope slewing, according to the user
+        parameters.
 
         Returns
         -------
@@ -790,7 +938,7 @@ class Configuration():
                 Delay before the detection can start.
 
         """
-        delay = {"North":0*u.s, "South":0*u.s}
+        delay = {"North": 0*u.s, "South": 0*u.s}
 
         for loc in ["North", "South"]:
 
@@ -801,12 +949,14 @@ class Configuration():
                 delta = self.dtslew[loc]*np.random.random()
 
             if self.fixswift:
-                delta = delta + self.dtswift # don't do += !!!
+                delta = delta + self.dtswift  # don't do += !!!
             else:
-                sys.exit(f"{__name__}.py: Variable SWIFT delay not implemented)")
+                sys.exit(f"{__name__}.py: Variable SWIFT delay "
+                         "not implemented)")
             delay[loc] = delta.to(u.s)
 
         return delay
+
 
 ###############################################################################
 if __name__ == "__main__":
@@ -824,9 +974,9 @@ if __name__ == "__main__":
 
     # sys.argv = ["", "-f", "343", "-N", "10","-n", "100",
     #             "-V", "nomoonveto"]
-    cf1 = Configuration() # Default
+    cf1 = Configuration()  # Default
     cf1.read_from_yaml(filename=testfile)
-    res_dir  = cf1.create_output_folder(Path(os.environ["HAPPY_OUT"]))
+    res_dir = cf1.create_output_folder(Path(os.environ["HAPPY_OUT"]))
     cf1.decode_visibility_keyword(res_dir)
     cf1.print(log)
 
