@@ -16,7 +16,11 @@ Created on Tue Feb 21 13:16:50 2023
 """
 import sys
 import os
+import ast
+
 from pathlib import Path
+import argparse
+import warnings
 
 import numpy as np
 import json
@@ -39,12 +43,17 @@ from configuration import Configuration
 from niceprint import heading, warning, highlight, failure
 from niceplot import MyLabel, draw_sphere
 
+warnings.filterwarnings('ignore')
+# warnings.filterwarnings('error')
+
 __all__ = ["Skies"]
 
 
 ###############################################################################
 class Skies():
     """
+    Handles explosion dates and positions and derives visibilities.
+
     In what follows, the terminology "sky" refers to positions and explosion
     dates while visibility gives the source visibility from these parameters
     under defined circumstances (e.g: minimal altitude, Moon ligth etc).
@@ -83,6 +92,7 @@ class Skies():
 
 
     """
+
     prfx = "ev"  # Prefix before the id number
 
     # -------------------------------------------------------------------------
@@ -112,7 +122,8 @@ class Skies():
         Nsrc : integer
             Number of sources. The default is 1.
         version : string, optional
-            Visibility version tag, chosen by the user. The default is "1".
+            Visibility version tag, chosen by the user.
+            The default is "strictmoonveto".
         duration : float, optional
             Duration in days on which the visibility is computed. The default
             is 3.0.
@@ -120,17 +131,17 @@ class Skies():
             A dictionnary entry to be found in `visibility.yaml`.
             The default is `strictmoonveto`.
         cfg_path : pathlib Path, optional
-            Configuration file name full path. The default is 'congif.yaml'.
+            Configuration file name full path. The default is None.
         output : pathlib Path, optional
             Output base folder. The default is `Path("./skygen_vis")`.
         seed : integer, optional
             Seed for random generator. The default is 2022.
-        newpos: boolean
+        newpos: boolean, optional
             If True, if the positions are read from source file, the positions
-            are re-generated isotropically on the sky.
+            are re-generated isotropically on the sky. The default is False.
         newdate: boolean
             If True, if the data are read from source file, the dates are
-            re-generated from the given source range.
+            re-generated from the given source range. The default is False.
         debug : boolean, optional
             If True, print out various information. The default is False.
 
@@ -139,7 +150,6 @@ class Skies():
         None.
 
         """
-
         # Initialise default parameters
         self.dbg = debug
         self.version = version
@@ -150,6 +160,7 @@ class Skies():
         self.id1 = first
         self.id2 = first + Nsrc - 1
         self.Nsrc = Nsrc
+        self.filelist = None
 
         self.year1 = year1
         self.year2 = year1 + nyears - 1
@@ -167,6 +178,10 @@ class Skies():
         self.config = cfg_path
         self.cfg.read_from_yaml(filename=self.config)
 
+        # Replace config file values
+        self.cfg.first = self.id1
+        self.cfg.nsrc = self.Nsrc
+
         # Output
         self.basedir = output if output is not None else '.'
         self.out_folder = None
@@ -181,6 +196,8 @@ class Skies():
     @classmethod
     def command_line(cls):
         """
+        Decode command line.
+
         Supersede default argument with the command line arguments and generate
         the command line to be further used for Batch submission
 
@@ -190,8 +207,6 @@ class Skies():
             Instance filled with the command line argument values.
 
         """
-
-        import argparse
         inst = cls()  # Initialize default
 
         parser = argparse.ArgumentParser(description="Generate visibilities",
@@ -207,10 +222,10 @@ class Skies():
                             default=inst.year2 - inst.year1 + 1,
                             type=int)
 
-        parser.add_argument('-f', '--first',
-                            help="First source identifier",
-                            default=inst.id1,
-                            type=int)
+        parser.add_argument('-f', '--first', nargs='+',
+                            help="First source id",
+                            type=ast.literal_eval,  # Any type
+                            default=None)
 
         parser.add_argument('-N', '--Nsrc',
                             help="Number of sources",
@@ -278,46 +293,52 @@ class Skies():
                             help="No new sky positions if existing")
 
         # Decode command line
-        vals = parser.parse_args()
+        # vals = parser.parse_args()
+        args, _ = parser.parse_known_args()
 
         # Fill the class instance
-        inst.dbg = vals.debug
-        inst.version = vals.version
+        inst.dbg = args.debug
+        inst.version = args.version
 
-        inst.seed = vals.seed
+        inst.seed = args.seed
         np.random.seed(inst.seed)
 
-        inst.id1 = vals.first
-        inst.id2 = vals.first + vals.Nsrc - 1
-        inst.Nsrc = vals.Nsrc
+        inst.id1 = args.first
+        if isinstance(args.first, int):
+            inst.id2 = args.first + args.Nsrc - 1
+            inst.Nsrc = args.Nsrc
+        else:
+            inst.id1 = inst.id1[0]
+            inst.id2 = inst.id1[-1]
+            inst.Nsrc = len(inst.id1)
 
-        inst.year1 = vals.year1
-        inst.year2 = vals.year1 + vals.nyears - 1
+        inst.year1 = args.year1
+        inst.year2 = args.year1 + args.nyears - 1
 
-        inst.newdate = vals.trigger
-        inst.newpos = vals.position
-        inst.viskey = str(vals.visibility)
-        inst.duration = vals.days
+        inst.newdate = args.trigger
+        inst.newpos = args.position
+        inst.viskey = str(args.visibility)
+        inst.duration = args.days
 
         # Input parameters
-        if vals.config is not None:
-            inst.config = str(Path(vals.config).resolve())
-            vals.config = inst.config
+        if args.config is not None:
+            inst.config = str(Path(args.config).resolve())
+            args.config = inst.config
 
         # Output
         # Note : The difference between resolve and absolute is that absolute()
         # does not replace the symbolically linked (symlink) parts of the path,
-        # and it never raises FileNotFoundError . It does not modify the case
+        # and it never raises FileNotFoundError. It does not modify the case
         # either.
-        if vals.output is not None:
-            inst.basedir = str(Path(vals.output).absolute())
-            vals.output = inst.basedir
+        if args.output is not None:
+            inst.basedir = str(Path(args.output).absolute())
+            args.output = inst.basedir
 
         # Generate command line
         inst.cmd_line = 'python "' + str(Path(__file__)) + '" '
 
         # It would be more logical to loop over the class content
-        for (k, v) in vars(vals).items():
+        for (k, v) in vars(args).items():
 
             if k in ["trigger", "position", "debug", "batch"]:
                 inst.cmd_line += "--no"+k+" " if v is False else "--"+k+" "
@@ -327,25 +348,20 @@ class Skies():
                 if v is not None:
                     inst.cmd_line += "--" + k + " " + str(v) + " "
 
-        # Note that dates are float in MJD and ra, dec float in degrees
-        inst.ra = np.zeros(inst.Nsrc)
-        inst.dec = np.zeros(inst.Nsrc)
-        inst.dates = np.zeros(inst.Nsrc)
-
         return inst
 
     # -------------------------------------------------------------------------
     def sky_from_source(self, debug=False):
         """
-        Get the sky positions and dates from original source files when
-        this information exists.
+        Get the sky positions and dates from original source files.
+
+        The file shall contain this information.
 
         Returns
         -------
         None.
 
         """
-
         heading("Dates and positon from source files")
 
         # retrieve data input folder
@@ -356,16 +372,27 @@ class Skies():
 
         found_position = False
         found_trigger = False
+        nmissed = 0  # Number of missed files
 
-        # Get information from data files
-        for i, item in enumerate(range(self.id1, self.id2+1)):
+        # Get information from data files - replace default cfg values
+        self.cfg.ifirst = self.id1
+        self.cfg.nsrc = self.Nsrc
+        self.filelist = self.cfg.source_ids(infolder)
+        self.Nsrc = len(self.filelist)
 
-            if (self.Nsrc <= 10) or (np.mod(i, 10) == 0):
+        # Note that dates are float in MJD and ra, dec float in degrees
+        self.ra = np.zeros(self.Nsrc)
+        self.dec = np.zeros(self.Nsrc)
+        self.dates = np.zeros(self.Nsrc)
+
+        for item, fname in enumerate(self.filelist):
+
+            if (self.Nsrc <= 10) or (np.mod(item, 10) == 0):
                 print("#", item, " ", end="")
 
-            fname = Path(infolder,
-                         self.cfg.data_dir,
-                         self.cfg.prefix + str(item) + self.cfg.suffix)
+            # fname = Path(infolder,
+            #              self.cfg.data_dir,
+            #              self.cfg.prefix + str(item) + self.cfg.suffix)
             try:
 
                 if debug:
@@ -376,8 +403,8 @@ class Skies():
                 keys_0 = list(hdul[0].header.keys())
 
                 if "RA" in keys_0 and "DEC" in keys_0:
-                    self.ra[i] = hdr['RA']
-                    self.dec[i] = hdr['DEC']
+                    self.ra[item] = hdr['RA']
+                    self.dec[item] = hdr['DEC']
                     found_position = True
 
                 if "GRBJD" in keys_0:  # Not in SHORTFITS
@@ -393,11 +420,17 @@ class Skies():
             except Exception:
                 failure(f" SKIPPING - File not found {fname:}\n")
                 date = 0
+                nmissed += 1
 
-            self.dates[i] = date
+            self.dates[item] = date
 
             if self.dbg:
-                print("Found: ", i, self.ra[i], self.dec[i], self.dates[i])
+                print("Found: ", item, self.ra[item],
+                      self.dec[item], self.dates[item])
+
+        if nmissed == len(self.filelist):
+            sys.exit(" Severe error - "
+                     "None of the expected data files were found")
 
         year1 = Time(np.min(self.dates),
                      format="mjd", scale="utc").datetime.year
@@ -427,6 +460,7 @@ class Skies():
     def sky_from_yaml(cls, filename, version=None):
         """
         Read dates and postions from an existing "DP" yaml file.
+
         The dates are stored as mjd in the file and Time object in the
         instance.
 
@@ -443,7 +477,6 @@ class Skies():
             New instance.
 
         """
-
         heading(f" Dates and position load from {filename.name:s}")
 
         infile = open(filename, "r")
@@ -475,7 +508,9 @@ class Skies():
     # -------------------------------------------------------------------------
     def generate_dates(self):
         """
-        Generate dates in MJD from given year intervall, from January 1st of
+        Generate dates in MJD from given year intervall.
+
+        The dates are generated from January 1st of
         the first year at midnight to December 31st of last year at 23:59:59
 
         Returns
@@ -483,7 +518,6 @@ class Skies():
         None.
 
         """
-
         tstart = Time(datetime(self.year1, 1, 1, 0, 0, 0)).mjd
         tstop = Time(datetime(self.year2, 12, 31, 23, 59, 59)).mjd
 
@@ -500,7 +534,6 @@ class Skies():
         None.
 
         """
-
         self.ra = 360*np.random.random(self.Nsrc)
         self.dec = np.arcsin(2*np.random.random(self.Nsrc) - 1)
         self.dec = self.dec*180/np.pi
@@ -523,7 +556,7 @@ class Skies():
     # -------------------------------------------------------------------------
     def create_output_folder(self):
         """
-        Create the folder containing the corresponding files
+        Create the folder containing the corresponding files.
 
         Returns
         -------
@@ -538,10 +571,14 @@ class Skies():
                                self.cfg.out_dir,
                                prfx)
 
-        self.basename = prfx + "_" + str(self.id1)
-
-        if self.id2 > self.id1:
-            self.basename += "_" + str(self.id2)
+        self.basename = prfx
+        if isinstance(self.id1, int):
+            self.basename += "_" + str(self.id1)
+            if self.id2 > self.id1:
+                self.basename += "_" + str(self.id2)
+        elif isinstance(self.id1, int):
+            self.basename += "_" + str(self.id1[0])
+            self.basename += "_ongoing"
 
         # Check if folder exists, otherwise create it
         if not self.out_folder.exists():
@@ -555,7 +592,7 @@ class Skies():
             warning(f"{self.out_folder:} Already exists")
 
     # -------------------------------------------------------------------------
-    def create_vis(self, paramfile="visibility.yaml", observatory="CTA"):
+    def create_vis(self, paramfile="visibility.yaml", observatory="CTAO"):
         """
         Compute visibilities, store in an array.
 
@@ -577,22 +614,24 @@ class Skies():
         vislist = []
 
         # Loop over items
-        for i, item in enumerate(range(self.id1, self.id2+1)):
+        for item, fname in enumerate(self.filelist):
 
-            if (self.Nsrc <= 10) or (np.mod(i, 10) == 0):
+            if (self.Nsrc <= 10) or (np.mod(item, 10) == 0):
                 print("#", item, " ", end="")
 
             # print(item, self.ra[i], self.dec[i], self.dates[i])
-            radec = SkyCoord(self.ra[i]*u.deg, self.dec[i]*u.deg, frame='icrs')
-            tvis1 = Time(self.dates[i], format="mjd", scale="utc")
+            radec = SkyCoord(self.ra[item]*u.deg,
+                             self.dec[item]*u.deg, frame='icrs')
+            tvis1 = Time(self.dates[item], format="mjd", scale="utc")
             tvis2 = tvis1 + self.duration
 
             for loc in ["North", "South"]:
-
+                name = [int(s) for s in Path(fname).name if s.isdigit()]
+                name = ''.join([str(s) for s in name])
                 vis = Visibility(pos=radec,
                                  site=obs.xyz[observatory][loc],
-                                 window=[tvis1, tvis2],
-                                 name=str(item)+"_"+loc,
+                                 tmin=tvis1, tmax=tvis2,
+                                 name=name+"_"+loc,
                                  status="")
                 vis.compute(param=param)
 
@@ -607,6 +646,7 @@ class Skies():
     def sky_to_yaml(self, version=None):
         """
         Dump dates and sky position into a yaml file for further use.
+
         posiitons are stored as they are (float) whereas dates are stored as
         modified Julian Days from the original Time object.
 
@@ -616,10 +656,9 @@ class Skies():
             output filename
 
         """
-
         self.create_output_folder()
 
-        filename = Path(self.out_folder, "DP_" + self.basename+".yaml")
+        filename = Path(self.out_folder, "DP_" + self.basename + ".yaml")
 
         with open(filename, "w") as out:
 
@@ -644,11 +683,11 @@ class Skies():
             print(f"duration: {self.duration}", file=out)
             print(f"version: {self.version:s}", file=out)
 
-            for i, item in enumerate(range(self.id1, self.id2+1)):
-                date = self.dates[i]
-                dstr = Time(self.dates[i], format="mjd", scale="utc").isot
-                ra = self.ra[i]
-                dec = self.dec[i]
+            for item, _ in enumerate(self.filelist):
+                date = self.dates[item]
+                dstr = Time(self.dates[item], format="mjd", scale="utc").isot
+                ra = self.ra[item]
+                dec = self.dec[item]
                 print(f"ev{item:d}: {date:20.10f} {ra:20f} {dec:20f} # {dstr}",
                       file=out)
 
@@ -660,8 +699,7 @@ class Skies():
     # -------------------------------------------------------------------------
     def prefix(self, version=None):
         """
-        This create the prefix string of both yaml (DP) and json (visibility)
-        files.
+        Create the prefix string of both yaml (DP) and json (visibility) files.
 
         Parameters
         ----------
@@ -674,7 +712,6 @@ class Skies():
             The name (no extension) of the yaml and json files.
 
         """
-
         if version is None:
             version = self.version
         if version.isnumeric():
@@ -688,14 +725,13 @@ class Skies():
     # -------------------------------------------------------------------------
     def vis2json(self):
         """
-        Dump the list of visibility instances to a json file
+        Dump the list of visibility instances to a json file.
 
         Returns
         -------
         None.
 
         """
-
         if not self.out_folder.is_dir():
             self.create_output_folder()
 
@@ -711,7 +747,7 @@ class Skies():
     # -------------------------------------------------------------------------
     def plot_sky(self, nbin=25):
         """
-        Plot result of the generation of dates and positions
+        Plot result of the generation of dates and positions.
 
         Parameters
         ----------
@@ -723,7 +759,6 @@ class Skies():
         None.
 
         """
-
         # Generated dates
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(20, 5))
         dt = Time(self.dates, format="mjd", scale="utc")
@@ -796,7 +831,7 @@ class Skies():
     # -------------------------------------------------------------------------
     def print(self):
         """
-        Print class contents with comments
+        Print class contents with comments.
 
         Returns
         -------
@@ -805,8 +840,11 @@ class Skies():
         """
         print(50*"-")
         print(" Generation number (version): ", self.version)
-        print(" Source identifiers from ", self.id1, " to ", self.id2,
-              " (", self.Nsrc, ")")
+        if isinstance(self.id1, int):
+            print(" Source identifiers from ", self.id1, " to ", self.id2,
+                  " (", self.Nsrc, ")")
+        elif isinstance(self.id1, list):
+            print(" Source identifiers :", self.id1, " (", self.Nsrc, ")")
         print(" Generated dates ")
         print("  - from               : ", self.year1)
         print("  - to                 : ", self.year2)
@@ -841,20 +879,28 @@ if __name__ == "__main__":
         heading("Running examples")
         # Define command line arguments
         sys.argv = ["skygen.py", "-h"]
-        sys.argv = ["skygen.py", "-y", "2004", "-n", "10", "-f", "8",
-                    "-N", "5", "-V", "nomoonveto"]
-        sys.argv = [r"J:\My Documents\CTA_Analysis\GRB paper\SoHAPPy\skygen.py",
-                    "-f", "1",
-                    "-N", "3",
-                    "-v", "default",
-                    "-c", r".\data\config_ref.yaml"]
+        # sys.argv = ["skygen.py", "-y", "2004", "-n", "10", "-f", "8",
+        #             "-N", "5", "-V", "nomoonveto"]
+        # sys.argv = [r"J:\My Documents\CTA_Analysis\GRB paper\SoHAPPy\skygen.py",
+        #             "-f", "1",
+        #             "-N", "3",
+        #             "-v", "default",
+        #             "-c", r".\data\config_ref.yaml"]
 
+        # sys.argv = ["skygen.py",
+        #             "-f", "[1200, 3456, 9877]",
+        #             "-N", "3",
+        #             "-v", "tests",
+        #             "-c", r"data/config_ref.yaml",
+        #             "--noposition", "--debug"]
         sys.argv = ["skygen.py",
-                    "-f", "1",
-                    "-N", "5",
+                    "-f",
+                    "'lightcurves/grb100k_long_ISM/detectable_combined/combined_detected_00001_02000.json'",
+                    "-N", "3",
                     "-v", "tests",
                     "-c", r"data/config_ref.yaml",
-                    "--notrigger", "--debug"]
+                    "--noposition", "--debug"]
+
         # ## If no configuration file is given, generates ex-nihilo
         # sys.argv = ["skygen.py",
         #         "-f", "1",
