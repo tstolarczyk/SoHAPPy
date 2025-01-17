@@ -1463,9 +1463,17 @@ if __name__ == "__main__":
 
     # Complies with gamapy 1.2 installation
     import os
-    os.environ["HAPPY_IN"] = r"D:\\CTAO\SoHAPPy\input"
-    os.environ["HAPPY_OUT"] = r"D:\\CTAO\SoHAPPy\output"
+    # Retrieve the input and output base folder from environment variables
+    if "HAPPY_IN" in os.environ.keys():
+        infolder = Path(os.environ["HAPPY_IN"])
+    else:
+        sys.exit("The HAPPY_IN environment variable should be defined")
 
+    if "HAPPY_OUT" in os.environ.keys():
+        resfolder = Path(os.environ["HAPPY_OUT"])
+    else:
+        sys.exit("The HAPPY_OUT environment variable should be defined")
+        
     # This is required to have the EBL models read from gammapy
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
                                           "data"))
@@ -1494,12 +1502,11 @@ if __name__ == "__main__":
 
     # Loop over GRB list
     data_path = Path(Path(os.environ["HAPPY_IN"]), cf.data_dir)  # Input data
-    grblist = cf.source_ids()  # GRB list to be analysed
+    filelist = cf.source_ids(infolder)  # GRB list to be analysed
 
-    for item in grblist:
-        fname = cf.prefix+str(item)+cf.suffix
+    for item, fname in enumerate(filelist):
 
-        grb = GammaRayBurst.from_fits(Path(data_path, fname),
+        grb = GammaRayBurst.from_fits(Path(fname),
                                       prompt=cf.prompt_dir,
                                       ebl="dominguez")
 
