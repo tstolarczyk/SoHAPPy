@@ -31,7 +31,8 @@ from astropy.visualization import quantity_support
 
 import astropy.units as u
 from astropy.time import Time
-from astropy.coordinates import AltAz, SkyCoord, get_moon, EarthLocation
+from astropy.coordinates import AltAz, SkyCoord, get_body, EarthLocation
+# from astropy.coordinates import get_moon  # if not get_body
 from astropy.table import Table
 from astropy.io import fits
 
@@ -49,10 +50,9 @@ __all__ = ["Visibility"]
 
 ###############################################################################
 class Visibility():
-
     """
-    This class defines the visibility periods for a given GRB and a certain
-    site (North or South).
+    Define visibility periods for a given GRB and a given site (N or S).
+
     The method, :class:`check` is used to compare the visibility
     windows with the one given by default in the GRB file or any other
     pre-loaded visibility.
@@ -70,8 +70,8 @@ class Visibility():
     (Wikipedia), namely 0.488 and 0.568 degree. The rise time is when the moon
     is below the horizon at a negative angle half of these values, respectively
     -0.244 and -0.284 degree
-
     """
+
     ignore = []
     """ Members to be ignored when exported to Json. """
 
@@ -111,7 +111,6 @@ class Visibility():
         None.
 
         """
-
         self.status = status  # Status of the instance, e.g. `recomputed`
         self.site = site
         self.target = FixedTarget(coord=pos, name="Source")
@@ -178,8 +177,10 @@ class Visibility():
                 npt=150,
                 debug=False):
         """
-        Compute the visibility periods until the end of the last night within
-        the data window. This function takes as arguments the parameters
+        Compute visibility periods until the end of the last night.
+
+        Limit the computation to the data set times. This function takes as
+        arguments the parameters
         required for the computation obtained from the `visibility.yaml` local
         file through the :func:`Configuration.decode_visibility_keyword`
         function.
@@ -207,7 +208,7 @@ class Visibility():
 
         3. For each consecutive tick pairs in the list:
             * Compute the mean time (middle of the a tick pair)
-            * Check if that time belongs to one of the *night*, *above*, or \
+            * Check if that time belongs to one of the *night*, *above*, or
               *bright* (i.e. in the available data interval) intervals and not
               to any  *moon* interval. If so get True, otherwise False.
 
@@ -234,7 +235,6 @@ class Visibility():
             The updated instance.
 
         """
-
         # Decode the parameter dictionnay - keep default otherwise
         if param is not None:
             # observatory = param["where"]
@@ -404,8 +404,7 @@ class Visibility():
     @staticmethod
     def valid(t0, tslices):
         """
-        Check it t0 in MJD is within the boundaries of tslices given as an
-        array of two Time objects.
+        Check it t0 in MJD is within the boundaries of tslices.
 
         Parameters
         ----------
@@ -435,9 +434,10 @@ class Visibility():
                     depth=3,
                     npt=150):
         """
-        From an existing instance, compute the visibility assuming the night \
-        is of infinite length (i.e. from the trigger time to the end of the \
-        data window with a safety margin of 1/10 of a day). Keep the vetoes \
+        Compute the visibility assuming the night is of infinite length.
+
+        "Infinite" means from the trigger time to the end of the
+        data window with a safety margin of 1/10 of a day). Keep the vetoes
         from the Moon and the altitude (above horizon).
 
         Parameters
@@ -457,7 +457,6 @@ class Visibility():
             Updated visibility instance.
 
         """
-
         self.status = "Forced"
         self.depth = depth
         self.altmin = altmin
@@ -505,7 +504,6 @@ class Visibility():
             True if the observation starts at night.
 
         """
-
         tnights = []
         inight = 0  # night (after trigger) counter
 
@@ -576,7 +574,6 @@ class Visibility():
             True if the observation starts above horizon.
 
         """
-
         t_above = []
 
         # Get first period above horizon : can be the present period...
@@ -658,7 +655,6 @@ class Visibility():
             True if Moon too close.
 
         """
-
         too_bright = False
         too_close = False
 
@@ -674,7 +670,8 @@ class Visibility():
 
         # Check distance to source at rise and set
         for t in dt:
-            moon_radec = get_moon(t, self.site)
+            # moon_radec = get_moon(t, self.site)
+            moon_radec = get_body("moon", t, self.site)
             dist = moon_radec.separation(self.target.coord)
             if dist <= self.moon_mindist:
                 too_close = True
@@ -711,7 +708,6 @@ class Visibility():
             Moon halo intensity.
 
         """
-
         f = 1 / ((1 - epsilon) /
                  (q0 * epsilon)/(rc - r0)**2 * (x - r0)**2 + 1 / q0)
         # f = 0.5*(1 - abs(r0-x)/(r0-x))* f + 0.5*(1 - abs(x-r0)/(x-r0))*q0
@@ -736,14 +732,12 @@ class Visibility():
         epsilon : float, optional
             Affordable luminosity fraction. The default is 0.1.
 
-
         Returns
         -------
         float
             Radius with affordbale Moon light intensity.
 
         """
-
         a = (1 - epsilon) / epsilon / q0 / (rc - r0)**2
         return np.sqrt((1 / threshold - 1 / q0) / a)
 
@@ -767,11 +761,11 @@ class Visibility():
             Periods where the Moon light is not affordable for the observation.
 
         """
-
         tmoons = []
 
         # Is the Moon there at trigger tigger time ?
-        radec = get_moon(self.tstart, obs.location)
+        radec = get_body("moon", self.tstart, obs.location)
+        # radec = get_moon(self.tstart, obs.location)
         altaz = radec.transform_to(AltAz(location=obs.location,
                                          obstime=self.tstart))
 
@@ -815,11 +809,11 @@ class Visibility():
     @classmethod
     def from_fits(cls, grb, loc="None"):
         """
-        Default visibility from input file.
+        Get default visibility from input file.
 
-        * The start and stop dates are searched during 24h after the trigger \
+        * The start and stop dates are searched during 24h after the trigger
         and correspond to the first visibility interval.
-        * Does not report a second visibility interval during 24h, that \
+        * Does not report a second visibility interval during 24h, that
         should be possible only if the target is promptly visible (about 15%
         of the targets)
 
@@ -884,7 +878,7 @@ class Visibility():
     @classmethod
     def from_dict(cls, d):
         """
-        Reads a Visibility instance from a dictionnary.
+        Read a Visibility instance from a dictionnary.
 
         Parameters
         ----------
@@ -895,8 +889,7 @@ class Visibility():
         -------
         inst : Visibility instance
             Instance.
-       """
-
+        """
         inst = cls()
         inst.status = "From_dict"
         inst.site = EarthLocation.from_geocentric(x=u.Quantity(d["site"][0]),
@@ -927,6 +920,7 @@ class Visibility():
     def to_json(self, file=None, debug=False):
         """
         Dump individual visibility instance to json.
+
         This is here essentially for didactical purpose as it is preferred to
         dump a dictionnary of visibilities.
 
@@ -942,7 +936,6 @@ class Visibility():
         None.
 
         """
-
         if debug:
             print("Write {} to Json output".format(self.name))
             record = json.dumps(self,
@@ -957,8 +950,9 @@ class Visibility():
     @staticmethod
     def object_to_serializable(obj):
         """
-        Turn any non-standard object into a serializable type so that
-        JSON can write it.
+        Turn any non-standard object into a serializable type.
+
+        This is required for JSON to write it.
         Note that this function explicitely returns a dictionnary.
         Written by K. Kosack, September 2022
         """
@@ -1110,7 +1104,7 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def summary(self, tref):
         """
-        Summarize visble/anamyzable periods.
+        Summarize visble/analyzable periods.
 
         Parameters
         ----------
@@ -1329,7 +1323,8 @@ class Visibility():
             # ##--------------------------
 
             # Moon veto periods with altitude
-            radec = get_moon(tobs, self.site)  # Moon position along time
+            # radec = get_moon(tobs, self.site)  # Moon position along time
+            radec = get_body("moon", tobs, self.site)  # Moon position along time
 
             alt = radec.transform_to(AltAz(location=self.site,
                                            obstime=tobs)).alt
