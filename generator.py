@@ -26,9 +26,11 @@ __all__ = ["slurm_cmd", "decode_command_line"]
 def slurm_cmd(job_cmd,
               nproc=1,
               mem_per_cpu="2G",
-              duration="10:00:00",
+              duration="30:00:00",
               name="SoHAPPy"):
     """
+    Generate batch command.
+
     Note: When run on Spyder, a 1000 source production occupy 1.6 Gb of memory
     on a classical laptop, thus justifying the `mem_per_cpu` default value.
 
@@ -43,6 +45,8 @@ def slurm_cmd(job_cmd,
     duration : string, optional
         Estimated duration (optimise the choice of the bach queue).
         The default is "10:00:00" (10 hours).
+        Processing 300 GRBs in mode "infinite nights" requires 7h on the IRFU
+        Feynman cluster if the ligh curves are limited to 3 days.
     name : string, optional
         Job name, will appear using the `squeue` command (list of running
         jobs). The default is "SoHAPPy".
@@ -53,7 +57,6 @@ def slurm_cmd(job_cmd,
         The `slurm` batch command.
 
     """
-
     cmd = "sbatch"
     cmd += " -c " + str(nproc)
     cmd += " --mem-per-cpu " + mem_per_cpu
@@ -75,12 +78,12 @@ def decode_command_line():
         List of arguments in the command line.
 
     """
-
     parser = argparse.ArgumentParser(description="Generate scripts",
                                      epilog="---")
     parser.add_argument('-C', '--Code',
                         help="Code to be run",
                         required=True)
+
     parser.add_argument('-P', '--Pop',
                         help="Population statistics",
                         default=10,
@@ -94,6 +97,10 @@ def decode_command_line():
                         help="Starting identifier",
                         default=1,
                         type=int)
+
+    parser.add_argument('-j', '--json',
+                        help="Json file folder",
+                        default=None)
 
     parser.set_defaults(batch=True)
 
@@ -124,9 +131,15 @@ if __name__ == '__main__':
         #               "-S", "2",
         #               "--nobatch",
         #               "-c", r"data/config_ref.yaml"]
-        sys.argv = ["", "-C", "SoHAPPy.py", "-V", "strictmoonveto",
-                    "-P", "2570",
-                    "-S", "10", "--nobatch", "-d", "0", "-B", "6001", ]
+        # sys.argv = ["", "-C", "SoHAPPy.py",
+        #             "--config", "MyConfigs/prod5_std/config_prod5_std.yaml",
+        #             "-P", "10000",
+        #             "-S", "5", "--nobatch", "-d", "0"]
+        sys.argv = ["", "-C", "SoHAPPy.py",
+                   #"--config", r"MyConfigs/prod5_std/config_prod5_std.yaml",
+                    "-P", "2000",
+                    "-S", "1", "--nobatch", "-d", "0",
+                    "--json", "data/det3s/test_detected"]
 
     # Get command line arguments and debrief
     args, extra_args = decode_command_line()
@@ -143,11 +156,11 @@ if __name__ == '__main__':
     print()
     print(" Generated commands: ")
 
-    # Open output script file
     outname = Path(args.Code).stem + "_"\
         + str(args.Begin).zfill(5) + "_"\
         + str(args.Pop).zfill(5) + "_"\
         + str(args.Sets)
+
     extname = ".ps1" if platform.system() == "Windows" else ".sh"
     if args.batch:
         fbatch = open("batch_"+outname+extname, "w")
@@ -155,25 +168,42 @@ if __name__ == '__main__':
         finter = open("interactive_"+outname+extname, "w")
 
     # Special action to transform the config filename into a resolved path name
+    cfg = Configuration()
+    conf_file = cfg.def_conf
+
     if "-c" in extra_args:
         idx = extra_args.index("-c")
-        extra_args[idx+1] = str(Path(extra_args[idx+1]).resolve())
+        conf_file = str(Path(extra_args[idx+1]).resolve())
+        extra_args[idx+1] = conf_file
     elif "--config" in extra_args:
         idx = extra_args.index("--config")
-        extra_args[idx+1] = str(Path(extra_args[idx+1]).resolve())
+        conf_file = str(Path(extra_args[idx+1]).resolve())
+        extra_args[idx+1] = conf_file
+
+    if args.json is not None:  # get some information from the config file
+        cfg.read_from_yaml(filename=Path(conf_file))
 
     # Loop over sets
     for [id1, id2] in dsets:
 
         # Pass extra arguments to external code
-        sys.argv = [args.Code] + extra_args + \
-                 ["-f", str(id1), "-N", str(id2 - id1 + 1)]
+        if args.json is None:
+            sys.argv = [args.Code] + extra_args + \
+                     ["-f", str(id1), "-N", str(id2 - id1 + 1)]
+        else:
+            # jname = str(Path(args.json+"_"+str(id1)+"_"+str(id2)).resolve())
+            jname = (args.json + "_"
+                     + str(id1).zfill(cfg.dgt) + "_"
+                     + str(id2).zfill(cfg.dgt) + ".json")
+            jname = "'"+str(Path(jname).resolve())+"'"
+            sys.argv = [args.Code] + extra_args + ["-f", jname]
 
         if args.Code.find("skygen") != -1:
             sky = Skies.command_line()
             job_cmd = sky.cmd_line
 
         elif args.Code.find("SoHAPPy") != -1:
+            # If a json file prefix and folder are given, replace 'id1'
             cf = Configuration.command_line()
             job_cmd = cf.cmd_line
 
@@ -187,7 +217,7 @@ if __name__ == '__main__':
             print(batch_cmd, file=fbatch)
         else:
             print(" >", job_cmd)
-            print("python " + job_cmd, file=finter)
+            print(job_cmd, file=finter)
 
     # Close the script file
     if args.batch:
