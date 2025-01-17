@@ -208,8 +208,9 @@ class Slot():
     def apply_visibility(self, site="?", delay=0*u.s):
         """
 
-        Apply visibility window and delay to the slot, i.e. change the time
-        boundaries.
+        Apply visibility window and delay to the slot.
+
+        This changes the time boundaries.
 
         Parameters
         ----------
@@ -223,7 +224,6 @@ class Slot():
         False if no slice survive to the reorganisation, True otherwise.
 
         """
-
         self.loc = site
         unit = self.grb.tval[0].unit
 
@@ -311,7 +311,6 @@ class Slot():
         None.
 
         """
-
         # Get the list of all slices edges
         ticks = []
         unit = self.slices[0].ts1().unit
@@ -479,10 +478,7 @@ class Slot():
 
     # -------------------------------------------------------------------------
     def __str__(self):
-        """
-        Print out the content of a slice set.
-        """
-
+        """Print out the content of a slice set."""
         title = "Slot "+self.name
         if self.loc not in ("North", "South", "Both"):
             heading(title+" Original")
@@ -506,6 +502,7 @@ class Slot():
     def both_sites(self, delay=None, debug=False):
         """
         Find the vibilities in N and S be given the delays for observation.
+
         In particular in many case the delay will be applied to the first
         in time site (except if the original visibilities differ by a time
         difference less than the delay).
@@ -571,7 +568,7 @@ class Slot():
 # ##---------------------------------------------------------------------------
 def test_visibility(slotet):
     """
-    Test visibility
+    Test visibility.
 
     Parameters
     ----------
@@ -583,7 +580,6 @@ def test_visibility(slotet):
     None.
 
     """
-
     tvis = [[18*u.h, 40*u.h],
             [3*u.h, 60*u.h],
             [3*u.h, 44*u.h],
@@ -617,7 +613,7 @@ def test_visibility(slotet):
 # ##---------------------------------------------------------------------------
 def test_flux(slotet, time=23*u.h):
     """
-    Test flux retrieval
+    Test flux retrieval.
 
     Parameters
     ----------
