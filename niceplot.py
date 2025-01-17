@@ -12,7 +12,7 @@ import gammapy
 
 import numpy as np
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib import cm
@@ -25,7 +25,9 @@ __all__ = ["pause", "draw_contours", "MyLabel", "single_legend", "vals_legend",
 # ##---------------------------------------------------------------------------
 def pause():
     """
-    Used to pause plot display in interactive mode on a shell script. In the
+    Pause plot display in interactive mode on a shell script.
+
+    In the
     abscence of a call to that function figures wil stack on the screen during
     the run and all disappear at the end of the run.
     Using this, figures will be stacked on screen and displayed for each event
@@ -36,24 +38,25 @@ def pause():
     None.
 
     """
-
     plt.show(block=True)
 
 
 # -----------------------------------------------------------------------------
 def lower_limit(xval, yval,
-                nbins=25, ax=None,
+                ax=None,
                 prt=False,
-                plot_lim=False,
+                plot_lim=True,
                 color="red",
                 fitdeg=3,
                 bins=25,
-                cmap="magma_r"):
+                cmap="magma_r",
+                cbar=True):
     """
-    From a 2D histrogram obtaine the bins limiting the population (lowest
-    empty bins) and fit a polynomila function trhough the 2D-bins found.
+    From a 2D histrogram obtain the bins limiting the population.
 
-    ----------
+    Finf the lowest empty bins and fit a polynomila function trhough the
+    2D-bins found.
+
     Parameters
     ----------
     xval: numpy array
@@ -67,8 +70,8 @@ def lower_limit(xval, yval,
     prt : boolean, optional
         If True, print count number in each bin. The default is False.
     plot_lim : boolean, optional
-        If True, plot the data point used to compute the limiting curve.
-        The default is False.
+        If True, plot the limiting curve.
+        The default is True.
     color : string, optional
         limit curve color. The default is "red".
     fitdeg : Interger, optional
@@ -82,11 +85,11 @@ def lower_limit(xval, yval,
         Parameters (float) of the polynomial function.
 
     """
-
     plot = False if ax is None else True
 
     if plot:
-        H, xe, ye, img = ax.hist2d(xval, yval, bins=bins, cmap=cmap)
+        H, xe, ye, img = ax.hist2d(xval, yval, bins=bins,
+                                   cmap=cmap, norm=mpl.colors.LogNorm())
     else:
         H, xe, ye = np.histogram2d(xval, yval, bins=bins)
 
@@ -129,17 +132,17 @@ def lower_limit(xval, yval,
     # ## Plot results if required
     if plot:
         if plot_lim:
-            ax.plot(xlow, ylow, color="black",
-                    lw=1, ls=":", label="lower limits")
-
-        ax.plot(xlow, np.polyval(pfit, xlow),
-                color=color, lw=2, label=" Fit order=" + str(fitdeg))
+            # ax.plot(xlow, ylow, color="black",
+            #         lw=1, ls=":", label="lower limits")
+            ax.plot(xlow, np.polyval(pfit, xlow),
+                    color=color, lw=2, label=" Fit order=" + str(fitdeg))
 
         ax.legend()
 
-        fig = plt.gcf()
-        cbar = fig.colorbar(img, ax=ax)
-        cbar.set_label('Counts')
+        if cbar:
+            fig = plt.gcf()
+            cbar = fig.colorbar(img, ax=ax)
+            cbar.set_label('Counts')
 
     return pfit
 
@@ -147,7 +150,8 @@ def lower_limit(xval, yval,
 # -----------------------------------------------------------------------------
 def draw_contours(xval, yval, nbins=25, ax=None, **kwargs):
     """
-    Plot a contour from the x and y values
+    Plot a contour from the x and y values.
+
     Example of matplotlib contour parameters:
     levels=10, colors="black", alpha=0.2, ls=":", zorder=100, norm="linear"
     See documentation for details
@@ -177,13 +181,16 @@ def draw_contours(xval, yval, nbins=25, ax=None, **kwargs):
     grid = HH.transpose()
 
     midpoints = (xe[1:] + xe[:-1])/2, (ye[1:] + ye[:-1])/2
-    ax.contour(*midpoints, grid, **kwargs)
+    cntr = ax.contour(*midpoints, grid, **kwargs)
+
+    return cntr
 
 
 # ##---------------------------------------------------------------------------
 def MyLabel(var, label="", stat="std"):
     """
-    A label for plots and histograms with statistics.
+    Create label for plots and histograms with statistics.
+
     Add extra statistical information (counts, dispersions) to a classical
     matplotlib label.
 
@@ -204,7 +211,6 @@ def MyLabel(var, label="", stat="std"):
         The modfied label text.
 
     """
-
     if len(label) != 0:
         label = label+"\n"
 
@@ -229,7 +235,9 @@ def MyLabel(var, label="", stat="std"):
 # ##---------------------------------------------------------------------------
 def single_legend(fig, debug=False, **kwargs):
     """
-    Remove duplicated labels in legend (e.g. a vertical and an horizontal
+    Remove duplicated labels in legend.
+
+    (e.g. a vertical and an horizontal
     lines defining and intersection having the same labels) and group all
     labels in the same text box.
     Works also on a figure with multiple plots.
@@ -248,7 +256,6 @@ def single_legend(fig, debug=False, **kwargs):
     None.
 
     """
-
     # Collect all legend labels from the figure
     all_handles = []
     all_labels = []
@@ -279,7 +286,9 @@ def single_legend(fig, debug=False, **kwargs):
 # ##---------------------------------------------------------------------------
 def old_single_legend(ax, **kwargs):
     """
-    Remove duplicated labels in legend (e.g. a vertical and an horizontal
+    Remove duplicated labels in legend.
+
+    (e.g. a vertical and an horizontal
     lines defining and intersection having the same labels).
     Replace by a new fucntion. Temporarily kept for backward compatibility.
 
@@ -293,7 +302,6 @@ def old_single_legend(ax, **kwargs):
     None.
 
     """
-
     handles, labels = ax.get_legend_handles_labels()
     by_label = OrderedDict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), **kwargs)
@@ -321,7 +329,6 @@ def vals_legend(vals=None, alpha=0.5, var_max=1000, **kwargs):
         Legend associated to the current axis.
 
     """
-
     if vals is None:
         vals = [5, 10, 20, 50, 100, 500]
 
@@ -345,9 +352,9 @@ def stamp(text, axis=None,
           where="right", x=None, y=None, rotation=0,
           **kwargs):
     """
-    Annotation on the side of any plot referred from the axis, including
-    the gammapy version.
+    Annotate the side of any plot referred from the axis.
 
+    including the gammapy version.
 
     Parameters
     ----------
@@ -375,7 +382,6 @@ def stamp(text, axis=None,
     None.
 
     """
-
     text = text + " - " + gammapy.__version__
 
     if axis is None:
@@ -407,8 +413,9 @@ def projected_scatter(xsize=12,  ysize=8,
                       bottom=0.1, height=0.7,
                       spacing=0.02):
     """
-    Matplotlib template to display a scatter plot and the horizontal and
-    vertical projections of the data. Adapted from :
+    Matplotlib template to display a scatter plot and projections.
+
+    Adapted from :
     https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html#sphx-glr-gallery-lines-bars-and-markers-scatter-hist-py
 
     Parameters
@@ -444,7 +451,7 @@ def projected_scatter(xsize=12,  ysize=8,
     rect_histx = [left, bottom + height + spacing, width, 0.2]
     rect_histy = [left + width + spacing, bottom, 0.2, height]
 
-    fig = matplotlib.pyplot.figure(figsize=(xsize, ysize))
+    fig = mpl.pyplot.figure(figsize=(xsize, ysize))
     ax = fig.add_axes(rect_scatter)
     axh = fig.add_axes(rect_histx, sharex=ax)
     axv = fig.add_axes(rect_histy, sharey=ax)
@@ -458,7 +465,7 @@ def projected_scatter(xsize=12,  ysize=8,
 # ##---------------------------------------------------------------------------
 def ColorMap(threshold, maxval):
     """
-    Create a colormap based on a threshold and a maximal value
+    Create a colormap based on a threshold and a maximal value.
 
     Parameters
     ----------
@@ -487,7 +494,7 @@ def ColorMap(threshold, maxval):
 # ##---------------------------------------------------------------------------
 def col_size(var, var_min=1.1, var_max=1000):
     """
-    get a color and a size from a numerical value
+    Get a color and a size from a numerical value.
 
     Parameters
     ----------
@@ -506,7 +513,6 @@ def col_size(var, var_min=1.1, var_max=1000):
         matplotlib size.
 
     """
-
     # Limit values in case they are not yet limited
     var = np.clip(var, var_min, None)
 
@@ -537,12 +543,11 @@ def draw_sphere(radius=1, colormap=plt.cm.viridis, ax=None, **kwargs):
     None.
 
     """
-
     if ax is None:
         fig = plt.figure(figsize=(8, 8), dpi=300)
         ax = fig.add_subplot(111, projection='3d')
 
-    if matplotlib.__version__ > "3.5":
+    if mpl.__version__ > "3.5":
         ax.set_box_aspect(aspect=(1, 1, 1))
 
     u = np.linspace(0, 2 * np.pi, 100)
