@@ -1,0 +1,160 @@
+#=============================================================================#
+#                         SoHAPPY reference Configuration file
+#=============================================================================#
+# This YAML file contains the steering parameters of SoHAPPy.
+# True and False are equivalent to python, whereas python None is coded as Null
+# Some parameter values can be superseded by the command line they are
+# indicated with an asterisk (*)
+# This file contains some values corresponding to the first reference studies
+# made with SoHAPPy. It is intended to processa a few files with the most
+# common options, including a informative messages. It can pe copied and
+# adapted to other cases.
+#=============================================================================#
+# PHYSICS PARAMETERS
+#-----------------------------------------------------------------------------#
+# ifirst*    : either an id to start with, or a list (then ngrb is useless)
+#              e.g. ifirst=1
+#                   ifirst=[1,2,3]
+#                   ifirst =[751, "090902B","080916C","130427A"]
+# nsrc*      : integer, number of source to be read (if 1 specific actions)
+# visibility*: can be:
+#              * "built-in" (read from the data file if it exists),
+#              * a keyword pinting to a folder containing json files
+#                with a colection of visibilities corresponding to the
+#                source list
+#              * a keyword corresponding to a dictionnay entry in
+#                visibility.yaml to compute the visibility on the fly.
+#              * the keyword `forced` to force infinite nights
+#              * the keyword `permanent` to force infinite nights and no
+#                altitude veto
+# ebl_model  : Possible EBL models are from gammapy or gilmore data on disk.
+#              Use "in-file" for the absorbed data in the input file (if any)
+# maxnight*  : Limit GRB data to a maximal number of nights
+# skip*      : Skip the first nights
+# emax       : Limit GRB data energy bins to Emax
+# tmax       : Limit GRB lightcurve in time to tmax
+
+#-----------------------------------------------------------------------------#
+ifirst      : 343 #"190114C"  "221009A" [980, 465, 785,343]
+nsrc        : 1
+visibility  : "strictmoonveto" #"built-in" #
+ebl_model   : "dominguez" #"gilmore"
+maxnight    : Null
+skip        : Null
+
+#=============================================================================#
+# INPUT/OUPUT
+#-----------------------------------------------------------------------------#
+# out_dir*   : Specific output subfolder, with a name related to tests or IRF
+# data_dir*  : data subfolder
+# prompt_dir : if not Null, read time-integrated prompt from this subfolder
+# irf_dir    : IRF subfolder - should contain a tag for the production used
+# prefix     : String added before the source identifier
+# suffix     : String added after the source id., including the file extension
+# dgt        : source id coding number of digits
+#-----------------------------------------------------------------------------#
+out_dir      : "test_prod3"
+data_dir     : "lightcurves/long_1_1000/" #""lightcurves/long_ISM_finaltest" #
+prompt_dir   : Null # "lightcurves/prompt/ctagrbs_spop" # Null
+irf_dir      : "irf/Full/prod3-v2"
+prefix       : "Event"
+suffix       : ".fits.gz"
+dgt          : 0
+
+#=============================================================================#
+# SIMULATION PARAMETERS
+#-----------------------------------------------------------------------------#
+# niter*        : Number of Monte Carlo trials
+# seed          : Choose ‘random-seed’ to randomize
+# do_fluctuate  : If True Statistical fluctuations are enabled.
+#                 If False niter forced to one
+# do_accelerate : When True, the simulation is stopped if none of the first
+#                 trials in the limit of 1 - det_level have reached the minimal
+#                 significance (3 sigma).
+#-----------------------------------------------------------------------------#
+niter           : 100
+seed            : 2021
+do_fluctuate    : True
+do_accelerate   : False
+#=============================================================================#
+# DETECTION PARAMETERS
+#-----------------------------------------------------------------------------#
+# array_North  : IRF subarrays in North (FullArray, MST...)
+# array_South  : IRF subarrays in South (FullArray, MST...)
+# dtslew_North : Maximum slewing time delay in North
+# dtslew_South : Maximum slewing time delay in South
+# fixslew      : If True use ma. slewing value, otherwise a random delay < dtslew
+# dtswift      : Alert latency (e.g. SWIFT latency, with amean value of 77 s)
+# fixswift     : If True, use above value.
+#                If False, latency generated from Swift data
+# swiftfile    : Latency dsitribution data file in the input base folder
+#-----------------------------------------------------------------------------
+#
+array_north    : "FullArray"
+array_south    : "FullArray"
+dtslew_north   : "30 s"
+dtslew_south   : "30 s"
+fixslew        : True
+dtswift        : "77 s"
+fixswift       : True
+swiftfile      : "data/swift/Swift_delay_times.txt"
+#=============================================================================#
+# DEBUGGING / BOOKKEEPING
+#-----------------------------------------------------------------------------#
+# dbg*       : From 0 to 3, increasingly talkative
+#              if negative or zero : no plot
+#              0: evt counting, 1: + some results, 2: + event details
+#              3: details for each trials
+# silent     : If True, nothing on screen (output to log)
+# save_simu  : If True, the simulation saved to file for offline use
+# save_grb   : If True, GRB class saved to disk -> use grb.py main
+# datafile   : Population main output file name
+# logfile    : Text log file with results, status and warnings
+# remove_tar : If True, remove tarred files, otherwise keep for faster access
+#-----------------------------------------------------------------------------#
+dbg          : 1
+silent       : False  # If True, nothing on screen (output to log) if dbg=0
+save_simu    : False
+save_grb     : False
+save_fig     : False
+datafile     : "data.txt"
+logfile      : "analysis.log"
+remove_tar   : False
+#=============================================================================#
+# EXPERTS/DEVELOPPERS ONLY
+#-----------------------------------------------------------------------------#
+# det_level      : Detection confidence level
+# alpha          : one over the number of on-off regions
+# elimit         : Limit sepctral data to this maximal value
+# tlimit         : Limit lightcurve data to this limit (ref.: trigger)
+# emin           : Analysis minimal energy - supersede IRF threshold
+# emax           : Analysis Maximal energy - supersed  IRF max. energy
+# edense         : If True, use a denser binning for spectral analysis
+# tmin           : Start analysis beyond this value (passed to Visibility)
+# tmax           : Stop the analysis beyond this value (passed to Visibility)
+# obs_point      : Observation position in the time slice
+# test_prompt    : If True test prompt alone (experimental)
+# use_afterglow  : Prompt characteristics from the afterglow with same id.
+# tshift         : Shift in days applied to all trigger dates
+# fixed_zenith   : If a value ("20 deg") freezes zenith in IRF
+# magnify        : Multiplicative factor of the input flux, for tests
+# write_slices   : Store detailed information on slices if True
+# save_dataset   : Not implemented (save datasets)
+#-----------------------------------------------------------------------------#
+det_level       : 0.9
+alpha           : 0.2
+elimit          : Null   # Limit sepctral data to this maximal value
+tlimit          : Null   # Limit lightcurve data to this limit (ref.: trigger)
+emin            : Null   # Analysis minimal energy - supersede IRF threshold
+emax            : Null   # Analysis Maximal energy - supersed  IRF max. energy
+edense          : False  # If True, use a denser binning for spectral analysis
+tmin            : Null   # Start analysis beyond this value
+tmax            : Null   # Stop the analysis beyond this value
+obs_point       : "end"  # Observation position in the time slice
+test_prompt     : False  # If True test prompt alone (experimental)
+use_afterglow   : False  # Prompt characteristics from the afterglow with same id.
+tshift          : 0      # Shift in days applied to all trigger dates
+fixed_zenith    : Null   # If a value ("20 deg") freezes zenith in IRF
+magnify         : 1      # Multiplicative factor of the input flux, for tests
+write_slices    : False  # Store detailed information on slices if True
+# save_dataset    : False  # Not implemented (save datasets)
