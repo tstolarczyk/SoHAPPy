@@ -44,7 +44,7 @@ import gammapy
 from __init__ import __version__
 
 from configuration import Configuration
-from niceprint import Log, failure, heading
+from niceprint import Log, heading
 
 from grb import GammaRayBurst
 
@@ -62,7 +62,7 @@ warnings.filterwarnings('ignore')
 # #############################################################################
 def welcome(log):
     """
-    Good luck!
+    Welcome message.
 
     Parameters
     ----------
@@ -86,7 +86,7 @@ def welcome(log):
 # ##############################################################################
 def main():
     """
-    The `SoHAPPy` main function.
+    `SoHAPPy` main function.
 
     1. Manage input/output
         - Source data identifier list
@@ -114,7 +114,6 @@ def main():
     None.
 
     """
-
     # Change gammapy logging to avoid warning messages
     logging.basicConfig()
     log = logging.getLogger("gammapy.irf")
@@ -212,6 +211,9 @@ def main():
                     print("Processing items :", end=" ")
                 print(item, end=' ')
 
+            # if cf.fake:  # !!!
+            #     continue
+
             if Path(fname).suffix != ".yaml":
                 grb = GammaRayBurst.from_fits(Path(fname),
                                               prompt=cf.prompt_dir,
@@ -229,44 +231,6 @@ def main():
                                                          elimit=cf.elimit,
                                                          tlimit=cf.tlimit,
                                                          magnify=cf.magnify)
-
-            # Get GRB
-            # if isinstance(item, int):  # from a number as an indentifier
-            #     fname = Path(data_path, cf.prefix + str(item).zfill(cf.dgt)
-            #                  + cf.suffix)
-
-            #     if not cf.test_prompt:  # Afterglow + time integrated prompt
-            #         if not fname.is_file():
-            #             failure(f" SKIPPING - File not found {fname:}")
-            #             continue
-            #         grb = GammaRayBurst.from_fits(fname,
-            #                                       prompt=cf.prompt_dir,
-            #                                       ebl=cf.ebl_model,
-            #                                       elimit=cf.elimit,
-            #                                       tlimit=cf.tlimit,
-            #                                       dt=cf.tshift,
-            #                                       magnify=cf.magnify)
-            #     else:  # Prompt component alone
-
-            #         pname = Path(Path(cf.infolder, cf.prompt_dir,
-            #                           "events_"+str(item)+".fits"))
-            #         if not cf.use_afterglow:
-            #             fname = None
-
-            #         grb = GammaRayBurst.prompt(pname, fname,
-            #                                    ebl=cf.ebl_model,
-            #                                    magnify=cf.magnify,
-            #                                    elimit=cf.elimit,
-            #                                    tlimit=cf.tlimit)
-
-            # elif isinstance(item, str):  # this is a GRB name string
-            #     if cf.visibility == "built-in":
-            #         sys.exit(" Error: yaml file with `built-in` visibility")
-            #     grb = GammaRayBurst.historical_from_yaml(item,
-            #                                              ebl=cf.ebl_model,
-            #                                              elimit=cf.elimit,
-            #                                              tlimit=cf.tlimit,
-            #                                              magnify=cf.magnify)
 
             # Assign visibilities
             for loc in ["North", "South"]:
@@ -459,24 +423,29 @@ def main():
 # #############################################################################
 if __name__ == "__main__":
 
-    os.environ["HAPPY_IN"] = r"D:\\CTAO\SoHAPPy\input"
-    os.environ["HAPPY_OUT"] = r"D:\\CTAO\SoHAPPy\output"
-
     print(" argv : ", sys.argv, " len = ", len(sys.argv))
     if len(sys.argv[1:]) <= 1:
         print("------------------> Execute examples")
-        # sys.argv = ["", "-c", "config_ref_prod10000.yaml", "-f", "1304"]
-        # sys.argv = ["", "-c", "data/config_ref_1000.yaml", "-f", "1"]
-        # sys.argv = ["", "-c", "data/config_ref_1000.yaml"]
-        sys.argv = ["", "-c", "data/config_ref_omega.yaml", "-f", "343"]
-        # sys.argv = ["", "-c", "data/config_ref_omega_test.yaml", "-f", "343"]
-        # sys.argv = ["", "-c", "config_test.yaml"]
-        # sys.argv = ["",  "--first", "[1, 12]",  "--nsrc",  "5"]
-        # sys.argv = ["", "-c","myConfigs/config-LongFinalTest-omega.yaml"]
-        # sys.argv =["", "-c","myConfigs/config_Long1000_strictmoonveto_1.yaml"]
-        # sys.argv = ["", "-c","config_maximal_detection14h.yaml", ]
+        # sys.argv = ["", "-c", "config_ref_prod10000.yaml",
+
+        # A few sources
+        # sys.argv = ["",
+        #             "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
+        #             "-f", "343",
+        #             "--nsrc", "2", "-d", "1"]
+        # A list of sources (nsrc ignored)
+        # sys.argv = ["",
+        #             "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
+        #             "-f", "[5, 1304, 22654, 78098]",
+        #             "-d", "1"]
+        # A list of sources from a json file - the fileame shall be quoted
+        sys.argv = ["",
+                    "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
+                    "-f", "data/det3s/test_detected_00001_02000.json",
+                    "-d", "0"]
+        # A pre-computed visbility
         # sys.argv = ["", "--first", "1", "--nsrc", "3",
         #            "--visibility", "strictmoonveto_9999_1_interactive_test",
         #            "-d", "0"]
-        # "--config", r"//dapdc5/Stolar/My Documents/CTA_Analysis/GRB paper/SoHAPPy/data/config_ref.yaml",
+        #            "--config", r"/data/config_ref.yaml",
     main()
