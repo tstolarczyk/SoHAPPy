@@ -119,14 +119,13 @@ class GammaRayBurst():
     # ##-----------------------------------------------------------------------
     def __init__(self):
         """
-        This initializes a default GRB.
+        Initialize a default GRB.
 
         Returns
         -------
         None.
 
         """
-
         self.id = 'dummy'
         self.filename = None  # File with the spectral and lightcurve data
         self.z = 0  # Redshift
@@ -146,7 +145,7 @@ class GammaRayBurst():
         self.gamhe = 0.*u.dimensionless_unscaled
 
         # GRB explosion time and observation
-        self.t_trig = Time('2020-01-01T02:00:00', format="isot", scale='utc')
+        self.t_trig = Time('2020-01-01T00:00:00', format="isot", scale='utc')
 
         # ------------
         # ## Afterglow
@@ -210,6 +209,7 @@ class GammaRayBurst():
                   debug=False):
         """
         Read the GRB data from a `fits` file.
+
         Fluxes are given for a series of (t,E) values
         So far no flux exists beyond the last point (no extrapolation).
 
@@ -256,7 +256,6 @@ class GammaRayBurst():
         A GammaRayBurst instance.
 
         """
-
         # ## -----------------------------------------------------
         # ## Open file, get header, keys, and data - Fill the class members
         # ## -----------------------------------------------------
@@ -317,10 +316,10 @@ class GammaRayBurst():
             cls.t_trig = Time(hdr['GRBTIME'] + dt*u.day,
                               format="jd", scale="utc")
         else:
-            warning(f"{__name__:}.py: Trigger time absent from file,"
-                    f" using random value")
+            if debug:
+                warning(f"{__name__:}.py: Trigger time absent from file,"
+                        f" using random value")
             cls.t_trig += random.uniform(0, 365)*u.day
-
         # ##--------------------------
         # ## Time intervals - so far common to afterglow and prompt
         # ##--------------------------
@@ -438,6 +437,7 @@ class GammaRayBurst():
                              nebin=25):
         """
         Read the characteristics of a parameterised GRB from a `yaml` file.
+
         It is assumed that the energy and time decays are not correlated and
         follow two independent power laws.
         The function associates spectra to a list of time intervals
@@ -466,7 +466,6 @@ class GammaRayBurst():
         -------
         A `GammaRayBurst` instance.
         """
-
         cls = GammaRayBurst()  # This calls the constructor
 
         cls.filename = filename
