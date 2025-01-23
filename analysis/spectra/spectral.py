@@ -14,153 +14,274 @@ a minimal duration.
 
 import sys
 import os
-import pickle
 from pathlib import Path
-
+import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
+from astropy.time import Time
+from astropy.visualization import quantity_support
 
-from gammapy.utils.random import get_random_state
+from gammapy.modeling.models import EBLAbsorptionNormSpectralModel
+from gammapy.modeling.models import SkyModel
+
+from gammapy.estimators import LightCurveEstimator
 
 from dataset_plot import windows, panels
-from dataset_counts import excess_counts, excess_versus_time, lightcurve, residuals
-from dataset_flux import extract_spectrum, flux_versus_time
-from dataset_tools import createonoff_from_simulation, check_datasets, sigmax
+from dataset_tools import stacking, check_datasets
+
+from dataset_flux import (get_fluxes, fit_and_plot_spectra,
+                          fit_model, plot_fitted_spectrum,
+                          print_fitted_spectrum)
+
+from dataset_flux import (flux_versus_time)
 
 from niceprint import heading
-from niceplot import stamp, MyLabel
+from niceplot import stamp
+
+from utils import datasets_from_binary
 
 sys.path.append("../")
 sys.path.append("../../../SoHAPPy")
 
-###############################################################################
 
+# #############################################################################
+class FitModels():
+    
+    # -----------------------------------------------------------------------------
+    def __init__(self, datas, e_model, abs_model):
+        
+        self.e_model = e_model
+        self.abs_model = abs_model
+        self.dsets = datas
+        
+    # -----------------------------------------------------------------------------
+    def cumulated_energy_spectra(self, debug=False):
+        
+        ds_stacked = stacking(self.dsets)
+        
+        # Get flux points
+        model = SkyModel(spectral_model=self.abs_model, name=GRB_id)
+        flx_obs, flx_intrinsic = get_fluxes(ds_stacked[-1],
+                                            model=model,
+                                            intrinsic=self.e_model)
+        if debug:
+            print(flx_obs.reference_model)
+            print(flx_intrinsic.reference_model)
+        
+        # Get flux parameters - note that indices are the same with or without
+        # deabsoprtion
+        pdict = flx_obs.reference_spectral_model.parameters.to_dict()
+        
+        index = pdict["name=" == "index"]
+        
+        # Plot results
+        
+        label = (rf"$\gamma = {index['value']:5.2f}"
+                 rf" \pm {index['error']:5.2f}$")
+        
+        e_range = [flx_obs.energy_min[0], flx_obs.energy_max[-1]]
+        ax = plot_fitted_spectrum(flx_obs, e_range=e_range,
+                                  sed_type="dnde", label=label)
+        plot_fitted_spectrum(flx_intrinsic, e_range=e_range,
+                             color="red", ax=ax, sed_type="dnde")
+        ax.legend()
+        
+        
+        # Print flux values at sampled energy
+        if debug:
+            print_fitted_spectrum(flx_obs)
+            print_fitted_spectrum(flx_intrinsic)
+        
+    # -----------------------------------------------------------------------------
+    def individual_energy_spectra(self, debug=False):
+        
+        # Fit a powerLaw with expoential cutoff
+        fig = panels(self.dsets, fit_and_plot_spectra,
+                     tref=grb.t_trig, nmaxcol=4,
+                     model=fit_model("cutoff"), intrinsic=None)
+        fig.suptitle("Individual energy spectra")
+        plt.tight_layout()
+        
+        # Fit an absorbed powerla
+        fig = panels(dsets, fit_and_plot_spectra,
+                     tref=grb.t_trig, nmaxcol=4,
+                     model=model, intrinsic=spec_model)
+        
+        fig.suptitle("Individual energy spectra")
+        plt.tight_layout()
+        
+    # -----------------------------------------------------------------------------
+    def energy_index(self, t0 = 0, debug=False):
+        
+        # Fit a powerLaw with expoential cutoff
+        indices = []
+        index_errors = []
+        times = []
+        errtimes = []
+        first = True
+        t0 = 0
+        
+        for ds in dsets:
+            if first:
+                t0 = ds.gti.time_start[0]
+                t_unit = u.s
+                first = False
+                
+            # Time intevals  
+            err_tds = ds.gti.time_sum/2
+            tds = (ds.gti.time_start[0]-t0).sec*u.s + err_tds
+            
+            # Fit flux
+            model = SkyModel(spectral_model=self.abs_model, name=ds.name)
+            
+            flx_obs, flx_intrinsic = get_fluxes(ds,
+                                                model=model,
+                                                intrinsic=self.e_model)
+                  
+            # intrinsic indices
+            pdict = flx_intrinsic.reference_spectral_model.parameters.to_dict()
+        
+            indices.append(pdict[0]["value"]) 
+            index_errors.append(pdict[0]["error"])
+            
+            times.append(tds.to(t_unit).value)
+            errtimes.append(err_tds.to(t_unit).value)    
+            
+        indices = np.array(indices)
+        index_errors = np.array(index_errors)
+        times = np.array(times)
+        errtimes = np.array(errtimes)
+        
+        idx_mean = [np.mean(indices), np.std(indices)]
+        
+        fig, ax = plt.subplots(figsize=(12, 5))
+        
+        with quantity_support():  # errorbar do not suport units
+
+            ax.errorbar(x=times, y=indices,
+                        xerr=errtimes, yerr=index_errors,
+                        color="tab:blue", ls="", label="Intrinsic")
+            
+            ax.set_xlabel("Elapsed time ("+ str(t_unit)+")")
+            ax.set_ylabel("Energy index")
+            ax.grid("both")
+            ax.axhline(idx_mean[0], ls="--")
+            ax.axhspan(idx_mean[0] - idx_mean[1],
+                       idx_mean[0] + idx_mean[1],
+                       alpha=0.2, color="tab:blue")
+            ax.legend()
+            
+        print(f" Mean index  = {idx_mean[0]:5.2f} +/- {idx_mean[1]:5.2f}")
+        print(f" Mean errors = {np.mean(index_errors):5.2f}")
+            
+        return ax
+        
+###############################################################################
 # Get data from a GRB simulated file
 # Use the INFILE environment variable if it exists
-if "INFILE"  in os.environ.keys():
-    file = Path(os.environ["INFILE"])
-else:
-    base = Path("D:/CTA/SoHAPPy/output/long_1_1000/test_omega/strictmoonveto/strictmoonveto_343")
-    GRB_id  = 343
-    site    = "South"
-    file    = Path(base,"Event"+str(GRB_id)+"-"+site+"_sim.bin")
 
-if not file.exists():
-    sys.exit(f"File {file:} not found")
+# This is required to have the EBL models read from gammapy
+os.environ['GAMMAPY_DATA'] =\
+  str(Path(Path(__file__).absolute().parent.parent.parent, "data"))
 
-# Get the MC class instance
-infile  = open(file,"rb")
-mc      = pickle.load(infile)
-infile.close()
+# File to be analysed
+base = Path(r"D:\CTAO\SoHAPPy\HISTORICAL\180720B\Night_1")
+GRB_id = "180720B"
+site = "South"
+filepath = Path(base, GRB_id+"-"+site+"_sim.bin")
 
-# GRB characteristics
-heading("GRB")
-print(mc.slot.grb)
-mc.slot.grb.plot()
+# ## -----------------------------------
+# ## Get back the datasets and the GRB
+# ## -----------------------------------
+heading("DATASETS & GRB")
+dsets, grb = datasets_from_binary(filepath=filepath)
 
-# Re-create the on-off dataset list (datasets) from the simulation
-# Note that this is another MC realisation"
-deeper = True # Display Energy bins in each set
-heading("DATASETS")
-dset_init = createonoff_from_simulation(mc,
-                                        random_state=get_random_state(2021),
-                                        debug=False)
+# dsets = dset_init.copy()  # Why do I copy. Can't remember...
+# Display count number of each energy bin
+# check_datasets(dsets, masked=False, deeper=True, header=True)
 
-dsets = dset_init.copy()
-print(f"Number of sets in datasets : {len(dsets)}")
-check_datasets(dsets, masked=False, deeper=deeper, header=True)
+print(grb)
+# grb.plot()
 
-# Check siginificance
-heading("Max significance stability")
+# ## -----------------------------------
+# ##   Energy spectra
+# ## -----------------------------------
 
-sigmx = sigmax(dset_init)
-print(f" Significance from this realization = {sigmx:5.1f}")
+#  Define the emodel
+# To get the fit with no EBLabsoprtion, create a compound model
+spec_model = fit_model("powerlaw")
+model = spec_model * \
+            EBLAbsorptionNormSpectralModel.read_builtin("dominguez",
+                                                        redshift=grb.z)
+# print(model)
+fit = FitModels(dsets, spec_model, model)
 
-# Mean significance from many realisations
-siglist = []
-fig, ax = plt.subplots(nrows=1,ncols=1, figsize=(8,8))
-for i in range(100):
-    print(i," ", end="")
-    dset_test = createonoff_from_simulation(mc,debug=False,
-                                    random_state=get_random_state(2021))
-    siglist.append(sigmax(dset_test))
-ax.hist(siglist, label=MyLabel(siglist,label="MC Siginificances"))
-ax.axvline(sigmx,ls="--",color="red")
-ax.legend()
+# Cumulated Energy spectra
+heading("Cumulated Energy spectra")
+fit. cumulated_energy_spectra()
 
-# Display the observation start times and windows
-heading("Observation windows")
-windows(dsets)
-stamp(file.stem)
+##  Individual Energy spectra
+heading("Individual Energy spectra")
+# fit.individual_energy_spectra()
 
-# Excess count numbers
-# Mina nd max number of counts can be changed, as well as Emin and Emax, see
-# excess_count function documentation
-heading(" Excess count numbers")
-merging = False
-fig = panels(dsets,excess_counts,
-                    xsize   = 6, yscale="log",
-                    nmaxcol = 3,
-                    stacked = merging,
-                    max_margin = 1.1,
-                    tref       = mc.slot.grb.t_trig,
-                    fixrange   = True)
-stamp(file.stem,axis=fig)
-plt.tight_layout(h_pad=0, w_pad=0)
+# Enegy indices
+heading("Energy indices with time")
+# fit.energy_index()
 
-# Excess counts residuals - uses the Gammapy fucntion - to betuned
-heading(" Excess count residuals")
-fig = panels(dsets, residuals, ysize=5, nmaxcol=4, yscale="linear")
-stamp(file.stem,axis=fig)
-plt.tight_layout(h_pad=0, w_pad=0)
+# ## ------------------
+# ##  Light curve in flux
+# ## ------------------
 
-# Excess versus time
-heading(" Excess versus time")
-xscale = "log" # linear
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(15,8))
-excess_versus_time(dsets, ax = ax[0], debug=False, rate=False, xscale=xscale)
-excess_versus_time(dsets, ax = ax[1], debug=False, rate=True,  xscale=xscale)
-stamp(file.stem, axis=fig)
-
-# Light curve simulation, compared to prediction/theory
-heading(" Light curve")
-
-tmin   = 0*u.s
-tmax   = 1500*u.s
-dtbin  = 10*u.s
-xscale = "linear"
-yscale = "linear"
-
-fig, ax= plt.subplots(nrows=1, ncols=1, figsize=(15,6))
-ax = lightcurve(dsets,tag="excess",style="line",
-                          binwidth=dtbin,tmax=tmax,
-                          ax=ax, xscale=xscale, yscale=yscale, marker=".")
-lightcurve(dsets,tag="prediction",style="bar",color="tab:blue",alpha=0.2,
-            binwidth=dtbin,tmax=tmax,
-            ax=ax, xscale=xscale, yscale=yscale )
-stamp(file.stem)
-
-
-# Use a subset when useful, e.g. dsets[6:10]
-heading(" Energy spectra")
-fig = panels(dsets, func = extract_spectrum, stacked=False,
-                    xsize     = 6, yscale="log",
-                    nmaxcol   = 4,
-                    e_ref     = 1*u.TeV,
-                    tref      = mc.slot.grb.t_trig,
-                    e_unit    = "TeV",
-                    flux_unit = "TeV-1 cm-2 s-1",
-                    flux_min  = 1.e-14,
-                    flux_max  = 1.e-6,
-                    tag = "",
-                    debug     = True)
-stamp(file.stem)
-
-# Plot the flux time evolution for a given range (limited to the reco axis range)
+# Plot the flux time evolution for a given range
+# (limited to the reco axis range)
 heading("Flux versus time")
-fig,ax = plt.subplots(figsize=(20,8))
+fig, ax = plt.subplots(figsize=(20, 8))
 flux_versus_time(dsets,
                  emin=100*u.GeV, emax=5*u.TeV,
                  tmin=300*u.s, tmax=2*u.d,
-                 stacked=False, fit=True, debug=True)
-stamp(file.stem)
+                 stacked=False, fit=True, debug=True,
+                 model=model)
+stamp(filepath.stem)
+# debug = True
+
+
+# e_unit = "GeV"
+# b_min = np.where(dsets[0].mask_safe.data.flatten())[0][0]
+# b_max = np.where(dsets[0].mask_safe.data.flatten())[0][-1] + 2
+# e_edges = dsets[0].counts.geom.axes["energy"].edges.to(e_unit)[b_min:b_max]
+# e_range = [e_edges[0], e_edges[-1]]
+# print(" Energy range = ", e_range)
+
+# # For unknown reasons,
+# dts = []
+# for ids, ds in enumerate(dsets):
+#     tstart = ds.gti.time_start
+#     tstop = ds.gti.time_stop
+#     # if ids != 0:
+#     #     tstart = tstart + 1e-6*u.s
+#     dts.append(Time([tstart.mjd[0], tstop.mjd[0]], format="mjd", scale="utc"))
+#     if debug:
+#         print(" - ", ids)
+#         print("   start ", tstart)
+#         print("   stop  ", tstop)
+
+# lc_maker_1d = LightCurveEstimator(
+#                                    energy_edges=e_range,
+#                                    time_intervals = dts,
+#                                    reoptimize=False,
+#                                    selection_optional="all",
+#                                    )
+# lc_1d = lc_maker_1d.run(dsets)
+# print(lc_1d.to_table(sed_type="flux", format="lightcurve"))
+# fig, ax = plt.subplots()
+# lc_1d.plot(ax=ax, marker="o", label="1D", sed_type="e2dnde")
+
+
+
+
+
+
+
+
+
+
