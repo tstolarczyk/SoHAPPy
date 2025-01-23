@@ -31,10 +31,11 @@ Physics parameters
 | variable       | Default          | What is it ?                                     |
 +================+==================+==================================================+
 | ``ifirst``     | 1                | | The first GRB identifier to be processed       |
-|                |                  | | or a list of identifiers. The identifier can   |
-|                |                  | | include a string referring to a `yaml` file    |
-|                |                  | | with parameters to generate spectra from an    |
-|                |                  | | analytical function.                           |
+|                |                  | | or a list of identifiers or a json file with   |
+|                |                  | | paths to files to be processed.                |
+|                |                  | | The identifiers can include a string referring |
+|                |                  | | to a `yaml` file with parameters to generate   | 
+|                |                  | | spectra from an analytical function.           |
 |                |                  | | (See the `data/historical` folder)             |
 +----------------+------------------+--------------------------------------------------+
 | ``nsrc``       | 1                | | Number of GRB to be processed if ``ifirst`` is |
@@ -52,7 +53,7 @@ Physics parameters
 |                |                  | | * `forced` to force a single infinite night    |
 |                |                  | | * `permanent` to force a permanent visibility  |
 +----------------+------------------+--------------------------------------------------+
-| ``EBLmodel``   | "dominguez"      | | Extragalactic Background Light model as        |
+| ``ebl_model``  | "dominguez"      | | Extragalactic Background Light model as        |
 |                |                  | | defined in ``gammapy`` or `built-in` if        |
 |                |                  | | provided or `None` if ignored (no absortpion)  |
 +----------------+------------------+--------------------------------------------------+
@@ -60,10 +61,7 @@ Physics parameters
 +----------------+------------------+--------------------------------------------------+
 | ``skip``       | Null             |  Skip the first nights                           |
 +----------------+------------------+--------------------------------------------------+
-| ``emax``       | Null             |  Limit data energy bins to Emax (Quantity)       |
-+----------------+------------------+--------------------------------------------------+
-| ``tmax``       | Null             |  Limit lightcurve time bins to tmax (Quantity)   |
-+----------------+------------------+--------------------------------------------------+
+
 
 Input / Output file names and directories
 -----------------------------------------
@@ -86,12 +84,16 @@ See file for examples.
 | ``irf_dir``      | None              | | IRF subfolder - should contain a tag           |
 |                  |                   | | for the production used                        |
 +------------------+-------------------+--------------------------------------------------+
-| ``prefix``       | None              | | The prefix before the source identifier        |
+| ``prefix``       | "event_"          | | The prefix before the source identifier        |
 |                  |                   | | to create the full file name                   |
 +------------------+-------------------+--------------------------------------------------+
-| ``suffix``       | None              | | The suffix after the source identifier to      |
+| ``suffix``       | "long_ISM.fits"   | | The suffix after the source identifier to      |
 |                  |                   | | create the file name (including the extension) |
 +------------------+-------------------+--------------------------------------------------+
+| ``dgt``          | 5                 | | Number of digit on which the integer refereing |
+|                  |                   | | to anidentifier is encoded (e.g. 00001 for 1)  |
++------------------+-------------------+--------------------------------------------------+
+
 
 Simulation parameters
 ---------------------
@@ -127,6 +129,8 @@ Detection parameters
 +-----------------------+------------------------+---------------------------------------------+
 | variable              | Default                | What is it ?                                |
 +=======================+========================+=============================================+
+| ``observatory``       | "CTAO"                 | Observatory name (for position on Earth)    |
++-----------------------+------------------------+---------------------------------------------+
 | ``array_North``       | "4LSTs09MSTs"          | IRF North array, subfolder name             |
 +-----------------------+------------------------+---------------------------------------------+
 | ``array_South``       | "14MSTs37SSTs"         | IRF South array, subfolder name             |
@@ -165,6 +169,8 @@ Debugging and bookkeeping
 +-----------------------+------------------------+---------------------------------------------+
 | ``save_grb``          | False                  | GRB class saved to disk -> use grb.py main  |
 +-----------------------+------------------------+---------------------------------------------+
+| ``save_fig``          | False                  | Figures saved to disk                       |
++-----------------------+------------------------+---------------------------------------------+
 | ``datafile``          | "data.txt"             | Population study main output file           |
 +-----------------------+------------------------+---------------------------------------------+
 | ``logfile``           | "analysis.log"         | Text file with results, status and warning  |
@@ -186,6 +192,20 @@ Experts and developpers only
 +-----------------------+------------------------+---------------------------------------------+
 | ``alpha``             | 0.2                    | One over the number of on/off regions       |
 +-----------------------+------------------------+---------------------------------------------+
+| ``elimit``            | Null                   | Limit energy bins for CPU saving (Quantity) |
++-----------------------+------------------------+---------------------------------------------+
+| ``tlimit``            | Null                   | Limit time bins for CPU saving (Quantity)   |
++-----------------------+------------------------+---------------------------------------------+
+| ``emin``              | Null                   | Analysis Energy lower limit (Quantity)      |
++-----------------------+------------------------+---------------------------------------------+
+| ``emax``              | Null                   | Analysis Energy upper limit (Quantity)      |
++-----------------------+------------------------+---------------------------------------------+
+| ``e_dense``           | Null                   | Use a denser E-binning for spectral analysis|
++-----------------------+------------------------+---------------------------------------------+
+| ``tmin``              | Null                   | Analysis time lower limit (Quantity)        |
++-----------------------+------------------------+---------------------------------------------+
+| ``tmax``              | Null                   | Analysis time  upper limit (Quantity)       |
++-----------------------+------------------------+---------------------------------------------+
 | ``obs_point``         | "end"                  | Observation position in the time slice      |
 +-----------------------+------------------------+---------------------------------------------+
 | ``test_prompt``       | False                  | If True test prompt alone (experimental)    |
@@ -194,8 +214,6 @@ Experts and developpers only
 |                       |                        | | with same id.                             |
 +-----------------------+------------------------+---------------------------------------------+
 | ``tshift``            | 0                      | Shift in days applied to all trigger dates  |
-+-----------------------+------------------------+---------------------------------------------+
-| ``signal_to_zero``    | False                  | Keep only background, set signal to zero    |
 +-----------------------+------------------------+---------------------------------------------+
 | ``fixed_zenith``      | None                   | If a value (`20*u.deg`) freeze zenith in IRF|
 +-----------------------+------------------------+---------------------------------------------+
