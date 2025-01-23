@@ -36,8 +36,8 @@ ifirst      : 1 #"190114C"  "221009A" [980, 465, 785,343]
 nsrc        : 5
 visibility  : "strictmoonveto" #"built-in" #
 ebl_model   : "dominguez" #"gilmore"
-maxnight    : Null
-skip        : Null
+maxnight    : 3
+skip        : 0
 #=============================================================================#
 # INPUT/OUPUT
 #-----------------------------------------------------------------------------#
