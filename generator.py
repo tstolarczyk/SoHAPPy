@@ -224,3 +224,5 @@ if __name__ == '__main__':
         fbatch.close()
     else:
         finter.close()
+
+    print("... completed")
