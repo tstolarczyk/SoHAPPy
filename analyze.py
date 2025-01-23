@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 29 12:50:28 2022
+Created on Thu Sep 29 12:50:28 2022.
 
 @author: Stolar
 """
@@ -29,10 +29,8 @@ __all__ = ["Analysis"]
 
 ###############################################################################
 class Analysis():
-    """
-    This handles the Monte Carlo output, get the detection results and handle
-    the analysis outputs
-    """
+    """Handle Monte Carlo, detection results and analysis outputs."""
+
     ignore = ["slot",
               "det_level",
               "alpha",
@@ -58,6 +56,7 @@ class Analysis():
     def __init__(self, slot, nstat=None, alpha=0., cl=0., loc=None):
         """
         Define the default instance.
+
         Note that the site can be obtained from the slot instance. But
         it is useful to attach a site to an analysis even if the slot
         (and therefore the slot site) is not defined.
@@ -87,7 +86,6 @@ class Analysis():
         None.
 
         """
-
         self.slot = slot  # Will be updated after the slot is dressed
 
         # Allows superseding the name in particular for an empty slot
@@ -197,9 +195,9 @@ class Analysis():
     # ##-----------------------------------------------------------------------
     def run(self):
         """
-        Analyse the data cumlulated with the :func:`analyze.Analysis.fill`
-        function. Modify the current instance with new values.
+        Analyse data cumlulated by the :func:`analyze.Analysis.fill` function.
 
+        Modify the current instance with new values.
         Compute and store :
             * Significance values for all slices in the trials;
             * Maximum significance reached for the GRB;
@@ -300,7 +298,6 @@ class Analysis():
             Error on the azimut angle of detection.
 
         """
-
         t_det, e_t_det = 2*(-1*u.s,)
         alt_det, e_alt_det, az_det, e_az_det = 4*(-1*u.deg,)
 
@@ -328,6 +325,7 @@ class Analysis():
     def fill(self, itrial, non, noff, dbg=0):
         """
         Fill arrays with information from one Monte Carlo iteration.
+
         Keep track of slice indices where a 3 sigma or 5 sigma detection
         occured, and where the max siginificance was reached and at which
         value.
@@ -336,16 +334,16 @@ class Analysis():
         order to later compute the mean and standard deviation of the
         significance for each time slice.
 
-       The siginificance is computed under the assmption of a measured
-       background, i.e. with possble fluctuation.
-       Note that WStatCountsStatistic returns a significance with the
-       sign of the excess (negative excess give negative significance).
-       If the count number is not fluctuated, the excess can only be
-       positive since it is obtained from a physical flux. Excess at zero
-       gives a significance at zeo.
+        The siginificance is computed under the assmption of a measured
+        background, i.e. with possble fluctuation.
+        Note that WStatCountsStatistic returns a significance with the
+        sign of the excess (negative excess give negative significance).
+        If the count number is not fluctuated, the excess can only be
+        positive since it is obtained from a physical flux. Excess at zero
+        gives a significance at zeo.
 
-       More on the various statistics `onthis page
-       <https://docs.gammapy.org/0.17/stats/fit_statistics.html>`_ :
+        More on the various statistics `onthis page
+        <https://docs.gammapy.org/0.17/stats/fit_statistics.html>`_ :
 
         Parameters
         ----------
@@ -366,7 +364,6 @@ class Analysis():
         None.
 
         """
-
         self.err = itrial
 
         # Compute the significances of all slices for the current trail
@@ -454,7 +451,7 @@ class Analysis():
 
     # ##-----------------------------------------------------------------------
     def summary(self, log=None):
-
+        """Print out a summary."""
         log.prt(f" GRB {self.slot.grb.name[5:]:<4} {self.slot.loc:<s}")
         log.prt(f"  z    = {self.slot.grb.z:6.2f}")
         log.prt(f"  Eiso = {self.slot.grb.Eiso:6.2e}")
@@ -468,15 +465,11 @@ class Analysis():
 
     # ##-----------------------------------------------------------------------
     def print(self, log=None):
-        """
-        Dump results
-        """
-
+        """Dump results."""
         # ---------------------------------------
-
         def time_convert(time, etime):
             """
-            This is useful and simplifyes the time printing
+            Simplify the time printing.
 
             Parameters
             ----------
@@ -580,6 +573,7 @@ class Analysis():
     # ##------------------------------------------------------------------------
     def dump_to_file(self, grb, pop, header=False, debug=False):
         """
+        Dump the class contact into a file with an appropriate format.
 
         Parameters
         ----------
@@ -594,11 +588,10 @@ class Analysis():
             DESCRIPTION.
 
         """
-
         # ## ------------------------------------------------------------
         def head_fmt(kh, vh):
             if kh == "name":
-                return ">10s"
+                return ">25s"
             if kh in ("radec", '   ra   dec'):
                 return ">14s"
             if isinstance(vh, str):
@@ -609,13 +602,13 @@ class Analysis():
                 return ">10s"
             if isinstance(vh, (astropy.time.core.Time,
                                astropy.units.quantity.Quantity)):
-                return ">10s"
+                return ">12s"
 
             return ""
 
         def val_fmt(k, v):
             if k == "name":
-                return ">10s"
+                return ">25s"
             if k in ("radec", '   ra   dec'):
                 return ">13s"
             if isinstance(v, str):
@@ -623,12 +616,12 @@ class Analysis():
             if isinstance(v, int):
                 return ">4d"
             if isinstance(v, astropy.time.core.Time):
-                return ">10.2f"
+                return ">12.4f"
             if isinstance(v, (float, np.float32, np.float64)):
-                if abs(v) < 1e9:
-                    return ">10.2f"
+                if abs(v) < 1e2:
+                    return ">10.4f"
                 else:
-                    return ">10.2e"
+                    return ">10.4e"
             return ""
 
         def values(var):
@@ -691,7 +684,6 @@ class Analysis():
         None.
 
         """
-
         if filename is None:
             sys.exit("Output file not defined)")
 
@@ -703,7 +695,7 @@ class Analysis():
 
     # ##-----------------------------------------------------------------------
     def show(self, pdf=None):
-
+        """Display analysis relevant plots."""
         fig_sig = self.plot_sigma_vs_time()
 
         if self.nstat > 1:
@@ -733,6 +725,7 @@ class Analysis():
     # ##-----------------------------------------------------------------------
     def plot_sigma_vs_time(self):
         """
+        Display mean siginificance versus time.
 
         Returns
         -------
@@ -740,7 +733,6 @@ class Analysis():
             Current figure.
 
         """
-
         # If only one MC trial, no max significance distribution
         if self.nstat > 1:
             fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15, 5),
@@ -827,6 +819,7 @@ class Analysis():
     def plot_non_vs_noff(self, ax=None, logscale=True):
         """
         Plot Non versus Noff from the background and excess counts.
+
         Draw the error bars from the variances.
 
         Parameters
@@ -842,7 +835,6 @@ class Analysis():
             Current figure.
 
         """
-
         if ax is None:
             fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
         else:
@@ -892,10 +884,7 @@ class Analysis():
 
     # ##----------------------------------------------------------------------------
     def plot_story(self, ref="VIS"):
-        """
-        Show altitude versus time and points used for computation
-
-        """
+        """Show altitude versus time and points used for computation."""
         if (self.loca != "North" and self.loca != "South"):
             return None
 
