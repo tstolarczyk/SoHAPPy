@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Aug  4 13:17:27 2020
+Created on Tue Aug  4 13:17:27 2020.
 
 This module is organised around the :class:`Configuration` class.
 
@@ -302,8 +302,16 @@ class Configuration():
             inst.niter = args.niter
         if args.maxnight is not None:
             inst.maxnight = int(args.maxnight)
+        else:
+            if inst.maxnight is None:
+                sys.exit(" Number of maximal nights cannot be left undefined "
+                         "in the confguration file")
         if args.skip is not None:
             inst.skip = int(args.skip)
+        else:
+            if inst.skip is None:
+                sys.exit(" Number of skipped nights cannot be left undefined "
+                         "in the confguration file")
         if args.visibility is not None:
             inst.visibility = args.visibility
         if args.debug is not None:
@@ -436,6 +444,7 @@ class Configuration():
         None.
 
         """
+        # If a filename is given, supersede current value
         if filename is not None:
             self.filename = Path(filename)
 
@@ -879,7 +888,7 @@ class Configuration():
 
         # Check if the keyword corresponds to a visibility subfolder
         if folder is None:
-            sys.exit("configuration/secode_visibility_keyword:"
+            sys.exit("configuration/decode_visibility_keyword:"
                      " Please give a folder name")
 
         test = Path(folder.parent)
@@ -1003,3 +1012,4 @@ if __name__ == "__main__":
     # out_sub = Path(data_sub,trigpos_sub)
     # print(Path(out_sub))
     # print(Path(cf1.resfolder,out_sub))
+    print("... completed")
