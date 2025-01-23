@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Aug  4 13:17:27 2020
+Created on Tue Aug  4 13:17:27 2020.
 
 This module is organised around the :class:`visibility` class.
 It combines the rise, set and night (twilight) windows, and apply the Moon veto
@@ -84,6 +84,8 @@ class Visibility():
                  site=None,
                  tmin=None,
                  tmax=None,
+                 depth=3,
+                 skip=0,
                  status="Empty", name="Dummy"):
         """
         Create a Visibility instance with default values.
@@ -101,6 +103,10 @@ class Visibility():
         tmax : float, optional
             The end time of the observation after the explosion.
             The default is infinity.
+        depth: integer
+            Maximal number of nights to be considered
+        skip: integer
+            Number of first nights to be skipped
         status : string, optional
             A keyword cahracterising this visibility. The default is "Empty".
         name : string, optional
@@ -166,8 +172,8 @@ class Visibility():
         self.moon_too_bright = []  # Moon brigthness above threshold
         self.moon_too_close = []   # Moon distance too small
 
-        self.depth = 3  # Number of nights to be considered
-        self.skip = 0   # Number of first nights to be skipped
+        self.depth = depth  # Number of nights to be considered
+        self.skip = skip   # Number of first nights to be skipped
 
         return
 
@@ -235,15 +241,13 @@ class Visibility():
             The updated instance.
 
         """
-        # Decode the parameter dictionnay - keep default otherwise
+        # Decode the parameter dictionnay
         if param is not None:
             # observatory = param["where"]
             self.altmin = u.Quantity(param["altmin"])
             self.moon_maxalt = u.Quantity(param["altmoon"])
             self.moon_mindist = u.Quantity(param["moondist"])
             self.moon_maxlight = param["moonlight"]
-            self.depth = param["depth"]
-            self.skip = param["skip"]
 
         self.status = "Computed"
 
@@ -634,6 +638,8 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def moonlight_veto(self, dt, debug=False):
         """
+        Compute moonlight vetoes.
+
         Check if the Moon period defined by the rise and set time correspond
         to a situation where the moon is too bright or too close from the
         source.
@@ -684,6 +690,8 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def moon_halo(x, r0=0.5, rc=30, epsilon=0.1, q0=1):
         """
+        Estimate moonlight halo intensity.
+
         Returns the moon light intensity (hand-made model) as a function of
         distance r. It is assumed that the intensity is constant (q0) along the
         moon radius r0, and reach the fraction epsilon at the critical
@@ -716,6 +724,8 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def moon_halo_veto(q0, threshold=0.1, r0=0.5, rc=30, epsilon=0.1):
         """
+        Compute moonlight veto.
+
         Returns the distance at which the moon intensity reaches the threshold
         This is the analytical inverse of the moon_halo function
 
@@ -744,8 +754,9 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def moon_alt_veto(self, obs, npt=150):
         """
-        The first veto is the Moon alitude.
-        First find windows where the Moon is too high
+        Compute the Moon veto altitude.
+
+        First find windows where the Moon is too high.
 
         Parameters
         ----------
@@ -981,8 +992,10 @@ class Visibility():
     @staticmethod
     def params_from_key(keyword, parfile=None, debug=False):
         """
-        Get the parameters to compute the visibility from the existing
-        dictionnaries. Could be moved as a utility in the Configuration module.
+        Get the parameters to compute the visibility.
+
+        Based on the existing dictionnaries.
+        Could be moved as a utility in the Configuration module.
 
         Parameters
         ----------
@@ -1036,8 +1049,7 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def print(self, log=None):
         """
-        Print out the GRB night, above-the-horizon periods, and default
-        visibility window.
+        Print out the GRB nights and default visibility window.
 
         Parameters
         ----------
@@ -1130,8 +1142,8 @@ class Visibility():
     # ##-----------------------------------------------------------------------
     def check(self, view, loc=None, delta_max=5*u.s, log=None):
         """
-        Checks whether the visibility found in this code is
-        identical to the one in argument.
+        Check whether the visibility found is identical to the one in argument.
+
         In particular, allow checking the default visibility for altmin=10°
         and one night (The computation was done by maria Grazia Bernardini
         (MGB). See README file for more information.
@@ -1148,12 +1160,12 @@ class Visibility():
             is None.
 
         """
-
         # ----------------------------------------------------------------
         def status(tnew, torg, case=None):
             """
-            This function is part of the check method only, and factorize a
-            debugging printout
+            Factorize a debugging printout.
+
+            This function is part of the check method only.
 
             Parameters
             ----------
@@ -1247,6 +1259,8 @@ class Visibility():
              dt_after=0.25*u.day,   # After visibility window
              nalt=1000):
         """
+        Plot all visibility ingredients on the same figure.
+
         Plot the night, above-the-horizon and visibility periods, the altitude
         evolution with time as well as a lightcurve for a fixed reference
         energy.
@@ -1269,7 +1283,6 @@ class Visibility():
             They are simplified and the time is referred to the trigger time.
 
         """
-
         if moon:  # 2 plots
             ratio = {'height_ratios': [3, 1]}
             ysize = 8
@@ -1324,7 +1337,7 @@ class Visibility():
 
             # Moon veto periods with altitude
             # radec = get_moon(tobs, self.site)  # Moon position along time
-            radec = get_body("moon", tobs, self.site)  # Moon position along time
+            radec = get_body("moon", tobs, self.site)  # Moon position vs time
 
             alt = radec.transform_to(AltAz(location=self.site,
                                            obstime=tobs)).alt
@@ -1414,8 +1427,34 @@ class Visibility():
                     alpha=0.2, color="black", color2="black", tag="?",
                     tshift=0*u.s,
                     **kwargs):
+        """
+        Plot a specific period among.
 
-        import matplotlib.pyplot as plt
+        Parameters
+        ----------
+        twindow : list of float
+            Time window boundaries.
+        ax : matplolib axes, optional
+            Current axis. The default is None.
+        alpha : float, optional
+            transparency. The default is 0.2.
+        color : String, optional
+            Period start color. The default is "black".
+        color2 : String, optional
+            Period end color. The default is "black".
+        tag : String, optional
+            Window tag. The default is "?".
+        tshift : sloat, optional
+            Time shift. The default is 0*u.s.
+        **kwargs : aditionnal arguments
+            Additional axvspan arguments.
+
+        Returns
+        -------
+        ax : matplolib axes
+            Current axis.
+
+        """
         ax = plt.gca() if ax is None else ax
 
         if len(twindow[0]) == 0:
@@ -1457,12 +1496,14 @@ if __name__ == "__main__":
     vis2_South = [85, 115, 414, 754, 755]
 
     """
+    import os
     import seaborn as sns
+    from configuration import Configuration
+    from grb import GammaRayBurst
+
     # Bigger texts and labels
     sns.set_context("paper")  # poster, talk, notebook, paper
 
-    # Complies with gamapy 1.2 installation
-    import os
     # Retrieve the input and output base folder from environment variables
     if "HAPPY_IN" in os.environ.keys():
         infolder = Path(os.environ["HAPPY_IN"])
@@ -1473,22 +1514,20 @@ if __name__ == "__main__":
         resfolder = Path(os.environ["HAPPY_OUT"])
     else:
         sys.exit("The HAPPY_OUT environment variable should be defined")
-        
+
     # This is required to have the EBL models read from gammapy
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
                                           "data"))
 
-    from configuration import Configuration
-    from grb import GammaRayBurst
-
     # Read default configuration
     cf = Configuration()
-    cf.find_and_read(name="data/config_ref_1000.yaml")
+    cf.find_and_read(name="data/config_ref.yaml")
 
     # Supersede some parameters
     cf.prompt_dir = None
     cf.nsrc = 1  # 250
-    cf.ifirst = [273]  # ["190829A"]
+    cf.ifirst = "190114C"  # [273] ["190829A"]
+    cf.maxnight = 10
 
     # Get visibility information
     visinfo = cf.decode_visibility_keyword()
@@ -1506,27 +1545,46 @@ if __name__ == "__main__":
 
     for item, fname in enumerate(filelist):
 
-        grb = GammaRayBurst.from_fits(Path(fname),
-                                      prompt=cf.prompt_dir,
-                                      ebl="dominguez")
+        if Path(fname).suffix != ".yaml":
+            grb = GammaRayBurst.from_fits(Path(fname),
+                                          prompt=cf.prompt_dir,
+                                          ebl=cf.ebl_model,
+                                          elimit=cf.elimit,
+                                          tlimit=cf.tlimit,
+                                          dt=cf.tshift,
+                                          magnify=cf.magnify)
 
-        # # If the grb date is changed, start and stop shall be changed too
-        print(" >>>> ", grb.t_trig)
-        tnew = {357: "2028-03-18T00:57:37",
-                355: "2028-01-26T05:00:49",
-                273: "2028-09-20T08:09:32"}
-        grb.t_trig = Time(tnew[cf.ifirst[0]],
-                          format="isot", scale='utc')
-        grb.tstart = grb.t_trig
-        grb.tstop = grb.t_trig + grb.tval[-1]
-        print(" <<<< ", grb.t_trig)
+            # Patch to use the SDC GRBs with the correct dates
+            # If the grb date is changed, start and stop shall be changed too
+            print(" >>>> ", grb.t_trig)
+            tnew = {357: "2028-03-18T00:57:37",
+                    355: "2028-01-26T05:00:49",
+                    273: "2028-09-20T08:09:32"}
+            grb.t_trig = Time(tnew[cf.ifirst[0]],
+                              format="isot", scale='utc')
+            grb.tstart = grb.t_trig
+            grb.tstop = grb.t_trig + grb.tval[-1]
+            print(" <<<< ", grb.t_trig)
+
+        else:
+            if cf.visibility == "built-in":
+                sys.exit(" Error: GRB hsitorical yaml file cannot have "
+                         " a built-in` visibility")
+            grb = GammaRayBurst.historical_from_yaml(fname,
+                                                     ebl=cf.ebl_model,
+                                                     elimit=cf.elimit,
+                                                     tlimit=cf.tlimit,
+                                                     magnify=cf.magnify)
 
         print(grb)
         # grb.plot_energy_spectra()
         # grb.plot_time_spectra()
 
         for loc in ["North", "South"]:
-            grb.set_visibility(item, loc, info=visinfo)
+            grb.set_visibility(item, loc,
+                               n_night=cf.maxnight,
+                               n_skip=cf.skip,
+                               info=visinfo)
             grb.vis[loc].print(log)
             grb.vis[loc].plot(grb, moon=False)
 
