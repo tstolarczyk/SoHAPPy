@@ -38,7 +38,9 @@ __all__ = ["EBL_from_file", "EBL_plot", "plot_dominguez_2011",
 # -----------------------------------------------------------------------------
 def EBL_from_file(filename, debug=False):
     """
-    Read a specific EBL model from file. Note that the formats are not
+    Read a specific EBL model from file.
+
+    Note that the formats are not
     normalised. They are different for each file, depending on the provider.
 
     Parameters
@@ -54,7 +56,6 @@ def EBL_from_file(filename, debug=False):
         Interpolated attenuation.
 
     """
-
     if filename.find("gilmore") != -1:
         data = np.loadtxt(filename)
         z_dat = data[0, 1:]
@@ -84,7 +85,7 @@ def EBL_plot(eblmodels,
              color=None, ls=None,
              **kwargs):
     """
-
+    Plot various EBL model absortpion curve.
 
     Parameters
     ----------
@@ -115,7 +116,6 @@ def EBL_plot(eblmodels,
         Current plot axis.
 
     """
-
     # If not a list but a single element
     if not isinstance(eblmodels, list):
         eblmodels = [eblmodels]
@@ -173,7 +173,9 @@ def EBL_plot(eblmodels,
 # -----------------------------------------------------------------------------
 def plot_dominguez_2011(redshifts, energies, alpha=0.8, yscale="linear"):
     """
-    Probably redundant with EBL_plot - to be optimised
+    Plot Dominqguez absorption curve. Probably redundant with EBL_plot.
+
+    To be optimised
 
     Parameters
     ----------
@@ -189,7 +191,6 @@ def plot_dominguez_2011(redshifts, energies, alpha=0.8, yscale="linear"):
     None.
 
     """
-
     _, axa = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
 
     for i, z in enumerate(redshifts):
@@ -210,7 +211,7 @@ def plot_dominguez_2011(redshifts, energies, alpha=0.8, yscale="linear"):
 # -----------------------------------------------------------------------------
 def compare_EBL_models(redshifts, energies, ratio=False, alpha=0.5):
     """
-    Compare all availbale EBL models
+    Compare all availbale EBL models.
 
     Parameters
     ----------
@@ -228,7 +229,6 @@ def compare_EBL_models(redshifts, energies, ratio=False, alpha=0.5):
     None.
 
     """
-
     if ratio:
         _, ((ax11, ax12, ax13),
             (ax21, ax22, ax23)) = plt.subplots(nrows=2, ncols=3,
