@@ -1,6 +1,8 @@
 """
-Create a source list to be simulated and analysed using the parameters given
-in a configuration file, the command line, and files on disks.
+Create a source list to be simulated and analysed.
+
+Uses the parameters given in a configuration file, the command line, and files
+on disks.
 
 Notes for experts:
 
@@ -245,7 +247,8 @@ def main():
             # Printout grb, visibility windows, display plots
 
             if cf.save_fig and cf.show > 0:
-                pdf_out = PdfPages(Path(res_dir, item+"_booklet.pdf"))
+                name = Path(fname).stem
+                pdf_out = PdfPages(Path(res_dir, name+"_booklet.pdf"))
             else:
                 pdf_out = None
 
@@ -429,9 +432,19 @@ if __name__ == "__main__":
         # sys.argv = ["", "-c", "config_ref_prod10000.yaml",
 
         # A few sources
+        sys.argv = ["",
+                    "-c", "data/config_ref.yaml",
+                    "-f", "343",
+                    "--nsrc", "3", "-d", "1"]
+
+        # Historical GRB
         # sys.argv = ["",
-        #             "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
-        #             "-f", "343",
+        #             "-c", "data/historical/config_180720B_CTAO.yaml",
+        #             "-f", "180720B_CTAO",
+        #             "--nsrc", "2", "-d", "1"]
+        # sys.argv = ["",
+        #             "-c", "data/historical/config_190114C.yaml",
+        #             "-f", "190114C",
         #             "--nsrc", "2", "-d", "1"]
         # A list of sources (nsrc ignored)
         # sys.argv = ["",
@@ -439,10 +452,10 @@ if __name__ == "__main__":
         #             "-f", "[5, 1304, 22654, 78098]",
         #             "-d", "1"]
         # A list of sources from a json file - the fileame shall be quoted
-        sys.argv = ["",
-                    "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
-                    "-f", "data/det3s/test_detected_00001_02000.json",
-                    "-d", "0"]
+        # sys.argv = ["",
+        #             "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
+        #             "-f", "data/det3s/test_detected_00001_02000.json",
+        #             "-d", "0"]
         # A pre-computed visbility
         # sys.argv = ["", "--first", "1", "--nsrc", "3",
         #            "--visibility", "strictmoonveto_9999_1_interactive_test",
