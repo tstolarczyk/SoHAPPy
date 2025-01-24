@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 17 09:56:58 2022
+Created on Mon Oct 17 09:56:58 2022.
 
 A bunch of functions to manipulate objects related to plots.
 
 @author: Stolar
 """
-
+import sys
 from collections import OrderedDict
 import gammapy
 
@@ -43,14 +43,16 @@ def pause():
 
 # -----------------------------------------------------------------------------
 def lower_limit(xval, yval,
+                threshold=0.2,
+                norm="sum",
+                fitdeg=3,
+                nbins=25,
                 ax=None,
-                prt=False,
                 plot_lim=True,
                 color="red",
-                fitdeg=3,
-                bins=25,
                 cmap="magma_r",
-                cbar=True):
+                cbar=True,
+                debug=False):
     """
     From a 2D histrogram obtain the bins limiting the population.
 
@@ -63,6 +65,15 @@ def lower_limit(xval, yval,
         x values (float)
     yval: numpy array
         y values (float)
+    threshold: float, optional
+        Define the acceptabale limit as a relative fraction with respect to
+        the a computed value (see "norm") in each column of xval. The default
+        is 0.1
+    norm: String
+        On which quantity the threshold is applied, either on the sum of the
+        values in the column, or the maximal value. The default is "sum".
+    fitdeg : Interger, optional
+        Degree of the polynom used for fitting. The default is 3.
     nbins: integer
         Number of bins in x and y? The default is 25
     ax : matplotlib axis, optional
@@ -74,8 +85,6 @@ def lower_limit(xval, yval,
         The default is True.
     color : string, optional
         limit curve color. The default is "red".
-    fitdeg : Interger, optional
-        Degree of the polynom used for fitting. The default is 3.
     cmap : string, optional
         Colormap used for the 2D histogram. The default is "magma_r".
 
@@ -88,10 +97,10 @@ def lower_limit(xval, yval,
     plot = False if ax is None else True
 
     if plot:
-        H, xe, ye, img = ax.hist2d(xval, yval, bins=bins,
+        H, xe, ye, img = ax.hist2d(xval, yval, bins=nbins,
                                    cmap=cmap, norm=mpl.colors.LogNorm())
     else:
-        H, xe, ye = np.histogram2d(xval, yval, bins=bins)
+        H, xe, ye = np.histogram2d(xval, yval, bins=nbins)
 
     # Bin centre and heights
     xctr = (xe[1:] + xe[:-1])/2
@@ -104,23 +113,29 @@ def lower_limit(xval, yval,
     for ibin in range(len(xctr)):
 
         # Display counts on each cell
-        if prt:
+        if debug:
             for jbin in range(len(yctr)):
                 ax.text(xctr[ibin], yctr[jbin], str(int(H[ibin, jbin])))
 
         # Find position of minimal value at bottom of each column
         ycol = H[ibin, :]
-        ipos = np.where(ycol > 0)[0]
+        if norm == "sum":
+            yref = np.sum(H[ibin, :])
+        elif norm == "max":
+            yref = np.max(H[ibin, :])
+        else:
+            sys.exit(f" norm={norm:} not implemented")
+        ipos = np.where(ycol/yref > threshold)[0]
 
         # Print found positions on screen and draw a circle on the plot
         if len(ipos) != 0:
             xlow.append(xctr[ibin])
             ylow.append(yctr[ipos[0]] - 1.5*dy[ipos[0]])
-            if prt:
+            if debug:
                 print("bin  #", ibin, " : ", ycol, ipos, yctr[ipos])
                 ax.text(xctr[ibin], yctr[ipos[0]], "O", size=20)
         else:
-            if prt:
+            if debug:
                 print("bin  # No data")
 
     # Fit low value points with a polynomial
