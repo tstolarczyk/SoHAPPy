@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Nov 23 10:38:19 2022
+Created on Wed Nov 23 10:38:19 2022.
 
 @author: Stolar
 """
@@ -15,6 +15,14 @@ history = {"190114C":
             "t90": 25*u.s,
             "marker": "^",
             "col": "black"},
+
+           "221009A":
+           {"Observatory": "LHAASO",
+            "z": 0.151,
+            "Eiso": 3.00E+55*u.erg,
+            "t90": 10*u.min,
+            "marker": "*",
+            "col": "tab:orange"},
 
            "201216C":
            {"Observatory": "MAGIC",
@@ -45,7 +53,7 @@ history = {"190114C":
             "z": 4.3,
             "Eiso": 8.80E+54*u.erg,
             "t90": -1*u.s,
-            "marker": "*",
+            "marker": "+",
             "col": "tab:green"},
 
            "090902B":
@@ -53,7 +61,7 @@ history = {"190114C":
             "z": 1.822,
             "Eiso": 2.20E+52*u.erg,
             "t90": -1*u.s,
-            "marker": "*",
+            "marker": "+",
             "col": "tab:green"},
 
            "130427A":
@@ -61,7 +69,7 @@ history = {"190114C":
             "z": 0.34,
             "Eiso": 9.60E+53*u.erg,
             "t90": -1*u.s,
-            "marker": "*",
+            "marker": "+",
             "col": "tab:green"}
            }
 
@@ -74,7 +82,7 @@ def historical():
 
 
 # ##----------------------------------------------------------------------------
-def plot_historical(ax, ddict, obs=None):
+def plot_historical(ax, ddict, obs=None, **kwargs):
     """
     Add z, Eiso from already detected GRBs
 
@@ -104,7 +112,7 @@ def plot_historical(ax, ddict, obs=None):
                        np.log10(data["Eiso"].value),
                        marker=data["marker"],
                        color=data["col"],
-                       label=target)
+                       label=target, **kwargs)
     return ax
 
 
