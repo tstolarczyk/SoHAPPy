@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr  6 17:04:35 2020
+Created on Mon Apr  6 17:04:35 2020.
 
 @author: Stolar
 """
@@ -169,7 +169,7 @@ class Slice():
         """
         self.__idt = idt
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def set_site(self,site="?"):
         """
         Possible sites are the following : North, South, Both
@@ -188,12 +188,12 @@ class Slice():
         """
         self.__site = site
 
-    #--------------------------------------------------------------------------
-    def dress(self,grb,
-                   irf_dir = Path("./"),
-                   arrays  = None,
-                   opt     = "end",
-                   zenith  = None):
+    # -------------------------------------------------------------------------
+    def dress(self, grb,
+              irf_dir=Path("./"),
+              arrays=None,
+              opt="end",
+              zenith=None):
         """
         Add physical information to the slice.
 
@@ -229,8 +229,9 @@ class Slice():
     # ------------------------------------------------------------
     def obs_point(self, opt):
         """
-        Get the observation point time depending on where the flux will be
-        considered.
+        Get the observation point time.
+
+        Depends on where the flux will be considered.
 
         Parameters
         ----------
@@ -243,7 +244,6 @@ class Slice():
         None.
 
         """
-
         if opt == "end":
             self.__tobs = self.__ts2
         elif opt == "start":
@@ -258,7 +258,8 @@ class Slice():
     # -----------------------------------------------------------
     def get_flux(self, grb, t):
         """
-        Compute the flux to be associated to a given  time.
+        Compute the flux to be associated to a given time.
+
         So far get the flux at the closest measurement point.
 
         Parameters
@@ -273,19 +274,19 @@ class Slice():
         None.
 
         """
-
         t = t.to(grb.tval[0].unit).value
         self.__f_id = np.argmin(np.abs(t - grb.tval.value))
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def get_perf(self, grb,
-                       irf_dir = Path("./"),
-                       arrays  = None,
-                       zenith  = None,
-                       debug   = False):
+                 irf_dir=Path("./"),
+                 arrays=None,
+                 zenith=None,
+                 debug=False):
         """
-        Obtain the best performance for a given slice, indpendently of
-        the observation point that was chosen.
+        Obtain the best performance for a given slice.
+
+        Indpendently of the observation point that was chosen.
         The altitude and azimuth are computed for the slice start since
         the performance is obatined at the beginning of the slice where
         the flux is higher. The observation time is the length of the slice.
@@ -305,42 +306,42 @@ class Slice():
         # debug=2
 
         # Observation window duration
-        obstime = self.__ts2 - self.__ts1 # Duration (not cumulated !)
+        obstime = self.__ts2 - self.__ts1  # Duration (not cumulated !)
 
         site_list = []
         if self.__site in ("North", "South"):
-            site_list=[self.__site]
+            site_list = [self.__site]
         elif self.__site == "Both":
-            site_list = ["North","South"]
+            site_list = ["North", "South"]
 
         for site in site_list:
             # Altitude at slice start where the flux is expected larger
-            altaz =  grb.altaz(dt=self.__ts1,loc=site)
+            altaz = grb.altaz(dt=self.__ts1, loc=site)
 
             # Zenith is obtained from altaz except if fixed beforehand
             if zenith is None or zenith is False:
-                zenith   = 90*u.degree-altaz.alt
+                zenith = 90*u.degree - altaz.alt
             else:
                 zenith = u.Quantity(zenith) # Was string so far
 
-            irf = IRF.from_observation(zenith   = zenith,
-                                       azimuth  = None,
-                                       obstime  = obstime,
-                                       loc      = site,
-                                       irf_dir  = irf_dir,
-                                       subarray = arrays[site])
-            if debug>1:
-                print(self.__idt,"/",site,"-->",irf)
+            irf = IRF.from_observation(zenith=zenith,
+                                       azimuth=None,
+                                       obstime=obstime,
+                                       loc=site,
+                                       irf_dir=irf_dir,
+                                       subarray=arrays[site])
+            if debug > 1:
+                print(self.__idt, "/", site, "-->", irf)
 
             self.__irf.append(irf)
 
         if debug:
             print(f"                       ===> {len(self.__irf)} IRF found")
 
-    #--------------------------------------------------------------------------
-    def print(self,header=False):
+    # -------------------------------------------------------------------------
+    def print(self, header=False):
         """
-        Allow displaying
+        Allow displaying.
 
         Returns
         -------
@@ -367,12 +368,13 @@ class Slice():
                           "----"))
         print("  {:2d} {:10.2f} {:10.2f} {:10.2f} {:3d} {:>5s} {:4d}"
               .format(self.__idt,
-                self.__ts1.value,
-                self.__ts2.value,
-                self.__tobs.value,
-                self.__f_id,
-                self.__site,
-                len(self.__irf)),end="")
+                      self.__ts1.value,
+                      self.__ts2.value,
+                      self.__tobs.value,
+                      self.__f_id,
+                      self.__site,
+                      len(self.__irf)), end="")
+
         for perf in self.__irf:
-            print(" ",perf.filename.parts[-2],end="")
+            print(" ", perf.filename.parts[-2], end="")
         print()
