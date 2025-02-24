@@ -35,10 +35,7 @@ __all__ = ['IRF']
 
 ###############################################################################
 class IRF():
-    """
-    This class handles the Instrument Response Function information and
-    utilities
-    """
+    """Handle the Instrument Response Function information and utilities."""
 
     zenith_list = {"20deg": 20*u.deg,
                    "40deg": 40*u.deg,
@@ -176,7 +173,7 @@ class IRF():
         self.filename = filename
         self.irf = irf
         self.subarray = subarray
-        self.etrue = etrue  # idem
+        self.etrue = etrue
         self.kzen = kzen
         self.kaz = kaz
         self.kdt = kdt
@@ -195,7 +192,8 @@ class IRF():
         """
         Get the IRF data from the characteristics of an observation.
 
-        Notes:
+        Notes
+        -----
             * `MapAxis` accepts ony a normalised list of axis type as
               described `here
               <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
@@ -237,7 +235,6 @@ class IRF():
             Initialise an IRF object with the obtained values.
 
         """
-
         inst = cls()
 
         if loc is None:
@@ -346,7 +343,8 @@ class IRF():
                     found = True
                     continue
             if not found:
-                sys.exit(f"get_irf_file: zenith= {zenith} => range not found")
+                sys.exit(f"irf.find_best_keys: zenith= {zenith} "
+                         "=> range not found")
 
         # Azimuth - implement here N, S choice
         kaz = "average" if azimuth is None else azimuth
@@ -363,7 +361,7 @@ class IRF():
                     found = True
                     continue
             if not found:
-                sys.exit("get_irf_file: obstime range not found")
+                sys.exit("irf.find_best_keys: obstime range not found")
 
         return kzen, kaz, kdt
 
@@ -419,7 +417,6 @@ def containment_plot(irf,
     None.
 
     """
-
     if ax is None:
         ax = plt.subplots()[1]
     # irfname =  self.filename.parts[-2]
@@ -454,8 +451,7 @@ def onoff_sketch_plot(irf, emin=30*u.GeV, subarray=None, tag=None,
                       alpha=0.2, fov=2.5*u.deg,
                       debug=False):
     """
-    On-off geometry skeches as a function of reconstructed energy edges
-    for the current IRF.
+    On-off geometry sketches versus reconstructed energy edges.
 
     Parameters
     ----------
@@ -481,7 +477,6 @@ def onoff_sketch_plot(irf, emin=30*u.GeV, subarray=None, tag=None,
     None.
 
     """
-
     # Retrieve radii at EDGES
     # Assumes that Erec = Etrue as the PSF is given versus Etrue
     if gammapy.__version__ == "1.2":
@@ -501,10 +496,10 @@ def onoff_sketch_plot(irf, emin=30*u.GeV, subarray=None, tag=None,
     # ##-----------------------------
     def onoffsketch(radius, energy, ax=None):
         """
-        Plot the on-off sketch n the field of view from a containment
-        radius at a given energy (used for labelling only)
-        """
+        Plot the on-off sketch n the field of view.
 
+        Use the containment radius at a given energy (used for labelling only)
+        """
         if ax is None:
             ax = plt.subplots()
 
@@ -638,7 +633,6 @@ def aeff_plot(irf, axs=None,
     None.
 
     """
-
     if axs is None:
         axs = plt.subplots(nrows=1, ncols=2)
 
