@@ -196,6 +196,12 @@ def main():
     # ## ------------------------------------------------
     start_pop = time.time()   # Start chronometer
 
+    # This will be printed on screen or batch output even if muted
+    if cf.silent and cf.dbg == 0:
+        print(" *** Started : ", datetime.now().isoformat())
+        print(" Command line :")
+        print(cf.cmd_line)
+
     with open(sim_filename, 'w') as pop:
 
         #################################
@@ -391,6 +397,11 @@ def main():
     log.prt("")
     log.prt(datetime.now())
 
+    # This will be printed on screen or batch output even if muted
+    if cf.silent and cf.dbg == 0:
+        print(f" Total time = {(end_pop-start_pop)/60:8.2f} min")
+        print(" *** Ended : ", datetime.now().isoformat())
+
     # Close log file
     log.close()
 
@@ -426,17 +437,28 @@ def main():
 # #############################################################################
 if __name__ == "__main__":
 
-    print(" argv : ", sys.argv, " len = ", len(sys.argv))
-    if len(sys.argv[1:]) <= 1:
-        print("------------------> Execute examples")
-        # sys.argv = ["", "-c", "config_ref_prod10000.yaml",
+    # Bigger texts and labels
+    import seaborn as sns
+    sns.set_context("talk")  # poster, talk, notebook, paper
+
+    # This is for development only
+    # if len(sys.argv[1:]) <= 1:
+        # print("------------------> Execute examples")
+        # sys.argv = ["", "-f", "1", "-c", "data/config_ref_1000.yaml"]
 
         # A few sources
-        sys.argv = ["",
-                    "-c", "data/config_ref.yaml",
-                    "-f", "343",
-                    "--nsrc", "3", "-d", "1"]
-
+        # sys.argv = ["",
+        #             "-c", "data/config_ref.yaml",
+        #             "-f", "99990",
+        #             "--nsrc", "1", "-d", "1"]
+        # sys.argv = ["",
+        #             "-c", "data/config_ref_silent.yaml",
+        #             "-f", "99990",
+        #             "--nsrc", "3", "-d", "0"]
+        # sys.argv = ["",
+        #             "-c", "MyConfigs/Maximal_visibility/config_ref_prod100000-maximal.yaml",
+        #             "-f", "343",
+        #             "--nsrc", "3", "-d", "1"]
         # Historical GRB
         # sys.argv = ["",
         #             "-c", "data/historical/config_180720B_CTAO.yaml",
