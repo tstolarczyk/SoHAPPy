@@ -297,7 +297,8 @@ class Configuration():
                 elif "[" in inst.ifirst and "]" in inst.ifirst:
                     inst.ifirst = ast.literal_eval(inst.ifirst)
         else:
-            sys.exit(" A source or identifier is required")
+            sys.exit(" A source or identifier is required."
+                     " Use 'python SoHAPPy.py -h' for help.")
 
         if args.nsrc is not None:
             inst.nsrc = args.nsrc
