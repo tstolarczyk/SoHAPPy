@@ -243,6 +243,8 @@ def MyLabel(var, label="", stat="std"):
                 + "$n$ : {:d} \n".format(len(var)) \
                 + r"$\bar{n}$ : "+"{:5.3f}\n".format(np.mean(var)) \
                 + r"$Med.$ : "+" {:5.3f}".format(np.median(var))
+    else:  # Display only the sum
+        legend = label + ": {:d}".format(len(var))
 
     return legend
 
