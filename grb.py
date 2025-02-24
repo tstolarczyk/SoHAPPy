@@ -1036,15 +1036,15 @@ class GammaRayBurst():
         if self.filename is not None:
             txt += f'  Read from      : {self.filename}\n'
         txt += f'  RA, DEC        : {self.radec.ra.value:>8.2f} '\
-               f'{self.radec.ra.value:>8.2f}\n'
+               f'{self.radec.dec.value:>8.2f}\n'
         txt += f'  Redshift       : {self.z:>8.2f}\n'
         txt += f'  EBL model      : "{self.eblmodel:}"\n'
         txt += f'  Eiso           : {self.Eiso:6.2e}\n'
-        txt += f'  Epeak          : {self.Epeak:>8.2f}\n'
+        txt += f'  Epeak          : {self.Epeak:>8.4f}\n'
         txt += f'  t90            : {self.t90:>8.2f}\n'
         txt += f'  G0H / G0W      : {self.G0H:>8.2f} / {self.G0W:>8.2f}\n'
-        txt += f'  Flux peak      : {self.Fpeak:>8.2f}\n'
-        txt += f'  Flux peak (GBM): {self.Fpeak_GBM:>8.2f}\n'
+        txt += f'  Flux peak      : {self.Fpeak:>8.4f}\n'
+        txt += f'  Flux peak (GBM): {self.Fpeak_GBM:>8.4f}\n'
         txt += f'  gamma LE / HE  : {self.gamle:>8.2f} / {self.gamhe:>8.2f}\n'
 
         txt += f'  t_trig         : {Time(self.t_trig, format="iso"):}\n'
