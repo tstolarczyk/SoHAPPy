@@ -626,11 +626,17 @@ class Visibility():
                                               which="next",
                                               horizon=self.altmin,
                                               n_grid_points=npt)
+                if np.ma.is_masked(t_rise.mjd):
+                    break
+
                 t_set = obs.target_set_time(t_rise,
                                             self.target,
                                             which="next",
                                             horizon=self.altmin,
                                             n_grid_points=npt)
+                if np.ma.is_masked(t_set.mjd):
+                    break
+
                 t_above.append([t_rise, t_set])
 
         return (high, t_above)
