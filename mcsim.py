@@ -142,7 +142,6 @@ class MonteCarlo():
         None.
 
         """
-
         log.banner(f"+{78*'=':78s}+")
         log.banner(f"+{'LAUNCHING SIMULATION':^78s}+")
         log.banner(f"+{78*'=':78s}+")
@@ -164,6 +163,7 @@ class MonteCarlo():
             dump_dir=None):
         """
         Run simulations of the current grb for a given site.
+
         A simulation is based on a series of observations related to the GRB
         time slices (slot from class :class:`Slot`).
         It computes the `on` and `off` counts and pass the information to the
@@ -187,7 +187,6 @@ class MonteCarlo():
         None.
 
         """
-
         self.slot = slot
         self.mctime = time.time()  # Starts chronometer
 
@@ -249,9 +248,9 @@ class MonteCarlo():
     # ##------------------------------------------------------------------------
     def onoff_counts_along_time(self, alpha):
         """
-        Compute on and off counts in the field of view for all slices using
-        Gammapy functions and return the cumulated counts in time.
+        Compute on and off counts in the field of view for all slices.
 
+        Use Gammapy functions and return the cumulated counts in time.
         The counts are summed-up over enegy from the :obj:`SpectrumDataset`
         object list (The :obj:`SpectrumDatasetOnOff` objects are not created).
 
@@ -268,7 +267,6 @@ class MonteCarlo():
             Cumulated off-counts along time slices.
 
         """
-
         non_vs_time = []
         noff_vs_time = []
         non = noff = ns = nb = 0
@@ -646,7 +644,7 @@ class MonteCarlo():
     # ##------------------------------------------------------------------------
     def status(self, log=None):
         """
-        Display the simulation status
+        Display the simulation status.
 
         Parameters
         ----------
@@ -697,7 +695,6 @@ class MonteCarlo():
             File status.
 
         """
-
         if phase == "open":
             # Open output file
             name = self.slot.grb.id + "-" + self.slot.site + "_slices.txt"
@@ -755,7 +752,7 @@ class MonteCarlo():
     def write(self, filename=None):
         """
         Save the present class to disk for further use in particular a
-        spectral analysis
+        spectral analysis.
 
         Parameters
         ----------
@@ -767,7 +764,6 @@ class MonteCarlo():
         None.
 
         """
-
         if filename is None:
             sys.exit("Output file not defined)")
 
