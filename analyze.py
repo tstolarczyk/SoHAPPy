@@ -573,25 +573,31 @@ class Analysis():
     # ##------------------------------------------------------------------------
     def dump_to_file(self, grb, pop, header=False, debug=False):
         """
-        Dump the class contact into a file with an appropriate format.
+        Dump the class content into a file with an appropriate format.
 
         Parameters
         ----------
-        pop : TYPE
-            DESCRIPTION.
-        header : TYPE, optional
-            DESCRIPTION. The default is False.
+        pop : pointer to file
+            The output file.
+        grb : GammaRayBurst instance
+            The current GRB.
+        header : boolean, optional
+            If True, write the header to file before the grb data.
+            The default is False. It shall be True for the first GRB to have a
+            header on the first line of the file.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        Boolean
+            Return False to ensure that the header is not printed out twice.
 
         """
         # ## ------------------------------------------------------------
         def head_fmt(kh, vh):
             if kh == "name":
                 return ">25s"
+            if kh == "t_trig":
+                return ">23s"
             if kh in ("radec", '   ra   dec'):
                 return ">14s"
             if isinstance(vh, str):
@@ -600,15 +606,18 @@ class Analysis():
                 return ">4s"
             if isinstance(vh, (float, np.float32, np.float64)):
                 return ">10s"
-            if isinstance(vh, (astropy.time.core.Time,
-                               astropy.units.quantity.Quantity)):
-                return ">12s"
+            if isinstance(vh, (astropy.time.core.Time)):
+                return ">23s"
+            if isinstance(vh, (astropy.units.quantity.Quantity)):
+                return ">23s"
 
             return ""
 
         def val_fmt(k, v):
             if k == "name":
                 return ">25s"
+            if k == "t_trig":  # "str" returns to few spaces
+                return ">23s"
             if k in ("radec", '   ra   dec'):
                 return ">13s"
             if isinstance(v, str):
@@ -616,9 +625,10 @@ class Analysis():
             if isinstance(v, int):
                 return ">4d"
             if isinstance(v, astropy.time.core.Time):
-                return ">12.4f"
+                return ">23s"
+                # return ">12.4f"
             if isinstance(v, (float, np.float32, np.float64)):
-                if abs(v) < 1e2:
+                if abs(v) < 3.6e2 and abs(v) > 1e-2:
                     return ">10.4f"
                 else:
                     return ">10.4e"
@@ -631,7 +641,7 @@ class Analysis():
             if isinstance(var, astropy.units.quantity.Quantity):
                 return var.value
             if isinstance(var, astropy.time.core.Time):
-                return var.mjd
+                return var.isot
             return var
 
         # ##------------------------------------------------------------
