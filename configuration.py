@@ -239,7 +239,7 @@ class Configuration():
 
         parser.add_argument('-f', '--first', nargs='+',
                             help="First source id, or a list, or a file",
-                            default="None")
+                            default=None)
 
         parser.add_argument('-N', '--nsrc',
                             help="Number of source files",
@@ -296,14 +296,19 @@ class Configuration():
                     inst.ifirst = int(inst.ifirst)
                 elif "[" in inst.ifirst and "]" in inst.ifirst:
                     inst.ifirst = ast.literal_eval(inst.ifirst)
+        else:
+            sys.exit(" A source or identifier is required")
+
         if args.nsrc is not None:
             inst.nsrc = args.nsrc
         if args.niter is not None:
             inst.niter = args.niter
+        if args.visibility is not None:
+            inst.visibility = args.visibility
         if args.maxnight is not None:
             inst.maxnight = int(args.maxnight)
         else:
-            if inst.maxnight is None:
+            if inst.maxnight is None and inst.visibility != "permanent":
                 sys.exit(" Number of maximal nights cannot be left undefined "
                          "in the confguration file")
         if args.skip is not None:
@@ -312,8 +317,6 @@ class Configuration():
             if inst.skip is None:
                 sys.exit(" Number of skipped nights cannot be left undefined "
                          "in the confguration file")
-        if args.visibility is not None:
-            inst.visibility = args.visibility
         if args.debug is not None:
             inst.dbg = args.debug
         if args.save is not None:
