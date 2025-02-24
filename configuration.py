@@ -591,6 +591,7 @@ class Configuration():
             out.prt(f" Prompt data subfolder     : {self.prompt_dir:}")
         else:
             out.prt(" Prompt data               : not considered")
+        out.prt(f" Output folder             : {self.out_dir:}")
         out.prt(f" Output population         : {self.datafile:}")
         out.prt(f" Source file prefix        : {self.prefix:}")
         out.prt(f"             suffix        : {self.suffix:}")
