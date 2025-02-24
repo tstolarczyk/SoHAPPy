@@ -69,7 +69,7 @@ def generate_dataset(Eflux, flux, Erange=None,
                      debug=False):
     """
     Generate a dataset from a list of energies and flux points either as
-    a SpectrumDataset or a SpectrumDatasetOnOff
+    a SpectrumDataset or a SpectrumDatasetOnOff.
 
     Note :
     - in SpectrumDataset, the backgound counts are assumed precisely known and
@@ -831,4 +831,4 @@ if __name__ == "__main__":
     # Create a ON-Off list of datasets from the stored simulation
     dlist_onoff = onoff_from_simulation(mc, alpha=cf.alpha, debug=True)
 
-    print("Done")
+    print("... completed")
