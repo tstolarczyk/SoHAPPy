@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Running this script sets or unsets the default environment variables. To be
-adaptaed to each installation.
+Running this script sets or unsets the default environment variables.
+
+To be adaptaed to each installation.
 
 Created on Wed Nov 13 14:37:26 2024
 
