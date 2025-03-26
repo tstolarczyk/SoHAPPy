@@ -203,7 +203,7 @@ def generate_dataset(Eflux, flux, Erange=None,
 def stacked_model(ds, ds_stack=None, first=False, debug=False):
     """
     This function is not finalised and should be checked. It is intended to
-    recompute an effective spectral model from the exiisting already stacked
+    recompute an effective spectral model from an already stacked
     model -from the previous call- and the current model in a dataset list. It
     also extract the masked dataset of the first dataset in the list
     (when first == True).
@@ -232,7 +232,6 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
         The current stcake model.
 
     """
-
     # Get unmasked Reconstructed E bining from current dataset
     # (but they are all identical)
     e_axis = ds.background.geom.axes[0]  # E reco sampling from the IRF

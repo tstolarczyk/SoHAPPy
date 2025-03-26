@@ -297,8 +297,9 @@ class Configuration():
                 elif "[" in inst.ifirst and "]" in inst.ifirst:
                     inst.ifirst = ast.literal_eval(inst.ifirst)
         else:
-            sys.exit(" A source or identifier is required."
-                     " Use 'python SoHAPPy.py -h' for help.")
+            if inst.ifirst is None:
+                sys.exit(" A source or identifier is required."
+                         " Use 'python SoHAPPy.py -h' for help.")
 
         if args.nsrc is not None:
             inst.nsrc = args.nsrc
@@ -759,6 +760,7 @@ class Configuration():
               with respect to the HAPPY_IN variable (The json files can be
               obtained for instance from the
               'analysis/population/detectable.py' module).
+
         When the given information is an integer, the file name is build from
         the 'prefix', 'suffix' and 'data_dir' information in the configuration
         file.
