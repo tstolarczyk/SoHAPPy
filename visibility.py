@@ -829,10 +829,11 @@ class Visibility():
         Get default visibility from input file.
 
         * The start and stop dates are searched during 24h after the trigger
-        and correspond to the first visibility interval.
+          and correspond to the first visibility interval.
         * Does not report a second visibility interval during 24h, that
-        should be possible only if the target is promptly visible (about 15%
-        of the targets)
+          should be possible only if the target is promptly visible (about 15%
+          of the targets)
+
 
         Parameters
         ----------
