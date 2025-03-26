@@ -46,7 +46,7 @@ def lower_limit(xval, yval,
                 threshold=0.2,
                 norm="sum",
                 fitdeg=3,
-                nbins=25,
+                bins=25,
                 ax=None,
                 plot_lim=True,
                 color="red",
@@ -74,8 +74,8 @@ def lower_limit(xval, yval,
         values in the column, or the maximal value. The default is "sum".
     fitdeg : Interger, optional
         Degree of the polynom used for fitting. The default is 3.
-    nbins: integer
-        Number of bins in x and y? The default is 25
+    bins: integer or array
+        Number of bins in x and y. The default is 25.
     ax : matplotlib axis, optional
         Current axis. If undefined, no plot. The default is None.
     prt : boolean, optional
@@ -97,10 +97,10 @@ def lower_limit(xval, yval,
     plot = False if ax is None else True
 
     if plot:
-        H, xe, ye, img = ax.hist2d(xval, yval, bins=nbins,
+        H, xe, ye, img = ax.hist2d(xval, yval, bins=bins,
                                    cmap=cmap, norm=mpl.colors.LogNorm())
     else:
-        H, xe, ye = np.histogram2d(xval, yval, bins=nbins)
+        H, xe, ye = np.histogram2d(xval, yval, bins=bins)
 
     # Bin centre and heights
     xctr = (xe[1:] + xe[:-1])/2
