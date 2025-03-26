@@ -15,6 +15,15 @@ strictmoonveto:
   altmoon   : -0.25 deg # Moon above horizon
   moondist  : 180 deg   # The Moon vetoes even if far away
   moonlight :  0.0      # The Moon vetoes even if new Moon
+  
+# Minimize the visibility (i.e. veto as soon as the moon is above horizon)
+# but accept lower altitudes
+strictmoonveto10:
+  where     :  "CTAO"
+  altmin    :  10 deg   # Ensure that the source is always above horizon
+  altmoon   : -0.25 deg # Moon above horizon
+  moondist  : 180 deg   # The Moon vetoes even if far away
+  moonlight :  0.0      # The Moon vetoes even if new Moon
 
 # Moonlight conditions (compromise):
 moonlight:
