@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb  3 08:58:16 2020
+Created on Mon Feb  3 08:58:16 2020.
 
 @author: Stolar
 
@@ -27,8 +27,8 @@ regions
 
 on_size = {"FullArray": 0.4*u.deg,
            "4LSTs09MSTs": 0.4*u.deg,
-           "LST": 0.4*u.deg,
-           "MST": 0.25*u.deg,
+           "4LSTs": 0.4*u.deg,
+           "09MSTs": 0.25*u.deg,
            "14MSTs37SSTs": 0.25*u.deg,
            "4LSTs14MSTs40SSTs": 0.4*u.deg}  # On region size, was 0.2
 """
@@ -37,8 +37,8 @@ The on (and off-) region radius
 
 offset = {"FullArray": 0.75*u.deg,
           "4LSTs09MSTs": 0.75*u.deg,
-          "LST": 0.75*u.deg,
-          "MST": 0.5*u.deg,
+          "4LSTs": 0.75*u.deg,
+          "09MSTs": 0.5*u.deg,
           "14MSTs37SSTs": 0.5*u.deg,
           "4LSTs14MSTs40SSTs": 0.75*u.deg}
 """
@@ -67,8 +67,8 @@ This is a denser E-binning suitable for spectral analysis.
 
 erec_edges = {"FullArray": erec_sparse,  # Omega
               "4LSTs09MSTs": erec_sparse,  # Alpha
-              "LST": erec_sparse,
-              "MST": erec_sparse,
+              "4LSTs": erec_sparse,
+              "09MSTs": erec_sparse,
               "14MSTs37SSTs": erec_sparse,  # Alpha
               "4LSTs14MSTs40SSTs": erec_sparse  # Beta
               }
@@ -85,14 +85,14 @@ erec_min = {"FullArray": {"20deg": 30*u.GeV - safe_margin,
                             "40deg": 40*u.GeV - safe_margin,
                             "60deg": 110*u.GeV - safe_margin
                             },
-            "LST": {"20deg": 30*u.GeV - safe_margin,
-                    "40deg": 40*u.GeV - safe_margin,
-                    "60deg": 110*u.GeV - safe_margin
-                    },
-            "MST": {"20deg": 60*u.GeV - safe_margin,
-                    "40deg": 60*u.GeV - safe_margin,
-                    "60deg": 200*u.GeV - safe_margin
-                    },
+            "4LSTs": {"20deg": 30*u.GeV - safe_margin,
+                      "40deg": 40*u.GeV - safe_margin,
+                      "60deg": 110*u.GeV - safe_margin
+                      },
+            "09MSTs": {"20deg": 60*u.GeV - safe_margin,
+                       "40deg": 60*u.GeV - safe_margin,
+                       "60deg": 200*u.GeV - safe_margin
+                       },
             "14MSTs37SSTs": {"20deg": 60*u.GeV - safe_margin,
                              "40deg": 110*u.GeV - safe_margin,
                              "60deg": 350*u.GeV - safe_margin
@@ -119,6 +119,7 @@ def generate_E_edges(E1=10*u.GeV, E2=100*u.TeV,
                      subarray="FullArray", nperdecade=4):
     """
     Generate energy edges including the reconstructed energy thresholds.
+
     Just copy the output to the code and rearrange the values to remove too
     narrow bins.
 
