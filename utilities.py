@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan 11 14:41:11 2019
+Created on Fri Jan 11 14:41:11 2019.
 
 A bucnh of utility functions used in `SoHAPPy`.
 
@@ -19,14 +19,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.time import Time
 
-__all__ = ["log_and_flat_intervals", "subset_ids", "get_filename",
+__all__ = ["log_and_flat_intervals", "subset_ids",
+           "get_filename",
            "file_from_tar", "backup_file", "Df", "Dp"]
 
 
 # ##---------------------------------------------------------------------------
 def log_and_flat_intervals(xmin, xmax, nbin=10, distmax=0., debug=True):
     """
-
+    Generate logarithmically-spaced interavlls until a limit, then flat.
 
     Parameters
     ----------
@@ -47,7 +48,6 @@ def log_and_flat_intervals(xmin, xmax, nbin=10, distmax=0., debug=True):
         Final list.
 
     """
-
     # First generated nbin log-spaced intervals
     xsample = np.logspace(xmin, xmax, nbin)
 
