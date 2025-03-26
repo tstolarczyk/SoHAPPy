@@ -764,49 +764,55 @@ class Analysis():
         with quantity_support():
 
             # ## Mean significance at each slice
-            ax1.errorbar(t_s, self.sigma_mean, yerr=self.sigma_std, fmt='o')
+            ax1.errorbar(t_s, self.sigma_mean, yerr=self.sigma_std,
+                         marker='o', markerfacecolor="none", ls=":")
+
+            # ## 3, 5 and max significances
 
             for t, sig, errs, c, tag in zip(
-                                [tmax, t3s, t5s],
-                                [self.sigmx, 3, 5],
-                                [self.esigmx, 0, 0],
-                                [colmx, col3, col5],
-                                [r"$\sigma_{max}$", r"$3\sigma$", r"$5\sigma$"]
-                                              ):
-                import matplotlib
-                if matplotlib.__version__ < "3.4.2":
-                    # Does not support Quantity errors
-                    ax1.errorbar(x=np.mean(t).value, y=sig,
-                                 xerr=np.std(t).value, yerr=errs,
-                                 fmt="o", color=c, label=tag)
-                    ax1.set_xlabel('Obs. duration (' + str(t_unit) + ")")
+                                            [tmax, t3s, t5s],
+                                            [self.sigmx, 3, 5],
+                                            [self.esigmx, 0, 0],
+                                            [colmx, col3, col5],
+                                            [r"$\sigma_{max}$",
+                                             r"$3\sigma$",
+                                             r"$5\sigma$"]
+                                            ):
 
-                else:
-                    ax1.errorbar(x=np.mean(t), y=sig,
-                                 xerr=np.std(t), yerr=errs,
-                                 fmt="o", color=c, label=tag)
-                    ax1.set_xlabel('Obs. duration ('+ax1.get_xlabel()+")")
+                ax1.errorbar(x=np.mean(t), y=sig,
+                             xerr=np.std(t), yerr=errs,
+                             marker="o",
+                             color=c, label=tag)
 
                 xmin, xmax = ax1.get_xlim()
                 ymin, ymax = ax1.get_ylim()
                 ax1.vlines(np.mean(t), ymin=ymin, ymax=self.sigmx,
-                           alpha=0.5, ls=":", color=c)
-                ax1.hlines(sig, xmin=xmin, ls=":", xmax=np.mean(t),
+                           alpha=0.5, ls="--", color=c)
+                ax1.hlines(sig, xmin=xmin, ls="--", xmax=np.mean(t),
                            alpha=0.5, color=c)
 
             ax1.set_ylabel(r"Significance $\sigma$")
-            ax1.legend()
-
-            import matplotlib
-            if matplotlib.__version__ >= "3.5.0":
-                ax1.set_xscale("log", nonpositive='clip')  # 3.5.0
-            else:
-                ax1.set_xscale("log", nonposx='clip')  # 3.1.1
-
+            ax1.legend(loc="lower right")
+            ax1.set_xlabel('Obs. duration ('+ax1.get_xlabel()+")")
+            ax1.set_xscale("log", nonpositive='clip')  # 3.5.0
             ax1.grid(which='both', alpha=0.2)
+
             ttl = self.name+"_" + self.loca
             ttl += ' (' + str(self.nstat) + ' iter.)'
             ax1.set_title(ttl, loc="right")
+
+            # Dark time if North or South
+            if self.loca in ["North", "South"]:
+                first = True
+                tref = self.slot.grb.t_trig
+                for elt in self.slot.grb.vis[self.loca].t_twilight:
+                    if first:
+                        label = "Night"
+                        first = False
+                    else:
+                        label = None
+                    ax1.axvspan((elt[0]-tref).sec*u.s, (elt[1]-tref).sec*u.s,
+                                alpha=0.2, color="black", label=label)
 
             # Sigma max distribution (if niter > 1)
             if self.nstat > 1:
@@ -815,7 +821,7 @@ class Analysis():
                          range=[self.sigmx - 3*self.esigmx,
                                 self.sigmx + 3*self.esigmx],
                          alpha=0.5,
-                         color="grey",
+                         color="tab:blue",
                          label=r" {:5.1} $\pm$ {:5.1}"
                          .format(self.sigmx, self.esigmx))
                 ax2.set_xlabel(r"$\sigma_{max}$")
