@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Nov  4 15:24:21 2021
+Created on Thu Nov  4 15:24:21 2021.
 
 This module contains the functions to decode and plot the EBL absorption model
 beyond waht exist in `Gammapy`, as well as a main function illustrating the
@@ -165,7 +165,7 @@ def EBL_plot(eblmodels,
 
         axa.set_xscale("log")
         axa.set_ylim(ymin=1e-2, ymax=2)
-        single_legend(axa)
+        single_legend(axa.get_figure())
 
     return axa
 
@@ -191,21 +191,32 @@ def plot_dominguez_2011(redshifts, energies, alpha=0.8, yscale="linear"):
     None.
 
     """
-    _, axa = plt.subplots(nrows=1, ncols=1, figsize=(5, 5))
+    _, axa = plt.subplots(nrows=1, ncols=1, figsize=(14, 10))
 
-    for i, z in enumerate(redshifts):
-        do_z = dominguez.evaluate(energies, redshift=z, alpha_norm=1)
-        do_z = np.array([(x == max_att if x < max_att else x) for x in do_z])
-        color = cm.rainbow(i/len(zlist))
+    with quantity_support():
+        # Eref = []
+        for item, z in enumerate(redshifts):
+            do_z = dominguez.evaluate(energies, redshift=z, alpha_norm=1)
+            do_z = np.array([(x == max_att if x < max_att else x)
+                             for x in do_z])
+            color = cm.viridis(item/len(zlist))
+            Ecut = energies[np.where(np.abs(do_z - 0.5)
+                                     == np.min(np.abs(do_z - 0.5)))[0][0]]
+            label = (str(round(z, 2)) + "   $"
+                     + r"E_{1/2} = " + str(round(Ecut.value, 0))
+                     + " " + str(Ecut.unit) + "$")
+            print(label)
+            axa.plot(Elist, do_z, color=color, alpha=alpha, label=label)
+            axa.axvline(Ecut, 0, 0.5, color=color, alpha=0.5, ls="--")
 
-        axa.plot(Elist, do_z, color=color, alpha=alpha, label=str(round(z, 1)))
-
-    axa.set_yscale(yscale)
+        axa.set_yscale(yscale)
     axa.set_xscale("log")
     axa.set_ylabel("Absorption")
     axa.set_xlabel("Energy (GeV)")
     axa.set_title("Dominguez 2011", size=18)
-    axa.legend()
+    axa.grid(axis="both", which="major")
+    axa.grid(axis="both", which="minor", ls=":")
+    axa.legend(loc="upper right")
 
 
 # -----------------------------------------------------------------------------
@@ -230,16 +241,16 @@ def compare_EBL_models(redshifts, energies, ratio=False, alpha=0.5):
 
     """
     if ratio:
-        _, ((ax11, ax12, ax13),
-            (ax21, ax22, ax23)) = plt.subplots(nrows=2, ncols=3,
-                                               figsize=(15, 6),
-                                               sharey=False, sharex=True,
-                                               gridspec_kw={'height_ratios':
-                                                            [3, 2]})
+        fig, ((ax11, ax12, ax13),
+              (ax21, ax22, ax23)) = plt.subplots(nrows=2, ncols=3,
+                                                 figsize=(15, 6),
+                                                 sharey=False, sharex=True,
+                                                 gridspec_kw={'height_ratios':
+                                                              [3, 2]})
     else:
-        _, (ax11, ax12, ax13) = plt.subplots(nrows=1, ncols=3,
-                                             figsize=(15, 5),
-                                             sharey=False, sharex=True)
+        fig, (ax11, ax12, ax13) = plt.subplots(nrows=1, ncols=3,
+                                               figsize=(15, 5),
+                                               sharey=False, sharex=True)
 
     for i, z in enumerate(redshifts):
         # color = cm.cool(i/len(zlist))
@@ -299,7 +310,7 @@ def compare_EBL_models(redshifts, energies, ratio=False, alpha=0.5):
     ax13.set_ylabel(None)
     ax13.set_title("Gilmore 2012", size=18)
     ax13.grid("both", which="minor", ls=":", alpha=0.5)
-    single_legend(ax13, bbox_to_anchor=[1, 1.0])
+    single_legend(fig, bbox_to_anchor=[1, 1.0])
 
     ax12.tick_params(left=False, labelleft=False, bottom=False)
     ax13.tick_params(left=False, labelleft=False, bottom=False)
@@ -356,29 +367,30 @@ if __name__ == "__main__":
     finke = EBLAbsorptionNormSpectralModel.read_builtin("finke")
 
     # Define redshift, energy space
-    zmin, zmax, nzbin = 1, 5, 4
+    zmin, zmax, nzbin = 0.1, 4, 6
     emin, emax, nebin = 10*u.GeV, 10*u.TeV, 100
 
-    zlist = np.append([0], np.logspace(np.log10(zmin), np.log10(zmax), nzbin))
+    zlist = np.logspace(np.log10(zmin), np.log10(zmax), nzbin)
     Elist = np.logspace(np.log10(emin.value),
                         np.log10(emax.to(emin.unit).value),
                         nebin)*emin.unit
     max_att = 1e-3  # Limit attenutaion value to avoid insane small numbers
 
     # Plot Dominguez, the reference model in CTA
+    zlist = [0.653, 0.425, 0.08, 0.151]
     plot_dominguez_2011(zlist, Elist)
 
-    # Display models
-    compare_EBL_models(zlist, Elist, ratio=False)
+    # # Display models
+    # compare_EBL_models(zlist, Elist, ratio=False)
 
-    # Plot Model ratii compared to Dominquez
-    compare_EBL_models(zlist, Elist, ratio=True)
+    # # Plot Model ratii compared to Dominquez
+    # compare_EBL_models(zlist, Elist, ratio=True)
 
-    # Compare several models
-    taglist = ["gilmore", "dominguez"]
-    ax = EBL_plot([gilmore_ln, dominguez],
-                  redshifts=zlist, energies=Elist, tags=taglist)
+    # # Compare several models
+    # taglist = ["gilmore", "dominguez"]
+    # ax = EBL_plot([gilmore_ln, dominguez],
+    #               redshifts=zlist, energies=Elist, tags=taglist)
 
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
 
     print("All done")
