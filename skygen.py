@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-This module is used to generate visibilities of sources appearing at a
-certain rate during a given period. It can also generate random positions
-in the sky. Alternatively, positions and dates can be read from exiting files.
+Generate visibilities of sources during a given period.
+
+It can also generate random positions in the sky. Alternatively, positions and
+dates can be read from exiting files.
 It contains a :class:`Skies` class and a main function with the following
 usage:
 
@@ -17,6 +18,7 @@ Created on Tue Feb 21 13:16:50 2023
 import sys
 import os
 import ast
+import time
 
 from pathlib import Path
 import argparse
@@ -61,6 +63,11 @@ class Skies():
     This class handles the parameters and function to generate visibilities
     from a number of sources within a certain time period defined by 2 years
     (from beginning of first year to the end of last year).
+    In case the dates (triggers) or posiitons have to be found from exisiting
+    input files, these files are found from a classical SoHAPPy configuration
+    file. If both are generated on the fly, a configuraion file is not needed.
+    The command line supersede the configuration file parameters that are in
+    common (e.g. the number of sources).
     The output files are written in a `folder/visibility` subfolder where
     folder as a fixed naming convention:
 
@@ -97,8 +104,8 @@ class Skies():
 
     # -------------------------------------------------------------------------
     def __init__(self,
-                 year1=9999, nyears=1,
-                 first=1, Nsrc=1,
+                 year1=2000, nyears=1,
+                 first=1, nsrc=1,
                  version="1",
                  duration=3.0,
                  visibility="strictmoonveto",
@@ -118,8 +125,9 @@ class Skies():
         nyears : integer
             Number of years. The default is 1.
         first : integer
-            First source identifier. The default is 1.
-        Nsrc : integer
+            First source identifier or a list of source identifiers, or a
+            .json file with a list of files to be read. The default is 1.
+        nsrc : integer
             Number of sources. The default is 1.
         version : string, optional
             Visibility version tag, chosen by the user.
@@ -157,9 +165,8 @@ class Skies():
         self.seed = seed
         np.random.seed(self.seed)
 
-        self.id1 = first
-        self.id2 = first + Nsrc - 1
-        self.Nsrc = Nsrc
+        self.ifirst = 1
+        self.nsrc = nsrc
         self.filelist = None
 
         self.year1 = year1
@@ -171,6 +178,8 @@ class Skies():
         self.duration = duration
 
         # Input parameters (backward compatibilty)
+        # If no configration file is given use the default file even if not
+        # used
         self.cfg = Configuration()
         if cfg_path is None:
             cfg_path = self.cfg.def_conf
@@ -179,8 +188,8 @@ class Skies():
         self.cfg.read_from_yaml(filename=self.config)
 
         # Replace config file values
-        self.cfg.first = self.id1
-        self.cfg.nsrc = self.Nsrc
+        self.cfg.first = self.ifirst
+        self.cfg.nsrc = self.nsrc
 
         # Output
         self.basedir = output if output is not None else '.'
@@ -229,7 +238,7 @@ class Skies():
 
         parser.add_argument('-N', '--Nsrc',
                             help="Number of sources",
-                            default=inst.Nsrc,
+                            default=inst.nsrc,
                             type=int)
 
         parser.add_argument('-v', '--version',
@@ -303,14 +312,25 @@ class Skies():
         inst.seed = args.seed
         np.random.seed(inst.seed)
 
-        inst.id1 = args.first
-        if isinstance(args.first, int):
-            inst.id2 = args.first + args.Nsrc - 1
-            inst.Nsrc = args.Nsrc
+        # This is copied from configuration.py
+        if args.first is not None:
+            # If a list is given but it has only one item, get the item
+            if len(args.first) != 1:
+                inst.ifirst = args.first
+            else:
+                warning("Unique item list converted to the item")
+                inst.ifirst = args.first[0]
+                if inst.ifirst.isdigit():
+                    inst.ifirst = int(inst.ifirst)
+                elif "[" in inst.ifirst and "]" in inst.ifirst:
+                    inst.ifirst = ast.literal_eval(inst.ifirst)
         else:
-            inst.id1 = inst.id1[0]
-            inst.id2 = inst.id1[-1]
-            inst.Nsrc = len(inst.id1)
+            if inst.ifirst is None:
+                sys.exit(" A source or identifier is required."
+                         " Use 'python SoHAPPy.py -h' for help.")
+
+        if args.Nsrc is not None:
+            inst.nsrc = args.Nsrc
 
         inst.year1 = args.year1
         inst.year2 = args.year1 + args.nyears - 1
@@ -362,7 +382,7 @@ class Skies():
         None.
 
         """
-        heading("Dates and positon from source files")
+        heading("Dates and/or positon from source files")
 
         # retrieve data input folder
         if "HAPPY_IN" in os.environ.keys():
@@ -375,24 +395,23 @@ class Skies():
         nmissed = 0  # Number of missed files
 
         # Get information from data files - replace default cfg values
-        self.cfg.ifirst = self.id1
-        self.cfg.nsrc = self.Nsrc
+        self.cfg.ifirst = self.ifirst
+        self.cfg.nsrc = self.nsrc
         self.filelist = self.cfg.source_ids(infolder)
-        self.Nsrc = len(self.filelist)
+        if self.nsrc < len(self.filelist):
+            self.filelist = self.filelist[:self.nsrc]
+            print(" Number of files to be processed : ", self.nsrc)
 
         # Note that dates are float in MJD and ra, dec float in degrees
-        self.ra = np.zeros(self.Nsrc)
-        self.dec = np.zeros(self.Nsrc)
-        self.dates = np.zeros(self.Nsrc)
+        self.ra = np.zeros(self.nsrc)
+        self.dec = np.zeros(self.nsrc)
+        self.dates = np.zeros(self.nsrc)
 
         for item, fname in enumerate(self.filelist):
 
-            if (self.Nsrc <= 10) or (np.mod(item, 10) == 0):
+            if (self.nsrc <= 10) or (np.mod(item, 10) == 0):
                 print("#", item, " ", end="")
 
-            # fname = Path(infolder,
-            #              self.cfg.data_dir,
-            #              self.cfg.prefix + str(item) + self.cfg.suffix)
             try:
 
                 if debug:
@@ -416,7 +435,11 @@ class Skies():
                                 format="jd", scale="utc").mjd
                     found_trigger = True
                 else:
-                    date = 0  # MJD
+                    # This file has no date, they should be generated
+                    date = 0
+                    if self.newdate is False:
+                        sys.exit(" File has no date -> Request generation")
+
             except Exception:
                 failure(f" SKIPPING - File not found {fname:}\n")
                 date = 0
@@ -425,12 +448,11 @@ class Skies():
             self.dates[item] = date
 
             if self.dbg:
-                print("Found: ", item, self.ra[item],
-                      self.dec[item], self.dates[item])
-
-        if nmissed == len(self.filelist):
-            sys.exit(" Severe error - "
-                     "None of the expected data files were found")
+                print("Found: ", item,
+                      "ra=", self.ra[item],
+                      "dec=", self.dec[item],
+                      "trigger=",
+                      self.dates[item] if self.dates[item] else "Unknown")
 
         year1 = Time(np.min(self.dates),
                      format="mjd", scale="utc").datetime.year
@@ -438,6 +460,10 @@ class Skies():
                      format="mjd", scale="utc").datetime.year
         print("\n Year range in source files : ", year1, " -",
               year2, "(used for the output folder if dates kept)")
+
+        if nmissed == len(self.filelist):
+            sys.exit(" Severe error - "
+                     "None of the expected data files were found")
 
         # If requested, supersede the dates
         if self.newdate:
@@ -521,7 +547,7 @@ class Skies():
         tstart = Time(datetime(self.year1, 1, 1, 0, 0, 0)).mjd
         tstop = Time(datetime(self.year2, 12, 31, 23, 59, 59)).mjd
 
-        days = np.random.random(self.Nsrc)*(tstop-tstart)
+        days = np.random.random(self.nsrc)*(tstop - tstart)
         self.dates = tstart + days  # MJD
 
     # -------------------------------------------------------------------------
@@ -572,12 +598,12 @@ class Skies():
                                prfx)
 
         self.basename = prfx
-        if isinstance(self.id1, int):
-            self.basename += "_" + str(self.id1)
+        if isinstance(self.ifirst, int):
+            self.basename += "_" + str(self.ifirst)
             if self.id2 > self.id1:
                 self.basename += "_" + str(self.id2)
-        elif isinstance(self.id1, int):
-            self.basename += "_" + str(self.id1[0])
+        elif isinstance(self.ifirst, int):
+            self.basename += "_" + str(self.ifirst[0])
             self.basename += "_ongoing"
 
         # Check if folder exists, otherwise create it
@@ -616,7 +642,7 @@ class Skies():
         # Loop over items
         for item, fname in enumerate(self.filelist):
 
-            if (self.Nsrc <= 10) or (np.mod(item, 10) == 0):
+            if (self.nsrc <= 10) or (np.mod(item, 10) == 0):
                 print("#", item, " ", end="")
 
             # print(item, self.ra[i], self.dec[i], self.dates[i])
@@ -666,8 +692,8 @@ class Skies():
             print(f" Output: {filename}")
 
             print(f"created: {datetime.now()}", file=out)
-            print(f"id1: {self.id1}", file=out)
-            print(f"nsrc: {self.Nsrc}", file=out)
+            print(f"ifirst: {self.ifirst}", file=out)
+            print(f"nsrc: {self.nsrc}", file=out)
             print(f"seed: {self.seed:d}", file=out)
             print(f"start: {self.year1}", file=out)
             print(f"stop: {self.year2}", file=out)
@@ -840,11 +866,11 @@ class Skies():
         """
         print(50*"-")
         print(" Generation number (version): ", self.version)
-        if isinstance(self.id1, int):
-            print(" Source identifiers from ", self.id1, " to ", self.id2,
-                  " (", self.Nsrc, ")")
-        elif isinstance(self.id1, list):
-            print(" Source identifiers :", self.id1, " (", self.Nsrc, ")")
+        if isinstance(self.ifirst, int):
+            print(" Source identifiers from ", self.ifirst,
+                  " (", self.Nsrc, "sources)")
+        elif isinstance(self.ifirst, list):
+            print(" Source identifiers :", self.ifirst, " (", self.Nsrc, ")")
         print(" Generated dates ")
         print("  - from               : ", self.year1)
         print("  - to                 : ", self.year2)
@@ -872,8 +898,6 @@ if __name__ == "__main__":
     # times and sky position either generated randomly or obtained from data
     # in source files.
 
-    import time
-
     # If no command line, use examples - useful for debugging
     if len(sys.argv[1:]) == 0:
         heading("Running examples")
@@ -895,11 +919,13 @@ if __name__ == "__main__":
         #             "--noposition", "--debug"]
         sys.argv = ["skygen.py",
                     "-f",
-                    "'lightcurves/grb100k_long_ISM/detectable_combined/combined_detected_00001_02000.json'",
-                    "-N", "3",
-                    "-v", "tests",
+                    "'data/det3s/combined_detected_00001_02000.json'",
+                    "-N", "1000",
+                    "-v", "v1",
                     "-c", r"data/config_ref.yaml",
-                    "--noposition", "--debug"]
+                    "--visibility", "strictmoonveto",
+                    "--output", "combined_detected_vis",
+                    "--noposition", "--trigger", "--debug"]
 
         # ## If no configuration file is given, generates ex-nihilo
         # sys.argv = ["skygen.py",
@@ -938,8 +964,8 @@ if __name__ == "__main__":
         gvis.sky_from_source(debug=True)
 
     gvis.sky_to_yaml()
-    gvis.create_vis()
-    gvis.vis2json()
+    # gvis.create_vis()
+    # gvis.vis2json()
 
     # Stop chronometer
     end_pop = time.time()
@@ -947,7 +973,7 @@ if __name__ == "__main__":
 
     print("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
     print(" Duration      = {:8.2f} (s)".format(elapsed))
-    print("  per source   = {:8.2f} (s)".format((elapsed)/gvis.Nsrc))
+    print("  per source   = {:8.2f} (s)".format((elapsed)/gvis.nsrc))
     print(" ******* End of job - Total time = {:8.2f} min *****"
           .format((end_pop-start_pop)/60))
     print("")
