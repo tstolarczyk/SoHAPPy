@@ -135,11 +135,18 @@ if __name__ == '__main__':
         #             "--config", "MyConfigs/prod5_std/config_prod5_std.yaml",
         #             "-P", "10000",
         #             "-S", "5", "--nobatch", "-d", "0"]
-        sys.argv = ["", "-C", "SoHAPPy.py",
-                   #"--config", r"MyConfigs/prod5_std/config_prod5_std.yaml",
-                    "-P", "2000",
-                    "-S", "1", "--nobatch", "-d", "0",
-                    "--json", "data/det3s/test_detected"]
+        # sys.argv = ["", "-C", "SoHAPPy.py",
+        #            #"--config", r"MyConfigs/prod5_std/config_prod5_std.yaml",
+        #             "-P", "2000",
+        #             "-S", "1", "--nobatch", "-d", "0",
+        #             "--json", "data/det3s/test_detected"]        
+        sys.argv=["", "-C", r"./skygen.py",
+                      "-V", "strictmoonveto",
+                      "-P", "10",
+                      "-S", "2",
+                      "--nobatch",
+                      "-f", "'data/det3s/combined_detected_00001_02000.json'",
+                      "-c", r"data/config_ref.yaml"]
 
     # Get command line arguments and debrief
     args, extra_args = decode_command_line()
