@@ -68,8 +68,9 @@ def generate_dataset(Eflux, flux, Erange=None,
                      seed='random-seed',
                      debug=False):
     """
-    Generate a dataset from a list of energies and flux points either as
-    a SpectrumDataset or a SpectrumDatasetOnOff.
+    Generate a dataset from a list of energies and flux points.
+
+    Either as a SpectrumDataset or a SpectrumDatasetOnOff.
 
     Note :
     - in SpectrumDataset, the backgound counts are assumed precisely known and
@@ -202,9 +203,10 @@ def generate_dataset(Eflux, flux, Erange=None,
 # -----------------------------------------------------------------------------
 def stacked_model(ds, ds_stack=None, first=False, debug=False):
     """
+    Recompute an effective spectral model from an already stacked one.
+
     This function is not finalised and should be checked. It is intended to
-    recompute an effective spectral model from an already stacked
-    model -from the previous call- and the current model in a dataset list. It
+     -from the previous call- and the current model in a dataset list. It
     also extract the masked dataset of the first dataset in the list
     (when first == True).
 
@@ -212,7 +214,6 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
     The theoretical spectrum is therefore evaluated on reconstrcuted
     energies which assumes that the reconstructed energy is not too
     different from the true one.
-
 
     Parameters
     ----------
@@ -286,8 +287,9 @@ def stacked_model(ds, ds_stack=None, first=False, debug=False):
 # -----------------------------------------------------------------------------
 def compare_stacked_dataset(dsets, dsets_stacked, count="pred"):
     """
-    Compare the stacked counts of a Dataset list with the counts of a stacked
-    Dataset list (they should match).
+    Compare the counts from a stacked Dataset and a list of Datasets.
+
+    (they should match).
 
     Parameters
     ----------
@@ -300,7 +302,6 @@ def compare_stacked_dataset(dsets, dsets_stacked, count="pred"):
         "excess" and "background". The default is "pred".
 
     """
-
     print(" Check cumulated "+count)
     tot_counts = 0
     duration = 0*u.s
@@ -333,8 +334,8 @@ def compare_stacked_dataset(dsets, dsets_stacked, count="pred"):
 # ------------------------------------------------------------------------------
 def stacking(dsets, tryflux=False, debug=False):
     """
-    Create a new dataset collection (Datasets) with (consecutively) stacked
-    datasets.
+    Create a new dataset collection with stacked datasets.
+
     When datasets are stacked they are automatically masked, whihc means that
     the energy bins outside the valid energy range are hidden and not
     considered in the following use of this dataset.
@@ -362,7 +363,6 @@ def stacking(dsets, tryflux=False, debug=False):
         A collection of stacked datasets.
 
     """
-
     # ------------------
     def info(ds0, dsstk0):
         print(f" * Current dataset : "
@@ -408,7 +408,7 @@ def stacking(dsets, tryflux=False, debug=False):
 # -----------------------------------------------------------------------------
 def get_masked_dataset(ds0):
     """
-    This is a trick to get a masked dataset from a dataset.
+    Get a masked dataset from a dataset.
 
     Parameters
     ----------
@@ -446,8 +446,9 @@ def get_masked_dataset(ds0):
 # -----------------------------------------------------------------------------
 def compactify(dsets, dtmin=1*u.h, debug=False):
     """
-    Returns a list of stacked Dataset having a minimal total duration from an
-    original unstacked Dataset list.
+    Return a list of stacked Dataset having a minimal total duration.
+
+    Start from an original unstacked Dataset list.
     Note that the model stacking is not applied.
 
     Parameters
@@ -465,7 +466,6 @@ def compactify(dsets, dtmin=1*u.h, debug=False):
         The compacted Dataset list.
 
     """
-
     duration = 0*u.s
     tmp_stack = Datasets()
     ds_compacted = Datasets()
@@ -595,7 +595,7 @@ def read_from_ogip(file=None):
 # -----------------------------------------------------------------------------
 def get_axis(dsets, tunit=u.s, Eunit=u.GeV):
     """
-    Returns the list of observing time and the reconstructed energy axis from
+    Return the list of observing times and the rec. energy axis from
     a list od Dataset
 
     Parameters
@@ -635,7 +635,7 @@ def get_axis(dsets, tunit=u.s, Eunit=u.GeV):
 def check_dataset(ds, tag="?", e_unit="GeV",
                   masked=False, show_header=False, deeper=False):
     """
-    Printout some content of a dataset for verification purposes
+    Printout some content of a dataset for verification purposes.
 
     Parameters
     ----------
@@ -661,7 +661,6 @@ def check_dataset(ds, tag="?", e_unit="GeV",
         Retruns True if the header was displayed during the call.
 
     """
-
     if masked is True:
         mask = ds.mask_safe.data
     else:
