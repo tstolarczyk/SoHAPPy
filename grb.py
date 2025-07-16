@@ -1034,32 +1034,34 @@ class GammaRayBurst():
         """Printout the GRB properties (Not the visibilities)."""
         txt = ""
         if self.filename is not None:
-            txt += f'  Read from      : {self.filename}\n'
-        txt += f'  RA, DEC        : {self.radec.ra.value:>8.2f} '\
+            txt += f'  Read from       : {self.filename}\n'
+        txt += f'  RA, DEC         : {self.radec.ra.value:>8.2f} '\
                f'{self.radec.dec.value:>8.2f}\n'
-        txt += f'  Redshift       : {self.z:>8.2f}\n'
-        txt += f'  EBL model      : "{self.eblmodel:}"\n'
-        txt += f'  Eiso           : {self.Eiso:6.2e}\n'
-        txt += f'  Epeak          : {self.Epeak:>8.4f}\n'
-        txt += f'  t90            : {self.t90:>8.2f}\n'
-        txt += f'  G0H / G0W      : {self.G0H:>8.2f} / {self.G0W:>8.2f}\n'
-        txt += f'  Flux peak      : {self.Fpeak:>8.4f}\n'
-        txt += f'  Flux peak (GBM): {self.Fpeak_GBM:>8.4f}\n'
-        txt += f'  gamma LE / HE  : {self.gamle:>8.2f} / {self.gamhe:>8.2f}\n'
+        txt += f'  Redshift        : {self.z:>8.2f}\n'
+        txt += f'  EBL model       : "{self.eblmodel:}"\n'
+        txt += f'  Eiso            : {self.Eiso:6.2e}\n'
+        txt += f'  Epeak           : {self.Epeak:>8.4f}\n'
+        txt += f'  t90             : {self.t90:>8.2f}\n'
+        txt += f'  G0H / G0W       : {self.G0H:>8.2f} / {self.G0W:>8.2f}\n'
+        txt += f'  Flux peak       : {self.Fpeak:>8.4f}\n'
+        txt += f'  Flux peak (GBM) : {self.Fpeak_GBM:>8.4f}\n'
+        txt += f'  gamma LE / HE   : {self.gamle:>8.2f} / {self.gamhe:>8.2f}\n'
 
-        txt += f'  t_trig         : {Time(self.t_trig, format="iso"):}\n'
-        txt += f'  Obs. window    : {t_fmt(min(self.tval)):>8.2f} '\
+        txt += f'  t_trig          : {Time(self.t_trig, format="iso"):}\n'
+        txt += f'  Obs. window     : {t_fmt(min(self.tval)):>8.2f} '\
                f'{t_fmt(max(self.tval)):>8.2f}\n'
-        txt += f'  Energy window  : {min(self.Eval):>8.2f} '\
+        txt += f'  Max. slice time : '\
+               f'{t_fmt(max(self.tval[1:]-self.tval[:-1])):>8.2f}\n'
+        txt += f'  Energy window   : {min(self.Eval):>8.2f} '\
                f'{ max(self.Eval):>8.2f}\n'
-        txt += f'  Eff. duration  : '\
+        txt += f'  Eff. duration   : '\
                f'{t_fmt(self.tval[-1]-self.tval[0]):>8.2f}\n'
-        txt += f'  Bins : E, t    : {len(self.Eval):4d} '\
+        txt += f'  Bins : E, t     : {len(self.Eval):4d} '\
                f'{len(self.tval):4d} \n'
         if self.prompt:
-            txt += ' Prompt component  : \n'
-            txt += '  Up to slice    : {self.id90:3d}\n'
-            txt += "  Bins : E       : {len(self.E_prompt):3d}\n"
+            txt += ' Prompt component   : \n'
+            txt += '  Up to slice     : {self.id90:3d}\n'
+            txt += "  Bins : E        : {len(self.E_prompt):3d}\n"
         else:
             txt += '  + Prompt component not considered\n'
         if self.vis is None:
@@ -1471,7 +1473,7 @@ class GammaRayBurst():
 
     # ##------------------------------------------------------------------------
     def plot_energy_spectra(self, n_t_2disp=5,
-                            e_min=1*u.GeV,
+                            e_min=0.005*u.GeV,
                             e_index=2,
                             e_unit="GeV",
                             f_unit="1/ (GeV cm2 s)",
@@ -1575,7 +1577,8 @@ class GammaRayBurst():
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_ylim(ymin=(e_min**e_index*f_min).value)
-        ax.set_xlim(xmin=e_min.to(e_unit).value)
+        ax.set_xlim(xmin=max(e_min.to(e_unit).value,
+                             self.Eval[0].to(e_unit).value))
 
         plt.tight_layout()
 
@@ -1891,7 +1894,7 @@ if __name__ == "__main__":
     from configuration import Configuration
 
     # Bigger texts and labels
-    sns.set_context("paper")  # poster, talk, notebook, paper
+    sns.set_context("talk")  # poster, talk, notebook, paper
 
     # This is required to have the EBL models read from gammapy
     os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
@@ -1900,15 +1903,19 @@ if __name__ == "__main__":
     # ##---------------------------
     # ## Input source data - copy of first SoHAPPy steps
     # ##---------------------------
-    sys.argv = ["", "-c", "data/config_ref_omega.yaml"]
+    # sys.argv = ["", "-c", "data/config_ref_omega.yaml"]
+    sys.argv = ["", "-c", "data/config_ref.yaml"]
     cf = Configuration.command_line()
 
     cf.ifirst = [343]
+    cf.ifirst = [99991]
+    # cf.ifirst = "data/det3s/combined_detected_00001_02000.json"
     cf.nsrc = 1
     cf.prompt_dir = None
     cf.save_grb = False
-    cf.emax = u.Quantity("10 TeV")
-    cf.tmax = u.Quantity("10 h")
+    cf.dbg = 1
+    # cf.emax = u.Quantity("10 TeV")
+    # cf.tmax = u.Quantity("10 h")
     if "HAPPY_IN" not in os.environ:
         sys.exit("Please define HAPPY_IN environment variable")
     else:
@@ -1955,9 +1962,10 @@ if __name__ == "__main__":
                 grb.vis[loc].print()
 
         grb.plot()
-        grb.energy_and_time_2d()
-        grb.energy_over_timeslices()
-        grb.time_over_energyband()
+        # grb.energy_and_time_2d()
+        # grb.energy_over_timeslices()
+        # grb.time_over_energyband()
+        plt.show()
 
     # ### -------------------
     # ### Actions for the Data Challenge
