@@ -325,7 +325,7 @@ def old_single_legend(ax, **kwargs):
 
 
 # ##---------------------------------------------------------------------------
-def vals_legend(vals=None, alpha=0.5, var_max=1000, **kwargs):
+def vals_legend(vals=None, alpha=0.5, var_max=1000, colormap="cool",  **kwargs):
     """
     Create Matplotlib patches with colored circles from a list of values.
 
@@ -353,7 +353,7 @@ def vals_legend(vals=None, alpha=0.5, var_max=1000, **kwargs):
     # symbol = Line2D(range(1), range(1), color="white", marker='o',
     # markerfacecolor="red")
 
-    colors, sizes = col_size(vals, var_max=var_max)
+    colors, sizes = col_size(vals, var_max=var_max, colormap=colormap)
     patches = [plt.plot([], [], marker="o", alpha=alpha,
                ms=7 + sizes[i]/50,
                ls="", mec=None,
@@ -509,7 +509,8 @@ def ColorMap(threshold, maxval):
 
 
 # ##---------------------------------------------------------------------------
-def col_size(var, var_min=1.1, var_max=1000):
+def col_size(var, var_min=1.1, var_max=1000, scale=100, log=True,
+             colormap='cool'):
     """
     Get a color and a size from a numerical value.
 
@@ -532,10 +533,16 @@ def col_size(var, var_min=1.1, var_max=1000):
     """
     # Limit values in case they are not yet limited
     var = np.clip(var, var_min, None)
-
-    color = cm.cool(np.log10(var)/np.log10(var_max))
-    size = 100*np.log10(var)**2
-
+    
+    cmap = mpl.colormaps[colormap]
+    if log:
+        # color = cm.cool(np.log10(var)/np.log10(var_max))
+        color = cmap(np.log10(var)/np.log10(var_max))
+        size = scale*np.log10(var)**2
+    else:
+        color = cmap(var/var_max)
+        size = scale
+    
     return color, size
 
 
