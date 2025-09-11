@@ -113,9 +113,9 @@ def log_and_flat_intervals(xmin, xmax, nbin=10, distmax=0., debug=True):
 # ##---------------------------------------------------------------------------
 def subset_ids(istart, nmax, nsets, debug=False):
     """
-    This is a simple code defining `nsets` interval for a list of integer
-    starting at 1 up to `nmax`. If `nmax` is not divisible by `nsets`, the rest
-    gives and extra set.
+    Define 'nsets' interval for a list of integer starting at 1 up to `nmax`.
+
+    If `nmax` is not divisible by `nsets`, the rest gives and extra set.
 
     Parameters
     ----------
@@ -170,7 +170,6 @@ def subset_ids(istart, nmax, nsets, debug=False):
 def get_filename(filename):
     """
     Check if file was compressed and/or if it exists.
-    Returns exiting file.
 
     Parameters
     ----------
@@ -183,7 +182,6 @@ def get_filename(filename):
     The name of the existing file
 
     """
-
     # Strangely path.is_file() does not give False but an error
     if not filename.is_file():  # Current file does not exist
         if filename.suffix == ".gz":  # If a gz file, try the non gz file
@@ -218,7 +216,6 @@ def file_from_tar(folder=None, tarname=None, target=None):
         A pointer to a file in memory
 
     """
-
     tag = "file_from_tar: "
 
     # ## ------------------------
@@ -278,6 +275,7 @@ def file_from_tar(folder=None, tarname=None, target=None):
 def backup_file(filename, folder=None, dbg=False):
     """
     Copy a file to a result folder.
+
     If it already exists, make a backup with the date.
 
     Parameters
@@ -294,7 +292,6 @@ def backup_file(filename, folder=None, dbg=False):
     None.
 
     """
-
     # Create result folder if not exisitng
     if not os.path.exists(folder):
         if dbg:
@@ -317,10 +314,7 @@ def backup_file(filename, folder=None, dbg=False):
 
 # ##---------------------------------------------------------------------------
 def Df(x):
-    """
-    Returns a time in Julian day format if the argument is finite
-    """
-
+    """Return a time in Julian day format if the argument is finite."""
     if math.isfinite(x):
         return Time(x, format="mjd")
     return x
@@ -329,8 +323,9 @@ def Df(x):
 # ##---------------------------------------------------------------------------
 def Dp(x):
     """
-    Returns a time in ISO format if the argument is an astropy
-    :class:`Time`, and if not returns the argument (unchanged).
+    Return a time in ISO format if the argument is an astropy :class:`Time`.
+
+    If not returns the argument (unchanged).
     """
     if isinstance(x, Time):
         return x.iso
