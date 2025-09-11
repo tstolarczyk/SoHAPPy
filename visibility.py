@@ -224,8 +224,6 @@ class Visibility():
 
         Parameters
         ----------
-        self : Visibility Object
-            The present instance.
         param : Dictionnary, optional
             A dictionnary of parameters to compute the visibility.
             The default is None.
@@ -1349,7 +1347,10 @@ class Visibility():
             alt = radec.transform_to(AltAz(location=self.site,
                                            obstime=tobs)).alt
             moon_alt_period_plot(tobs, alt, ax=ax[0], alpha=0.25)
-            ax[0].set_ylim(ymin=self.moon_maxalt)
+
+            # This does not work with nomoonveto
+            # Does nto seem necessary anyhow.
+            # ax[0].set_ylim(ymin=self.moon_maxalt)
 
             # ##--------------------------
             # ## Moon brightenss and distance - if required
