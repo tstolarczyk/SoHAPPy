@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul 12 15:27:45 2024
+Created on Fri Jul 12 15:27:45 2024.
 
 @author: Stolar
 """
-
+import sys
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -20,10 +20,27 @@ from pop_io import get_data
 from configuration import Configuration
 
 
+# Critical values in seconds
+critical_times = {"Short GRB limit": 2,
+                  "LST max. slew": 30,
+                  "MST max. slew": 90,
+                  "SST max. slew": 60,
+                  "Max. ref. delay (LST)": 107,
+                  "Max. ref. delay (MST)": 167
+                  }
+
+
 # -----------------------------------------------------------------------------
-def det_proba(tmax_slew=30, dtmin=30, ntrials=1000, plot=True, debug=False):
+def det_proba(tproba, proba, tmax_slew=30, dtmin=30, ntrials=1000,
+              plot=True, bins=None, debug=False):
     """
-    Get detection probability
+    Get detection probability.
+
+    For each GRB, generate ntrials Swift and slewing delays.
+    The Swift alert delays is obatined from the probability distribution.
+    The slewing delay is assumed to be flat until tmax_slew.
+    Compute the fraction of trails where the remaining time to t90, dtmin, is
+    considered enough for doing an analysls.
 
     Parameters
     ----------
@@ -42,7 +59,6 @@ def det_proba(tmax_slew=30, dtmin=30, ntrials=1000, plot=True, debug=False):
         DESCRIPTION.
 
     """
-
     # Loop over t90s, generate slewing delays and Swift delays
     success = []
     for t90 in t90s:
@@ -72,17 +88,129 @@ def det_proba(tmax_slew=30, dtmin=30, ntrials=1000, plot=True, debug=False):
                   f" fraction = {100*passed/ntrials:3.1f} %")
 
     if plot:
+        if bins is None:
+            bins = np.logspace(-1, 5.2, 50)
+
         label = f"Slewing max= {tmax_slew:4.1f} - Det. min={dtmin:4.1f}"
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.scatter(t90s, success, label=label)
+        ax.scatter(t90s, success, marker=".", label=label)
         ax.set_xlabel("t90")
         ax.set_ylabel("Detectable")
+        ax.set_xscale("log")
+        # ax.set_yscale("log")
+        ax.grid(axis="both")
         ax.legend()
 
     print(f"Prompt mean detection probability: {np.mean(success):5.2f} "
           f"[dtmin={dtmin:4.1f}, tmax_slew={tmax_slew:4.1f}]")
 
-    return np.mean(success)
+    return np.mean(success)  # Return the main success
+
+
+# ##---------------------------------------------------------------------------
+def Swift_delay(filename, debug=True):
+    """Get Swift delays and probability distribution."""
+    dt_swift = []
+    with open(Path("../../", filename)) as input_file:
+        for line in input_file:
+            # print(line)
+            dt_swift.append(float(line.strip().split(" ")[-1]))
+    dt_swift = np.array(dt_swift)
+
+    # Compute occurence probability of Swift delay from an histogram
+    nbin = 50
+
+    proba, t_edges = np.histogram(dt_swift, bins=nbin,
+                                  density=True, weights=None)
+    proba = proba/sum(proba)  # Renormalise to 1
+    tproba = (t_edges[1:] + t_edges[:-1])/2
+
+    if debug:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        ax.plot(tproba, proba, color="orange")
+        ax.set_ylabel("Probability")
+
+    return dt_swift, tproba, proba
+
+
+# ##---------------------------------------------------------------------------
+def Swift_delay_plot(times, bins=None, ax=None, **kwargs):
+    """Plot Swift delays."""
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 5))
+    if bins is None:
+        bins = 25
+
+    ax.hist(times, bins=bins, label=MyLabel(times, "Swift delays"), **kwargs)
+    ax.set_xlabel(" Swift/BAT alert delay (s)")
+    ax.set_ylabel("Counts")
+    ax.grid(axis="both")
+    ax.legend()
+
+
+# ##---------------------------------------------------------------------------
+def GRB_t90s(parfilename, fpeakmin=1, mask=None):
+    """Get GRB t90's from any output file."""
+    nyears, files, tag = get_data(parpath=parfilename, debug=False)
+
+    pop = Pop(files, tag=tag, nyrs=nyears, fpeakmin=fpeakmin)
+
+    if mask is None:
+        t90s = pop.ref.t90
+    elif mask == "d5s":
+        t90s = pop.g_tot[pop.g_tot.d5s >= pop.eff_lvl].t90
+    else:
+        sys.exit("This mask isnot implemented")
+
+    print(" File : ", files[0])
+    print(" - Ndata = ", len(t90s))
+    print(" - Minimal t90 : ", min(t90s))
+    print(" - Maximal t90 : ", max(t90s))
+    print()
+
+    return t90s
+
+
+# ##---------------------------------------------------------------------------
+def GRB_t90s_plot(times, bins=None, ax=None, **kwargs):
+    """Plot t90s distributions."""
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+    if bins is None:
+        bins = np.logspace(-1, 5.2, 50)
+
+    ax.hist(times, bins, label=MyLabel(t90s, r"$t_{90}$"), **kwargs)
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+    ax.set_ylabel("Counts")
+    ax.set_xlabel("Analysed GRB t90s")
+    ax.grid(axis="x", ls=":")
+    ax.legend()
+
+    # axx = ax.twinx()
+
+    # hist, edges = np.histogram(times, bins=bins)
+    # xcenter = 0.5*(edges[1:] + edges[:-1])
+    # vals = np.cumsum(hist)/np.sum(hist)
+    # axx.plot(xcenter, vals, marker="", color="tab:orange")
+    # axx.set_ylabel("Cumulated fraction")
+    # axx.grid(axis="both", ls=":")
+
+
+# ##---------------------------------------------------------------------------
+def specific_times_plot(ax):
+    """Plot some critical time values."""
+    if ax is None:
+        print("Specific times - cannot plot in the abscence of an axis")
+        return
+
+    for key, val in critical_times.items():
+        print(key, val)
+        # label = f"{key:s} [{val:3.0f} s]"
+        ax.axvline(val, ls=":", color="grey")
+        ax.text(val*1.05, ax.get_ylim()[1]*0.92, s=key,
+                va="top", rotation=90, size=7, color="black")
 
 
 # #############################################################################
@@ -97,91 +225,42 @@ heading("Swift latency data")
 
 cfg = Configuration()
 print("File : ", cfg.swiftfile)
+dtswift, tproba, proba = Swift_delay(cfg.swiftfile)
 
-dt_swift = []
-with open(Path("../../", cfg.swiftfile)) as input_file:
-    for line in input_file:
-        # print(line)
-        dt_swift.append(float(line.strip().split(" ")[-1]))
-dt_swift = np.array(dt_swift)
-
-# Compute occurence probability of Swift delay from an histogram
-nbin = 50
-proba, t_edges = np.histogram(dt_swift, bins=nbin, density=True, weights=None)
-proba = proba/sum(proba)  # Renormalise to 1
-tproba = (t_edges[1:] + t_edges[:-1])/2
-
-
-# ##--------------
-# ## GRB t90s
-# ##--------------
+# # ##--------------
+# # ## GRB t90s
+# # ##--------------
 
 # Read any kind ot population with the original GRB T90 information
-nyears, files, tag = get_data(debug=False)
-pop = Pop(files, tag=tag, nyrs=nyears)
-t90s = pop.ref.t90
-Ndata = len(t90s)
+heading("GRB t90's")
 
+# nyears, files, tag = get_data(parpath=None, debug=True)
+parpath = "parameter_100k_ISM.yaml"
+# parpath = "parameter_100k_ISM-max.yaml"
 
-heading("Statistics")
-print(" File : ", files[0])
-print(" - Ndata = ", Ndata)
-print(" - Minimal t90 : ", min(t90s))
-print(" - Maximal t90 : ", max(t90s))
-print()
+t90s = GRB_t90s(parpath, fpeakmin=1, mask="d5s")
+GRB_t90s_plot(t90s)
 
-# Critical values
-txtlist = ["Short GRB limit",
-           "LST max. slew",
-           "Swift mean latency",
-           "MST max. slew",
-           "Max. delay (LST)",
-           "Max. delay (MST)"]
-delays = [2, 30, 70, 90, 107, 137]
-ntxtmax = max([len(txt) for txt in txtlist])
+# # ##--------------
+# # ## GRB t90s and Swift delays plot
+# # ##--------------
+
+fig, ax = plt.subplots(figsize=(8, 5))
+bins = np.logspace(-1, 4.2, 100)
+
+GRB_t90s_plot(t90s, ax=ax, bins=bins, alpha=0.5)
+Swift_delay_plot(dtswift, bins=bins, ax=ax, color="tab:orange", alpha=0.5)
+specific_times_plot(ax)
+ax.set_xlabel("Time (s)")  # Supersede existing label
 
 # Statistics
+print()
 print("Statistics for t90 above")
-for txt, val in zip(txtlist, delays):
+for key, val in critical_times.items():
     n = len(t90s[t90s >= val])
-    print(f" - {txt:{str(ntxtmax + 1)}s} [{val:3.0f} s]:"
-          f" {100*n/Ndata:8.2f} %")
+    print(f" - {key:22s} [{val:3.0f} s]:"
+          f" {100*n/len(t90s):8.2f} %")
 
-# ##--------------
-# ## PLOTS
-# ##--------------
-
-# #-------------------------------------
-color = cm.rainbow(np.linspace(0, 1, len(delays)))
-
-
-def plot_ref_time(axx):
-    i = 0
-    for txt, val in zip(txtlist, delays):
-        label = f"{txt:s} [{val:3.0f} s]"
-        ax.axvline(np.log10(val), label=label, ls=":", color=color[i])
-        i += 1
-# #-------------------------------------
-
-
-# Display t90
-fig, ax = plt.subplots(figsize=(12, 5))
-n, bins, _ = ax.hist(np.log10(pop.ref.t90), bins=25, alpha=0.5,
-                     label=MyLabel(np.log10(pop.ref.t90), "$t_{90}$"))
-
-plot_ref_time(ax)
-ax.set_xlabel("$t_{90}$")
-ax.legend()
-
-# Display t90 and swift delays
-fig, ax = plt.subplots(figsize=(12, 5))
-n, bins, _ = ax.hist(np.log10(pop.ref.t90), bins=100, alpha=0.5,
-                     label=MyLabel(np.log10(pop.ref.t90), "$t_{90}$"))
-ax.hist(np.log10(dt_swift), bins=bins,
-        label=MyLabel(np.log10(dt_swift), " Swift delays"))
-plot_ref_time(ax)
-
-ax.legend()
 
 # ##--------------
 # Compute probability to have enough observation time
@@ -194,47 +273,46 @@ det_times = [10, 30, 60, 90, 120]
 # --------------------------
 # LST max slewing time
 # --------------------------
+# Display the fraction of detectable GRB from their t90 for a chosen minimal
+# detection duration.
+det_proba(tproba, proba, dtmin=30, tmax_slew=30)
 
-
-# for the plot versus t90
-det_proba(tmax_slew=30)
-
-# Scan detection time
+# Do the same for various detection times - Store the results
 fLST = []
 fLST20 = []
 for dtmin in det_times:
-    frct = det_proba(tmax_slew=30, dtmin=dtmin, plot=False)
-    frct20 = det_proba(tmax_slew=20, dtmin=dtmin, plot=False)
+    frct = det_proba(tproba, proba, tmax_slew=30, dtmin=dtmin, plot=False)
+    frct20 = det_proba(tproba, proba, tmax_slew=20, dtmin=dtmin, plot=False)
     fLST.append(frct)
     fLST20.append(frct20)
 
-# --------------------------
-# SST max slewing time
-# --------------------------
-# for the plot versus t90
-det_proba(tmax_slew=60)
+# # --------------------------
+# # SST max slewing time
+# # --------------------------
+# # for the plot versus t90
+# det_proba(tmax_slew=60)
 
 # Scan detection time
 fSST = []
 for dtmin in det_times:
-    frct = det_proba(tmax_slew=60, dtmin=dtmin, plot=False)
+    frct = det_proba(tproba, proba, tmax_slew=60, dtmin=dtmin, plot=False)
     fSST.append(frct)
 
-# --------------------------
-# MST max slewing time
-# --------------------------
-# for the plot versus t90
-det_proba(tmax_slew=90)
+# # --------------------------
+# # MST max slewing time
+# # --------------------------
+# # for the plot versus t90
+# det_proba(tmax_slew=90)
 
-# Scan detection time
+# # Scan detection time
 fMST = []
 for dtmin in det_times:
-    frct = det_proba(tmax_slew=90, dtmin=dtmin, plot=False)
+    frct = det_proba(tproba, proba, tmax_slew=90, dtmin=dtmin, plot=False)
     fMST.append(frct)
 
-# --------------------------
-# Summary plot
-# --------------------------
+# # --------------------------
+# # Summary plot
+# # --------------------------
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.plot(det_times, fLST20, label=" Max. slew time:\n20s (LST)",
         marker="o", color="tab:blue", ls=":")
