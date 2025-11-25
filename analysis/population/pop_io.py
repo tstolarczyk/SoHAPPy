@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 16 16:47:25 2020
+Created on Mon Nov 16 16:47:25 2020.
 
 Contain the functions to obtain population data from disk, either directly or
 from a text file to be converted into a `.csv` file. The text file is in some
@@ -14,6 +14,8 @@ each files are expected to be found in a `.yaml` file. Here is an example.
 import sys
 import os
 from pathlib import Path
+
+from itertools import chain
 
 import yaml
 from yaml.loader import SafeLoader
@@ -30,7 +32,9 @@ __all__ = ["get_config_data", "get_data"]
 # ##---------------------------------------------------------------------------
 def get_config_data(dirname, debug=False):
     """
-    Get data from the configuration file, either from opening the file from
+    Get data from the configuration file.
+
+    Data are obtained either from opening the file from
     disk or by getting the file from the archive on disk.
 
     Parameters
@@ -46,7 +50,6 @@ def get_config_data(dirname, debug=False):
         dictionnary
 
     """
-
     print("Extracting configuration parameters from ", dirname)
 
     # Get configuration file from the current folder
@@ -55,7 +58,7 @@ def get_config_data(dirname, debug=False):
             if debug:
                 print(" Found configuration file :", fname)
             cfile_dict = yaml.load(open(fname, "r"), Loader=SafeLoader)
-            return cfile_dict
+            return cfile_dict  # Manages missing file later
 
     # If it failed, try to get it from the archive
     print(" No configuration file found in", dirname, ". Try archive")
@@ -71,10 +74,11 @@ def get_config_data(dirname, debug=False):
 # ##---------------------------------------------------------------------------
 def check_and_convert(folder, target, debug=False):
     """
-    Check whether the current folder contains a data file (.txt) or a
-    converted file (.csv). If not, try to extract from a tar file in that
-    folder.
-    Convert the text file if needed
+    Check whether the current folder contains a data file.
+
+    Th efile can be a text file (.txt) or a converted file (.csv). If not, try
+    to extract from a tar file in that folder.
+    Convert the text file if needed.
     Returns the converted file (.csv) or None if no file found.
 
 
@@ -93,7 +97,6 @@ def check_and_convert(folder, target, debug=False):
         Converted file if found or created.
 
     """
-
     datafile = None
 
     # Build the text and cvs file Path
@@ -142,7 +145,7 @@ def check_and_convert(folder, target, debug=False):
 # ##---------------------------------------------------------------------------
 def get_data_from_folder(folder, dataname="data.txt", debug=False):
     """
-    Get the .csv file from the folders, either existing or to be created
+    Get the .csv file from the folders, either existing or to be created.
 
     Parameters
     ----------
@@ -154,7 +157,6 @@ def get_data_from_folder(folder, dataname="data.txt", debug=False):
     None.
 
     """
-
     filelist = []
 
     filepath = check_and_convert(folder, dataname)
@@ -183,11 +185,14 @@ def get_data_from_folder(folder, dataname="data.txt", debug=False):
 
     return filelist
 
+
 # ##---------------------------------------------------------------------------
 def get_data(parpath=None,
              dataname="data.txt",
              debug=False):
     """
+    Get data from a file path.
+
     If `file` does not point to an existing parameter file, then the function
     runs in demo mode, using the samples in the `SoHAPPy/data/samples`
     subfolder.
@@ -202,61 +207,66 @@ def get_data(parpath=None,
     ----------
     file : Path, optional
         Input parameter path, can be None.
-    datafile : string, optional
+    dataname : string, optional
         Data file name. The default is "data.txt".
     debug : Boolean, optional
         If True, display processing information. The default is False.
 
     Returns
     -------
-    nyears : FLOAT
+    nyears : Float
         Number of years of simulation
     csvfilepaths : list of Path
         List of path for the files found
-    None.
+    tags : String
+        Filename for later identifications
 
     """
-
+    # Find the parameter file
+    local = False
     if parpath is None:
         heading(" RUNNING in DEMO mode")
         print(" No `.yaml` file was given")
-        # parpath = Path("../../data/samples", "pop_parameter.yaml").resolve()
-        # base    = Path("../../data/samples").resolve()
         parpath = Path("../../data/samples", "pop_parameter.yaml")
-        base = Path("../../data/samples")
+        local = True
     else:
-        # Check if parameter file exists
-        parpath = Path(parpath).resolve()  # If the user forgot
-        if not parpath.exists():
-            sys.exit(f" The parameter file {parpath:} was not found")
+        parpath = Path(parpath)  # If the user forgot
 
-        # Check if HAPPY_OUT was defined, otherwise use the local folder
-        if "HAPPY_OUT" not in os.environ.keys():
-            base = Path("../../data/samples").resolve()
-            heading(" DEMO mode")
-        else:
-            base = Path(os.environ["HAPPY_OUT"])
+    if not parpath.exists():
+        sys.exit(f" The parameter file {parpath:} was not found")
+
     # Get the folder names and duration from the parameter file.
+    # Add the output foder path if defined
     xdict = yaml.load(open(parpath.as_posix()), Loader=SafeLoader)
-    folders = [Path(base, dir) for dir in xdict["outfolders"]]
+
+    if "HAPPY_OUT" in os.environ and local is False:
+        base = os.environ["HAPPY_OUT"]
+    else:
+        print(" Data supposed in local folder")
+        base = Path("../../data/samples")
+    folders = [Path(base, folder) for folder in xdict["outfolders"]]
     nyears = xdict["duration"][0]
 
     # Check if the folders exist
     for curdir in folders:
         if not curdir.exists():
-            sys.exit(f"{curdir} does not exist, please correct {parpath:}")
+            sys.exit(f"{curdir} does not exist\nPlease correct {parpath:} "
+                     "or consider defining the SoHAPPy environment variables.")
 
     csvfilepaths = []
     for curdir in folders:
         filepath = get_data_from_folder(curdir, dataname=dataname)
         csvfilepaths.append(filepath)
 
+    # Flatten the list
+    csvfilepaths = list(chain.from_iterable(csvfilepaths))
+
     # Final folder list with data
     if debug:
         print("--------------")
-        print("Data found")
-        for curfile in csvfilepaths:
-            print(curfile)
+        print("Data found in ", len(csvfilepaths), "folders")
+        for curfiles in csvfilepaths:
+            print(curfiles)
 
     # Create defaults tags or get them from the file
     if "tags" not in xdict.keys():
@@ -270,6 +280,9 @@ def get_data(parpath=None,
 ###############################################################################
 if __name__ == "__main__":
 
-    get_data(parpath=None, debug=True)  # Demo mode
-    # get_data(parpath="parameter.yaml", debug=True) # Local file
+    # parpath = "parameter.yaml"  # Specific series
+    # parpath = None
+    parpath = "parameter_100k_ISM_alpha.yaml"
+
+    get_data(parpath=parpath, debug=True)  # Local file
     print("... completed")
