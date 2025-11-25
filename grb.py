@@ -59,20 +59,22 @@ class GammaRayBurst():
     r"""
     A class to store GRB properties.
 
-    The GRB information is read from files.
+    The GRB information is read from files or computed from parameters in a
+    `yaml` file.
+
     A GRB is composed of several parameters among which, a name, a redshift,
     a position in the sky, and measurement points in time at which
     an energy spectrum is given.
 
     Each energy spectrum is given as a series of flux measurements but is then
-    stored as an interpolated spectrum* (i.e. the energy bin width has a modest
+    stored as an interpolated spectrum (i.e. the energy bin width has a modest
     importance).
 
     The GRB properties like `z` and `Eiso` connect the afterglow and prompt
     emissions together.
 
     The original energy bins can be limited by a maximal maximal energy
-    (Limitation in time can be obtained from the visibility computation).
+    (Limitation in time can also be obtained from the visibility computation).
 
     The spectra are usually modified for an EBL absorption, or the absorbed
     flux is given in the file in some cases.
@@ -337,13 +339,13 @@ class GammaRayBurst():
         else:  # In SHORT GRB, the time bin is given, [t1, t2].
             cls.tval = np.array(tval["col1"])*u.s
 
-        # Select point up to tmax. Force last point to be tmax.
+        # Select point up to tlimit, and set last flux time to that value
         if tlimit is not None and tlimit <= cls.tval[-1]:
-            ninit = len(cls.tval)
+            ninit = len(cls.tval)  # Before reduction
             cls.tval = cls.tval[(tlimit - cls.tval) > 0]
             cls.tval[-1] = tlimit.to(u.s)
-            warning(f" Data up to {cls.tval[-1]:5.3f} "
-                    f"restricted to {tlimit:5.3f}")
+            warning(f" Data up to {t_fmt(cls.tval[-1]):5.3f} "
+                    f"restricted to {t_fmt(tlimit):5.3f}")
             print(f" GRB {cls.id:}: slices {ninit:} -> {len(cls.tval):}")
 
         cls.tstart = cls.t_trig
@@ -458,9 +460,13 @@ class GammaRayBurst():
         elimit : Astropy Quantity
             Upper limit to the energies (To reduce the data size).
         tlimit: Astropy Time Quantity
-            Upper limit to the time sampling (To reduce the data size).
+            Upper limit to the time sampling. tlimit is used to reduce the time
+            span and the data size in memory but can also be used to extend the
+            default maximal duration set in t_range.
         dtmax : Astropy Quantity, optional
             Time bin maximal length. The default is 0.5*u.h.
+        nebin: integer, optional
+            Number of energy bins. The default is 25.
         debug: Boolean, optional
             Debugging flag. The default is False.
 
@@ -501,12 +507,21 @@ class GammaRayBurst():
         ntbin = data["ntbin"]
 
         # Implement a time binning in log space, never exceeding a certain
-        # duration
-        if ntbin != 1:
+        # duration. Extension/reduction of the duration is possible using
+        # `tlimit`.
+        if tlimit is None:
+            tmax = cls.t_range[1]
+        else:
+            tmax = max(cls.t_range[1], tlimit)
+
+        if ntbin == 1:  # A single time bin
+            cls.tval = np.array([cls.t_range[0].to(u.s).value,
+                                 tmax.to(u.s).value])*u.s
+        else:  # A log. scale binning with a minimal allowed duration
 
             # First generate in log
             tsamp = np.logspace(np.log10(cls.t_range[0].to(u.s).value),
-                                np.log10(cls.t_range[1].to(u.s).value),
+                                np.log10(tmax.to(u.s).value),
                                 ntbin)
 
             # Find when differences exceed the maximal allowed value
@@ -514,25 +529,13 @@ class GammaRayBurst():
 
             # Generate flat from that value
             tflat = np.arange(tsamp[idmax],
-                              cls.t_range[1].to(u.s).value,
+                              tmax.to(u.s).value,
                               dtmax.to(u.s).value)
 
             # Concatenate the two arrays
             cls.tval = np.concatenate((tsamp[:idmax], tflat))*u.s
 
-        else:  # A single time window
-            cls.tval = np.array([cls.t_range[0].to(u.s).value,
-                                 cls.t_range[1].to(u.s).value])*u.s
-
-        # Select point up to tlimit. Force last point to be tlimit.
-        if tlimit is not None and tlimit <= cls.tval[-1]:
-            ninit = len(cls.tval)
-            cls.tval = cls.tval[(tlimit - cls.tval) > 0]
-            cls.tval[-1] = tlimit.to(u.s)
-            warning(f" Data up to {cls.tval[-1]:5.3f} "
-                    f"restricted to {tlimit:5.3f}")
-            print(f" GRB {cls.id:}: slices {ninit:} -> {len(cls.tval):}")
-
+        # Define the start and stop of the observation from the bins
         cls.tstart = cls.t_trig + cls.tval[0]
         cls.tstop = cls.t_trig + cls.tval[-1]
 
@@ -545,6 +548,7 @@ class GammaRayBurst():
         cls.Eval = np.logspace(np.log10(eo_min.value),
                                np.log10(eo_max.value), nebin)*eo_min.unit
 
+        # if `elimit ` requires it, reduce the energy range.
         if elimit is not None and elimit <= cls.Eval[-1]:
             warning(f" Data up to {cls.Eval[-1]:5.3f} "
                     f"restricted to {elimit:5.3f}")
@@ -753,7 +757,7 @@ class GammaRayBurst():
     def set_visibility(self,
                        item, loc, observatory="CTAO",
                        tmin=None, tmax=None,
-                       info=None, n_night=3, n_skip=0,
+                       info=None, n_night=None, n_skip=0,
                        status="", dbg=False):
         """
         Attach a visibility to a GRB instance.
@@ -780,26 +784,27 @@ class GammaRayBurst():
 
         Parameters
         ----------
-        item : TYPE
-            DESCRIPTION.
-        loc : TYPE
-            DESCRIPTION.
-        observatory : TYPE, optional
-            DESCRIPTION. The default is "CTAO".
-        tmin : TYPE, optional
-            DESCRIPTION. The default is None.
-        tmax : TYPE, optional
-            DESCRIPTION. The default is None.
-        info : TYPE, optional
-            DESCRIPTION. The default is None.
-        n_night : TYPE, optional
-            DESCRIPTION. The default is None.
-        n_skip : TYPE, optional
-            DESCRIPTION. The default is None.
-        status : TYPE, optional
-            DESCRIPTION. The default is "".
-        dbg : TYPE, optional
-            DESCRIPTION. The default is False.
+        item : integer
+            GRB identifier.
+        loc : string
+            Site identifier.
+        observatory : string, optional
+            Observatory. The default is "CTAO".
+        tmin : Astropy Time, optional
+            Starting time for computation. The default is None.
+        tmax : Astropy Time, optional
+            End time for computation. The default is None.
+        info : string or dictionnary, optional
+            Visibility type. The default is None.
+        n_night : integer, optional
+            Maximum number of nights to be considered. The default is None.
+        n_skip : integer, optional
+            Number of nights to be skipped in the beginning.
+            The default is None.
+        status : string, optional
+            A keyword characterising the current visibility. The default is "".
+        dbg : boolean, optional
+            If True, tells the story. The default is False.
 
         Returns
         -------
@@ -1909,6 +1914,7 @@ if __name__ == "__main__":
 
     cf.ifirst = [343]
     cf.ifirst = [99991]
+    cf.ifirst = ["190114C"]
     # cf.ifirst = "data/det3s/combined_detected_00001_02000.json"
     cf.nsrc = 1
     cf.prompt_dir = None
@@ -1928,7 +1934,7 @@ if __name__ == "__main__":
 
     # Computed from a keyword
     if case == 1:
-        cf.visibility = "nomoonveto"
+        cf.visibility = "moonlight"
 
     # Obtained from a directory as json files
     if case == 2:
@@ -1941,11 +1947,23 @@ if __name__ == "__main__":
     # ##---------------------------
     for item, fname in enumerate(grblist):
 
-        grb = GammaRayBurst.from_fits(Path(fname),
-                                      prompt=cf.prompt_dir,
-                                      ebl=cf.ebl_model,
-                                      elimit=cf.elimit,
-                                      tlimit=cf.tlimit)
+        if Path(fname).suffix != ".yaml":
+            grb = GammaRayBurst.from_fits(Path(fname),
+                                          prompt=cf.prompt_dir,
+                                          ebl=cf.ebl_model,
+                                          elimit=cf.elimit,
+                                          tlimit=cf.tlimit,
+                                          dt=cf.tshift,
+                                          magnify=cf.magnify)
+        else:
+            if cf.visibility == "built-in":
+                sys.exit(" Error: GRB hsitorical yaml file cannot have "
+                         " a built-in` visibility")
+            grb = GammaRayBurst.historical_from_yaml(fname,
+                                                     ebl=cf.ebl_model,
+                                                     elimit=cf.elimit,
+                                                     tlimit=cf.tlimit,
+                                                     magnify=cf.magnify)
 
         for loc in ["North", "South"]:
             grb.set_visibility(item, loc, info=visinfo)

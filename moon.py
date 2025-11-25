@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 17 14:47:57 2022
+Created on Mon Oct 17 14:47:57 2022.
 
 @author: Stolar
 """
@@ -15,7 +15,7 @@ __all__ = ["moonphase_plot", "moon_alt_plot", "moonlight_plot",
 
 # ##---------------------------------------------------------------------------
 def moonphase_plot(times, ax=None, color="red"):
-
+    """."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(21, 5))
 
@@ -31,7 +31,7 @@ def moonphase_plot(times, ax=None, color="red"):
 
 # ##---------------------------------------------------------------------------
 def moon_alt_period_plot(times, alt, ax=None, alpha=1, color="orange"):
-
+    """."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(21, 5))
 
@@ -45,7 +45,7 @@ def moon_alt_period_plot(times, alt, ax=None, alpha=1, color="orange"):
 
 # ##---------------------------------------------------------------------------
 def moon_alt_plot(times, alt, ax=None, alpha=1, color="darkblue"):
-
+    """."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(21, 5))
 
@@ -61,7 +61,7 @@ def moon_alt_plot(times, alt, ax=None, alpha=1, color="darkblue"):
 
 # ##---------------------------------------------------------------------------
 def moonlight_plot(times, ax=None, color="tab:orange", norm=False, tag=None):
-
+    """."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(21, 5))
 
@@ -90,7 +90,7 @@ def moonlight_plot(times, ax=None, color="tab:orange", norm=False, tag=None):
 # ##---------------------------------------------------------------------------
 def moon_dist_plot(radec, times, moon_radec, site="None",
                    ax=None, alpha=1, color="purple", tag=None):
-
+    """."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(21, 5))
 

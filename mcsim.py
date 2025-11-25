@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep  5 11:22:11 2019
+Created on Thu Sep  5 11:22:11 2019.
 
 This module handles the Monte carlo simulation of the detector response and
 prepare the data for analysis.
@@ -44,6 +44,8 @@ __all__ = ['MonteCarlo']
 ###############################################################################
 class MonteCarlo():
     """
+    Simulate an observation.
+
     This class handles a GRB simulation either on one of the two
     sites, or simultaneously on the two sites.
     It makes an aperture photometry count simulation of a GRB (on-off method)
@@ -64,7 +66,7 @@ class MonteCarlo():
                  tmax=None,
                  dbg=0):
         """
-        Initialize class members to default values
+        Initialize class members to default values.
 
         Parameters
         ----------
@@ -94,7 +96,6 @@ class MonteCarlo():
         None.
 
         """
-
         self.niter = niter     # Number of trials
         self.fluctuate = fluctuate  # Poisson fluctuate the count numbers
         self.nosignal = nosignal  # Force signal count to zero
@@ -316,9 +317,9 @@ class MonteCarlo():
     # ##-----------------------------------------------------------------------
     def create_dataset_list(self):
         """
-        Create the :obj:`dataset` list as a list of list to handle more than
-        one irf per slice (GRB seen on both sites).
+        Create the :obj:`dataset` list handling more than one irf per slice.
 
+        (GRB seen on both sites).
         The pointing is the center of the field of view, and it is the same for
         all time slices as it is considered that the GRB is constantly followed
         within the pre-computed visibililty window. The pointing is displaced
@@ -477,7 +478,6 @@ class MonteCarlo():
             A list of datasets (not a collection like a Datasets.
 
         """
-
         dset_list = []
 
         for aslice in self.slot.slices:
@@ -531,7 +531,7 @@ class MonteCarlo():
                 # Ensure that all possible edges are in, later apply masking
                 # Use the Optimised binning
                 # There is a bug in 0.17 (unit not taken into account
-                # correctly) preventig from simply writing
+                # correctly) preventing from simply writing
                 # erec_axis = MapAxis.from_edges(erec_edges, name="energy")
                 if self.edense:
                     e_rec = mcf.erec_spectral.to("TeV").value
@@ -656,7 +656,6 @@ class MonteCarlo():
         None.
 
         """
-
         if self.mcerr < 0:
             message = "Not possible (GRB not visible)"
         elif self.mcerr > 0 and self.mcerr != self.niter:
@@ -673,8 +672,9 @@ class MonteCarlo():
     # ##------------------------------------------------------------------------
     def dump_slices(self, phase=None, **kwargs):
         """
-        Print out the list of on and off counts and the corresponding
-        Li & Ma value. If `non` and `off` are less than a minimum value
+        Print out the list of on and off counts and the Li & Ma value.
+
+        If `non` and `off` are less than a minimum value
         return a True status flag for further actions.
 
         This function can be used to dump all slices (just changing the
@@ -751,8 +751,7 @@ class MonteCarlo():
     # ##-----------------------------------------------------------------------
     def write(self, filename=None):
         """
-        Save the present class to disk for further use in particular a
-        spectral analysis.
+        Save the present class to disk for further use.
 
         Parameters
         ----------
@@ -776,6 +775,7 @@ class MonteCarlo():
     def plot_onetrial(self, itrial):
         """
         Display information obtained after one Monte Carlo trial.
+
         To be updated
 
         Parameters
@@ -788,7 +788,6 @@ class MonteCarlo():
         None.
 
         """
-
         # sys.exit("{}.py: plot_onetrial to be reimplemented",__name__)
 
         print(" One trial plots")

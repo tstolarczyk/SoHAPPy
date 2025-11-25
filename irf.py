@@ -136,7 +136,7 @@ class IRF():
     Note: The masking later will remove the bin containing the E value.
     If the E value is an edge, the subsequent bin is lost.
     The minimal and maximal energies need therefore to be slighlty
-    before, resp. after the first, resp last edge of interest."""
+    before, resp. after the first, resp. last edge of interest."""
 
     nbin_per_decade = 4
     """Bins per decade for the true energy axis"""
@@ -194,11 +194,11 @@ class IRF():
 
         Notes
         -----
-            * `MapAxis` accepts ony a normalised list of axis type as
-              described `here
-              <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
-            * The true Energy Axis can be defined on-the-fly, but it is not
-              optimal for masking except if the number of bins is very large:
+        * `MapAxis` accepts ony a normalised list of axis type as described
+        `here
+          <https://docs.gammapy.org/dev/irf/index.html#irf-axis-naming>`_.
+        * The true Energy Axis can be defined on-the-fly, but it is not
+          optimal for masking except if the number of bins is very large:
 
         ..  code-block:: python
 
@@ -725,13 +725,14 @@ if __name__ == "__main__":
 
     array = {"North": "FullArray", "South": "FullArray"}
     array = {"North": "4LSTs09MSTs", "South": "14MSTs37SSTs"}
-    array = {"North": "4LSTs09MSTs", "South": "4LSTs14MSTs40SSTs"}
+    # array = {"North": "4LSTs09MSTs", "South": "4LSTs14MSTs40SSTs"}
 
     prod = irf_dir.name[:5]
     print(" Processing ", prod, " files")
 
     # Choose plot to show in the following
     show = ["containment", "onoff", "effarea", "generic", 'edisp']
+    # show = ['containment']
 
     print(IRF.dt_log_valid)
 
@@ -742,7 +743,11 @@ if __name__ == "__main__":
 
         npoints = 25
         ratio = np.linspace(0.25, 1.75, npoints)
+
+        # This list allows investigating the E-dispersion matrix
         etrue = np.array([30, 40, 60, 110, 200, 350])*u.GeV
+
+        # These lists are used to sample the IRF file parameters
         zenlist = [21*u.deg, 41*u.deg, 61*u.deg]
         dtlist = [100*u.s, 1*u.h, 10*u.h, 100*u.h]
 
@@ -767,43 +772,24 @@ if __name__ == "__main__":
                                                irf_dir=irf_dir)
                     print(" ", irf.filename)
 
-                    # Display E dispersion
-                    if gammapy.__version__ < "1.2":
-                        irf.irf["edisp"].plot_migration(ax0,
-                                                        offset=offset,
-                                                        migra=ratio,
-                                                        energy_true=etrue,
-                                                        alpha=0.5,
-                                                        marker=".")
+                    # Display E dispersion for true energies
+                    irf.irf["edisp"].plot_migration(ax0,
+                                                    offset=offset,
+                                                    #  migra= ratio,
+                                                    energy_true=etrue,
+                                                    alpha=0.5,
+                                                    marker=".")
 
-                        # Superimpose the dispersion for the threshold energy
-                        ethreshold = [mcf.erec_min[array[loc]][irf.kzen]
-                                      + mcf.safe_margin]
+                    # Superimpose the dispersion for the threshold energy
+                    ethreshold = [mcf.erec_min[array[loc]][irf.kzen]
+                                  + mcf.safe_margin]
 
-                        irf.irf["edisp"].plot_migration(ax0,
-                                                        offset=offset,
-                                                        migra=ratio,
-                                                        energy_true=ethreshold,
-                                                        alpha=1.0,
-                                                        marker="o")
-                    else:
-                        irf.irf["edisp"].plot_migration(ax0,
-                                                        offset=offset,
-                                                        #  migra= ratio,
-                                                        energy_true=etrue,
-                                                        alpha=0.5,
-                                                        marker=".")
-
-                        # Superimpose the dispersion for the threshold energy
-                        ethreshold = [mcf.erec_min[array[loc]][irf.kzen]
-                                      + mcf.safe_margin]
-
-                        irf.irf["edisp"].plot_migration(ax0,
-                                                        offset=offset,
-                                                        # migra=ratio,
-                                                        energy_true=ethreshold,
-                                                        alpha=1.0,
-                                                        marker="o")
+                    irf.irf["edisp"].plot_migration(ax0,
+                                                    offset=offset,
+                                                    # migra=ratio,
+                                                    energy_true=ethreshold,
+                                                    alpha=1.0,
+                                                    marker="o")
 
                     # Change color of threshold and simplify labels
                     lines, labels = ax0.get_legend_handles_labels()
@@ -821,7 +807,8 @@ if __name__ == "__main__":
                         iline += 1
 
                     # Display acceptable +/- 25% area
-                    ax0.axvspan(xmin=0.75, xmax=1.25, alpha=0.2, color="grey")
+                    ax0.axvspan(xmin=0.75, xmax=1.25, alpha=0.2, color="grey",
+                                label=r"$\pm 25\%$")
                     ax0.axvline(x=1.0, alpha=0.5, color="grey")
 
                     # Titles
@@ -837,6 +824,7 @@ if __name__ == "__main__":
                     iplot += 1
 
                 ax[2].legend(bbox_to_anchor=[1, 0.5], fontsize=12)
+
                 # Rearrange the plots
                 plt.tight_layout(w_pad=0)
 
@@ -923,7 +911,7 @@ if __name__ == "__main__":
         min_fraction = 0.05  # 0.05, 0.1
 
         print(f" *** Threshold for {100*min_fraction:2.0f}% "
-              "eff.max ({unit:3s})  *** ")
+              f"eff.max ({unit:3s})  *** ")
 
         for loc in ["North", "South"]:
 
@@ -931,7 +919,7 @@ if __name__ == "__main__":
                                    sharex=True, sharey=True)
             fig.suptitle(array[loc] + "-" + loc, fontsize=24)
 
-            print(f"{loc:5s} {array[loc]:10s} {'0°':7s} {'0.5°':7s} {'1°':7s}")
+            print(f"{loc:5s} {array[loc]:15s} {'0°':7s} {'0.5°':7s} {'1°':7s}")
 
             for z, ax3 in zip([20, 40, 57], ax):
 
@@ -944,7 +932,7 @@ if __name__ == "__main__":
                                                obstime=dt,
                                                irf_dir=irf_dir)
 
-                    print(f"{str(z)+'° '+str(dt.value)+' '+str(dt.unit):13s}:",
+                    print(f"{str(z)+'° '+str(dt.value)+' '+str(dt.unit):20s}:",
                           end="")
 
                     aeff_plot(irf, axs=ax3, unit=unit,
