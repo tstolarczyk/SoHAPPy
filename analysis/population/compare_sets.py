@@ -1,25 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-Compare two (or several sets)
+Compare two (or several sets).
+
 Created on Tue Jan 10 14:04:54 2023
 
 @author: Stolar
 """
 import sys
+import os
 import collections
 from pathlib import Path
+import yaml
+from yaml.loader import SafeLoader
 
 import numpy as np
-
+import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
-from niceplot import MyLabel
+from niceplot import MyLabel, single_legend
 from niceprint import heading
 
-from times import detection_fraction_versus_time
+# to be recoded
+# from times import detection_fraction_versus_time
 
 from population import Pop
-from pop_io import get_data
+from pop_io import get_data_from_folder
+import rate
 codefolder = "../../"
 sys.path.append(codefolder)
 
@@ -45,7 +52,6 @@ def find_5sigma_diff(pop1, pop2):
     None.
 
     """
-
     grb1 = pop1.g_tot
     grb2 = pop2.g_tot
 
@@ -149,7 +155,6 @@ def var_plot(var1, var2, tag=("o", "o"), varmin=None, varmax=None,
     None.
 
     """
-
     if varmin is None:
         varmin = min(min(var1), min(var2))
     if varmax is None:
@@ -203,7 +208,6 @@ def var_scatter_all(var, pop1, pop2, title=""):
     None.
 
     """
-
     gn1 = pop1.grb[pop1.grb.loca == "North"]
     gs1 = pop1.grb[pop1.grb.loca == "South"]
     gb1 = pop1.grb[pop1.grb.loca == "Both"]
@@ -233,13 +237,12 @@ def var_scatter_all(var, pop1, pop2, title=""):
 
     plt.tight_layout(h_pad=0)
 
-
 # ##---------------------------------------------------------------------------
 def var_scatter(var1, var2, tag=("o", "o"), title="",
                 varmin=None, varmax=None,
                 logscale=True, cut=0, ax=None):
     """
-    The two variable sets should have the same size
+    The two variable sets should have the same size.
 
     Parameters
     ----------
@@ -266,7 +269,6 @@ def var_scatter(var1, var2, tag=("o", "o"), title="",
        Current axis.
 
     """
-
     if len(var1) != len(var2):
         print(" Set 1 : ", tag[0], len(var1))
         print(" Set 2 : ", tag[0], len(var2))
@@ -320,129 +322,239 @@ def var_scatter(var1, var2, tag=("o", "o"), title="",
     return ax
 
 
+# ##---------------------------------------------------------------------------
+def distri(glist, var, loca="North",  nyears=1, bins=25, 
+           ref=False, ratio=False, ax=None, logx=False):
+    """
+    Compare varaibale dsitributions from several popualtions.
+
+    Parameters
+    ----------
+    var : TYPE, optional
+        DESCRIPTION. The default is "z".
+    ref : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Matplotlib axis
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(15, 10))
+
+    # Initial population if requested
+    if ref:
+        gref = glist[0].grb[glist[0].grb.loca == "North"]
+        nref0, bins, _ = ax.hist(gref[var], bins=bins,
+                                 weights=np.ones(len(gref[var]))/nyears,
+                                 facecolor="none", edgecolor="black",
+                                 label=MyLabel(gref[var], "All"))
+        logy = "log"
+    else:
+        logy = "linear"
+
+    # Each subpopulation
+    first = True
+    stat_all = []
+
+    icolor = 0
+    for gpop, tag in zip(glist, tags):
+        color = cm.viridis(icolor/len(tags))
+        grbs = gpop.grb[(gpop.grb.loca == loca)
+                        & (gpop.grb.d5s >= gpop.eff_lvl)]
+        tag = tag[tag.find("-")+2:]
+
+        if logx:
+            lblv = np.log10(grbs[var])
+        else:
+            lblv = grbs[var]
+        nyears=1
+        nstat, _, _ = ax.hist(grbs[var], bins=bins,
+                              weights=np.ones(len(grbs[var]))/nyears,
+                              color=color, alpha=0.3,
+                              label=MyLabel(lblv, tag))
+        # nstat, _, _ = ax.hist(grbs[var], bins=bins,
+        #                       weights=np.ones(len(grbs[var]))/nyears,
+        #                       edgecolor=color, facecolor="None", alpha=1.0,
+        #                       lw=3, histtype="step",
+        #                       label=MyLabel(lblv, tag))
+        if first:
+            nref = nstat
+            first = False
+        else:
+            stat_all.append(nstat)
+
+        if logx:
+            ax.set_xscale("log")
+        ax.set_yscale(logy)
+        ax.set_ylabel("Counts per year")
+        ax.set_xlabel(var)
+        ax.legend()
+        ax.grid(axis="both", which="both", ls=":")
+
+        icolor += 1
+
+    if ratio:
+        axx = ax.twinx()
+        xcenter = bins[:-1] + 0.5*(bins[1:] - bins[:-1])
+        for istat, nstat in enumerate(stat_all):
+            axx.plot(xcenter, nstat/nref, label="Ratio "+str(istat+1))
+            axx.legend()
+
+    # single_legend(ax.get_figure(), bbox_to_anchor=[1.25, 1])
+    single_legend(ax.get_figure(), loc="upper right")
+
+
 ##############################################################################
 if __name__ == "__main__":
 
+    # Bigger texts and labels
+    sns.set_context("talk")  # poster, talk, notebook, paper
 
-    import yaml
-    from yaml.loader import SafeLoader
-
-    import os
-    os.environ["HAPPY_IN"] = r"D:\\CTAO\SoHAPPy\input"
-    os.environ["HAPPY_OUT"] = r"D:\\CTAO\SoHAPPy\output"
-
-    # parpath = Path(codefolder, "data/samples/comparepop_parameter.yaml")
-    parpath = Path("comparepop_parameter.yaml")
+    # parpath = Path("comparepop_parameter.yaml")
+    parpath = Path("parameter_100k_ISM.yaml")
 
     # Separate the file list as they are indepenedent data
     xdict = yaml.load(open(parpath.as_posix()), Loader=SafeLoader)
-    filelist = xdict["outfolders"]
+    folder_list = xdict["outfolders"]
     nyears = xdict["duration"]
     tags = xdict["tags"]
 
-    nyears, filelist, tags = get_data(parpath=parpath, debug=False)
+    print(" Found in ", parpath)
+    print(" Data for ", nyears[0], "years")  # Assumed same nyear for all files
 
+    item = 0
     poplist = []
-    for file, tag in zip(filelist, tags):
-        pop = Pop(file, tag=tag, nyrs=nyears)
-        pop.sanity_check()
+    for folder, tag in zip(folder_list, tags):
+        print(f"{item:2d} : {folder:}")
+        print(f"   : {tag:}")
+        folder = Path(os.environ["HAPPY_OUT"], folder)
+        if folder.exists():
+            filelist = get_data_from_folder(folder)
+            pop = Pop(filelist, tag=tag, nyrs=nyears, fpeakmin=1)
+        else:
+            sys.exit(f"{folder:} does not exist - Please correct")
+
+        if len(nyears) == 1:  # A unique year
+            pop.nyears = nyears[0]
+        else:
+            sys.exit("Cannot handle different reference durations")
+        # pop.sanity_check()
         poplist.append(pop)
+        item += 1
 
-    [pop1, pop2] = [poplist[0], poplist[1]]
+    # ## ------------------------
+    # ## Check rates
+    # ## ------------------------
+    # for pop in poplist:
+    #     pop.print()
+    #     rate.compute(pop)
 
-    # Find 5 sigma detection differences in the two population
-    heading("Compare 5 sigma detection")
-    find_5sigma_diff(pop1, pop2)
+    # ## ------------------------
+    # ## Z coverage
+    # ## ------------------------
 
-    # # Check differences in visibility
-    heading("Check visibilities")
-    check_visibilities(pop1, pop2)
+    fig, ax = plt.subplots(figsize=(15, 7))
+    bins = np.linspace(0, 5, 10)
+    distri(poplist, var="z", bins=bins, nyears=nyears[0], ax=ax)
 
-    # ###------------------------
-    # ### Check rates
-    # ###------------------------
-    import rate
-    pop1.print()
-    pop2.print()
-    rate.compute(pop1)
-    rate.compute(pop2)
+    fig, ax = plt.subplots(figsize=(15, 7))
+    bins = np.logspace(51, 55.5, 12)
+    distri(poplist, var="Eiso", loca="North", nyears=nyears[0],
+           bins=bins, ax=ax, logx=True)
 
-    # ###------------------------
-    # ### Check some variables
-    # ###------------------------
+    # [pop1, pop2] = [poplist[0], poplist[1]]
 
-    nmin = 0
-    nmax = 3000
-    sigmin = 0
+    # # Find 5 sigma detection differences in the two population
+    # heading("Compare 5 sigma detection")
+    # find_5sigma_diff(pop1, pop2)
 
-    gs1 = pop1.g_s
-    gs2 = pop2.g_s
+    # # # Check differences in visibility
+    # heading("Check visibilities")
+    # check_visibilities(pop1, pop2)
 
-    # Check tmax relative error
-    var1 = gs1[nmin:nmax][gs1.etmx > 0].etmx/gs1[nmin:nmax].tmx
-    var2 = gs2[nmin:nmax][gs2.etmx > 0].etmx/gs2[nmin:nmax].tmx
-    var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
-             xscale="linear", yscale="log",
-             xlabel="$t_{max}$ relative error")
-    plt.tight_layout()
 
-    # Mean maximal significance
-    var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.sigmx > 0].sigmx
-    var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.sigmx > 0].sigmx
-    var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
-             xscale="linear", yscale="log",
-             xlabel=r"$\sigma_{max}$ ")
-    plt.tight_layout()
+    # # ###------------------------
+    # # ### Check some variables
+    # # ###------------------------
 
-    # Mean maximal excess number
-    var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.nexmx > 0].nexmx
-    var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.nexmx > 0].nexmx
-    var_plot(var1, var2, tag=[pop1.tag, pop2.tag], nbin=250,
-             xscale="linear", yscale="log",
-             xlabel=r"$N_{ex}$ at max.")
-    plt.tight_layout()
+    # nmin = 0
+    # nmax = 100000
+    # sigmin = 0
 
-    # Mean maximal background number
-    var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.nbmx > 0].nexmx
-    var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.nbmx > 0].nexmx
-    var_plot(var1, var2, tag=[pop1.tag, pop2.tag], nbin=250,
-             xscale="linear", yscale="log",
-             xlabel=r"$N_{b}$ at max.")
+    # gs1 = pop1.g_s
+    # gs2 = pop2.g_s
 
-    plt.tight_layout()
+    # # Check tmax relative error
+    # var1 = gs1[nmin:nmax][gs1.etmx > 0].etmx/gs1[nmin:nmax].tmx
+    # var2 = gs2[nmin:nmax][gs2.etmx > 0].etmx/gs2[nmin:nmax].tmx
+    # var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
+    #          xscale="linear", yscale="log",
+    #          xlabel="$t_{max}$ relative error")
+    # plt.tight_layout()
 
-    # Mean time of maximal significance
-    var1 = gs1[nmin:nmax][gs1.sigmx > 0].tmx
-    var2 = gs2[nmin:nmax][gs2.sigmx > 0].tmx
+    # # Mean maximal significance
+    # var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.sigmx > 0].sigmx
+    # var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.sigmx > 0].sigmx
+    # var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
+    #          xscale="linear", yscale="log",
+    #          xlabel=r"$\sigma_{max}$ ")
+    # plt.tight_layout()
 
-    var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
-             xscale="linear", yscale="log",
-             xlabel="$t_{max}$ ")
-    print(" Set 1 : ", len(var1))
-    print(" Set 2 : ", len(var2))
-    plt.tight_layout()
+    # # Mean maximal excess number
+    # var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.nexmx > 0].nexmx
+    # var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.nexmx > 0].nexmx
+    # var_plot(var1, var2, tag=[pop1.tag, pop2.tag], nbin=250,
+    #          xscale="linear", yscale="log",
+    #          xlabel=r"$N_{ex}$ at max.")
+    # plt.tight_layout()
 
-    # ##------------------------
-    # ## Compare in scatter plots
-    # ##------------------------
+    # # Mean maximal background number
+    # var1 = pop1.g_tot[nmin:nmax][pop1.g_tot.nbmx > 0].nexmx
+    # var2 = pop2.g_tot[nmin:nmax][pop2.g_tot.nbmx > 0].nexmx
+    # var_plot(var1, var2, tag=[pop1.tag, pop2.tag], nbin=250,
+    #          xscale="linear", yscale="log",
+    #          xlabel=r"$N_{b}$ at max.")
 
-    # heading("Compare sigmax")
-    var_scatter_all("sigmx", pop1, pop2, title=r"$\sigma_{max}$")
+    # plt.tight_layout()
 
-    # heading("Compare excess counts")
-    var_scatter_all("nexmx", pop1, pop2, title="Excess counts")
+    # # Mean time of maximal significance
+    # var1 = gs1[nmin:nmax][gs1.sigmx > 0].tmx
+    # var2 = gs2[nmin:nmax][gs2.sigmx > 0].tmx
 
-    # heading("Compare background counts")
-    var_scatter_all("nbmx", pop1, pop2, title="background counts")
+    # var_plot(var1, var2, tag=[pop1.tag, pop2.tag],
+    #          xscale="linear", yscale="log",
+    #          xlabel="$t_{max}$ ")
+    # print(" Set 1 : ", len(var1))
+    # print(" Set 2 : ", len(var2))
+    # plt.tight_layout()
 
-    # ##------------------------
-    # ## Cumulative 5 sigma detectionversus time
-    # ##------------------------
-    axs = detection_fraction_versus_time(pop1, pop1.g_tot,
-                                         color="tab:blue",
-                                         label=pop1.tag,
-                                         title=" All")
-    detection_fraction_versus_time(pop2, pop2.g_tot,
-                                   color="tab:orange",
-                                   label=pop2.tag,
-                                   title="All", axs=axs)
+    # # ##------------------------
+    # # ## Compare in scatter plots
+    # # ##------------------------
+
+    # # heading("Compare sigmax")
+    # var_scatter_all("sigmx", pop1, pop2, title=r"$\sigma_{max}$")
+
+    # # heading("Compare excess counts")
+    # var_scatter_all("nexmx", pop1, pop2, title="Excess counts")
+
+    # # heading("Compare background counts")
+    # var_scatter_all("nbmx", pop1, pop2, title="background counts")
+
+    # # ##------------------------
+    # # ## Cumulative 5 sigma detectionversus time
+    # # ##------------------------
+
+    # # Has been changed to be recoded
+    # # axs = detection_fraction_versus_time(pop1, pop1.g_tot,
+    # #                                      color="tab:blue",
+    # #                                      label=pop1.tag,
+    # #                                      title=" All")
+    # # detection_fraction_versus_time(pop2, pop2.g_tot,
+    # #                                color="tab:orange",
+    # #                                label=pop2.tag,
+    # #                                title="All", axs=axs)
