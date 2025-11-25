@@ -11,12 +11,14 @@ from collections import OrderedDict
 import gammapy
 
 import numpy as np
+import astropy.units as u
+from astropy.visualization import quantity_support
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib import cm
 
+from niceprint import t_fmt
 
 __all__ = ["pause", "draw_contours", "MyLabel", "single_legend", "vals_legend",
            "stamp", "projected_scatter", "ColorMap", "col_size", "draw_sphere"]
@@ -39,6 +41,26 @@ def pause():
 
     """
     plt.show(block=True)
+
+
+# ##----------------------------------------------------------------------------
+def show_noticeable_times(ax, vpos=None, tmax=np.inf, **kwargs):
+    """Draw lines correspondinf at some notiveable times."""
+    # Noticebale times (in seconds) and corresponding labels
+    dts = [107, 167, 600, 1800, 3600, 2*3600, 6*3600,
+           12*3600, 24*3600, 48*3600, 72*3600, 120*3600, 168*3600]*u.s
+    lbls = [f"{t_fmt(t):.0f}" for t in dts]
+
+    # print("vpos = ", vpos)
+    if vpos is None:
+        vpos = 1.06*ax.get_ylim()[1]
+
+    with quantity_support():
+        for dt, lbl in zip(dts, lbls):
+            if dt < tmax:
+                ax.axvline(dt, ls=":")
+                ax.text(dt*1.00, vpos, lbl,
+                        va="bottom", rotation=90, **kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -325,7 +347,7 @@ def old_single_legend(ax, **kwargs):
 
 
 # ##---------------------------------------------------------------------------
-def vals_legend(vals=None, alpha=0.5, var_max=1000, colormap="cool",  **kwargs):
+def vals_legend(vals=None, alpha=0.5, var_max=1000, colormap="cool", **kwargs):
     """
     Create Matplotlib patches with colored circles from a list of values.
 
@@ -533,7 +555,7 @@ def col_size(var, var_min=1.1, var_max=1000, scale=100, log=True,
     """
     # Limit values in case they are not yet limited
     var = np.clip(var, var_min, None)
-    
+
     cmap = mpl.colormaps[colormap]
     if log:
         # color = cm.cool(np.log10(var)/np.log10(var_max))
@@ -542,7 +564,7 @@ def col_size(var, var_min=1.1, var_max=1000, scale=100, log=True,
     else:
         color = cmap(var/var_max)
         size = scale
-    
+
     return color, size
 
 
@@ -586,3 +608,52 @@ def draw_sphere(radius=1, colormap=plt.cm.viridis, ax=None, **kwargs):
 
     ax.plot_surface(x, y, z,  rstride=1, cstride=1,
                     facecolors=rgb, linewidth=0, **kwargs)
+
+
+# ##---------------------------------------------------------------------------
+def points_on_img(x, y, xerr=0, yerr=0,
+                  ax=None, img=None,
+                  xmin=None, xmax=None, ymin=None, ymax=None,
+                  width=10, **kwargs):
+    """
+    Plot data points over an existing image (plot).
+
+    The image should have its axis label and frame lines removed (ticks can be
+    kept), and the default plot frame should span over the values of the axes.
+    """
+    # Load the initial image
+    if img is None:
+        print(" An image is required")
+        return
+    im = plt.imread(img)
+
+    # Create the axis, respect the image ratio
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(width, width*im.shape[0]/im.shape[1]))
+
+    # Plot the data in log-scale
+    ax.errorbar(x, y, xerr=xerr, yerr=yerr, **kwargs)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(2)
+
+    ax.set_ylim(ymin=ymin, ymax=ymax)
+    ax.set_xlim(xmin=xmin, xmax=xmax)
+    # Does nto work, Try a way to suppress the tick bars
+    ax.tick_params(axis="x", direction="in")
+    ax.set_zorder(2)
+    # Plot background is transparent, required since it is in the front.
+    ax.patch.set_alpha(0.0)
+
+    # Add the image in a secondary y linear space
+    ax_tw_x = ax.twinx()
+    ax_tw_x.axis('off')
+    ax2 = ax_tw_x.twiny()
+
+    im = plt.imread(img)
+    ax2.imshow(im, extent=[xmin, xmax, ymin, ymax], aspect='auto', zorder=1)
+    ax2.axis('off')
+    # ax2.set_zorder(1) # Lower = behind
+
+    return ax

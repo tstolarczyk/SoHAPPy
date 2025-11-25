@@ -53,6 +53,12 @@ class Visibility():
     """
     Define visibility periods for a given GRB and a given site (N or S).
 
+    The visibility is computed in a time window between too extreme values
+    (that can be the observation time range, but not necessarily).
+    The cimputation can be restricted on a certain number of nights, skipping
+    the first night(s), either to reduce the computation time or to restrict
+    the upcoming analysis steps to some specific nights.
+
     The method, :class:`check` is used to compare the visibility
     windows with the one given by default in the GRB file or any other
     pre-loaded visibility.
@@ -84,7 +90,7 @@ class Visibility():
                  site=None,
                  tmin=None,
                  tmax=None,
-                 depth=3,
+                 depth=None,
                  skip=0,
                  status="Empty", name="Dummy"):
         """
@@ -103,12 +109,12 @@ class Visibility():
         tmax : float, optional
             The end time of the observation after the explosion.
             The default is infinity.
-        depth: integer
-            Maximal number of nights to be considered
+        depth: integer, optional
+            Maximal number of nights to be considered. The default is None
         skip: integer
             Number of first nights to be skipped
         status : string, optional
-            A keyword cahracterising this visibility. The default is "Empty".
+            A keyword characterising this visibility. The default is "Empty".
         name : string, optional
             A name for this visibility. The default is "Dummy".
 
@@ -172,7 +178,11 @@ class Visibility():
         self.moon_too_bright = []  # Moon brigthness above threshold
         self.moon_too_close = []   # Moon distance too small
 
-        self.depth = depth  # Number of nights to be considered
+        # Number of nights to be considered
+        if depth is None:
+            self.depth = (self.tstop - self.tstart).value + 1
+        else:
+            self.depth = depth
         self.skip = skip   # Number of first nights to be skipped
 
         return

@@ -442,23 +442,41 @@ if __name__ == "__main__":
     sns.set_context("talk")  # poster, talk, notebook, paper
 
     # This is for development only
-    # if len(sys.argv[1:]) <= 1:
-        # print("------------------> Execute examples")
+    if len(sys.argv[1:]) <= 1:
+        print("------------------> Execute examples")
         # sys.argv = ["", "-f", "1", "-c", "data/config_ref_1000.yaml"]
 
         # A few sources
+
         # sys.argv = ["",
         #             "-c", "data/config_ref.yaml",
-        #             "-f", "99990",
-        #             "--nsrc", "1", "-d", "1"]
+        #             "-f",  "data/det3s/test_detected_00001_02000.json",
+        #             "--nsrc", "40", "-d", "1"]
         # sys.argv = ["",
-        #             "-c", "data/config_ref_silent.yaml",
-        #             "-f", "99990",
-        #             "--nsrc", "3", "-d", "0"]
+        #             "-c", "data/config_ref.yaml",
+        #             "-f", "1",
+        #             "--nsrc", "10", "-d", "1"]
+        # sys.argv = ["",
+        #             "-c", "data/config_ref.yaml",
+        #             "-f", "99991",
+        #             "--nsrc", "1", "-d", "1", "-V", "strictmoonveto"]
+        sys.argv = ["",
+                    "-c", "data/config_ref.yaml",
+                    "-f", "180720B_CTAO",
+                    "--nsrc", "1", "-d", "1", "-V", "nomoonveto"]
+        # sys.argv = ["",
+        #             "-c", "data/config_ref_omega.yaml",
+        #             "-f", "[54]",
+        #             # "-f", "[54, 980, 465, 785,343]",
+        #             "--nsrc", "1", "-d", "1", "-V", "strictmoonveto"]
         # sys.argv = ["",
         #             "-c", "MyConfigs/Maximal_visibility/config_ref_prod100000-maximal.yaml",
         #             "-f", "343",
         #             "--nsrc", "3", "-d", "1"]
+        # sys.argv = ["",
+        #             "-c", "MyConfigs/prod5_std/config_prod5_std_10nights_MSTN.yaml",
+        #             "-f", "343",
+        #             "--nsrc", "1", "-d", "1"]
         # Historical GRB
         # sys.argv = ["",
         #             "-c", "data/historical/config_180720B_CTAO.yaml",
@@ -477,7 +495,9 @@ if __name__ == "__main__":
         # sys.argv = ["",
         #             "-c", "MyConfigs/prod5_std/config_prod5_std.yaml",
         #             "-f", "data/det3s/test_detected_00001_02000.json",
-        #             "-d", "0"]
+        #             "--nsrc", "20",
+        #             "-d", "1",
+        #             "-V", "nomoonveto"]
         # A pre-computed visbility
         # sys.argv = ["", "--first", "1", "--nsrc", "3",
         #            "--visibility", "strictmoonveto_9999_1_interactive_test",

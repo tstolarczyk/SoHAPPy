@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 17 09:55:35 2022
+Created on Mon Oct 17 09:55:35 2022.
 
 A bunch of functions to manipulate text information.
 
@@ -32,7 +32,6 @@ def t_str(t, digit=2):
         The formatted and rounded time as a string.
 
     """
-
     t = t_fmt(t)
     return str(round(t.value, digit)) + " " + str(t.unit)
 
@@ -40,7 +39,7 @@ def t_str(t, digit=2):
 # -----------------------------------------------------------------------------
 def t_fmt(t, digit=None):
     """
-    A utility to have reasonable duration format displayed.
+    Have reasonable duration format displayed.
 
     Parameters
     ----------
@@ -53,7 +52,6 @@ def t_fmt(t, digit=None):
         A time with an adapted unit and rounding for plotting
 
     """
-
     # Get and format livetimes
     t = t.to(u.s)
     if t.value > 1.5*3600*24:
@@ -72,7 +70,7 @@ def t_fmt(t, digit=None):
 # ##---------------------------------------------------------------------------
 def heading(title, deco="-"):
     """
-    Display a centered heading with 2 decorated lines above and below a title
+    Display a centered heading with 2 decorated lines above and below a title.
 
     Parameters
     ----------
@@ -95,11 +93,10 @@ def heading(title, deco="-"):
 def textcol(text, t="black", b="white", s=None):
     """
     Change text color.
-    See:
 
+    See:
     * https://www.instructables.com/id/Printing-Colored-Text-in-Python-Without-Any-Module/
-    * Add color to text in python :
-      https://ozzmaker.com/add-colour-to-text-in-python/
+    * Add color to text in python : https://ozzmaker.com/add-colour-to-text-in-python/
 
     To make some of your text more readable, you can use ANSI escape codes to
     change the colour of the text output in your python program. A good use
@@ -132,7 +129,6 @@ def textcol(text, t="black", b="white", s=None):
         Colored text.
 
     """
-
     color = {"black": "0",
              "red": "1",
              "green": "2",
@@ -163,7 +159,7 @@ def textcol(text, t="black", b="white", s=None):
 # ##---------------------------------------------------------------------------
 def warning(text, **kwarg):
     """
-    Display a warning message
+    Display a warning message.
 
     Parameters
     ----------
@@ -183,7 +179,7 @@ def warning(text, **kwarg):
 # ##---------------------------------------------------------------------------
 def failure(text, **kwarg):
     """
-    Display a failure message
+    Display a failure message.
 
     Parameters
     ----------
@@ -223,7 +219,7 @@ def success(text, **kwarg):
 # ##---------------------------------------------------------------------------
 def highlight(text, **kwarg):
     """
-    Display a failure message
+    Display a failure message.
 
     Parameters
     ----------
@@ -243,7 +239,7 @@ def highlight(text, **kwarg):
 # ##---------------------------------------------------------------------------
 def banner(text, **kwarg):
     """
-    Display a banner message
+    Display a banner message.
 
     Parameters
     ----------
@@ -262,17 +258,12 @@ def banner(text, **kwarg):
 
 # ##---------------------------------------------------------------------------
 class Log():
-
-    """
-    A class to manage a logbook information.
-
-    """
+    """A class to manage a logbook information."""
 
     # ##-----------------------------------------------------------------------
     def __init__(self, log_name=None, talk=True):
         """
-        Initialize the log book, with display either on Screen or in a log
-        file, or both
+        Initialize the log book, with display on Screen and/or in a log.
 
         Parameters
         ----------
@@ -286,7 +277,6 @@ class Log():
         None.
 
         """
-
         self.write = False  # Disable print out to file
         self.talk = talk  # Enbale/disable print out on screen
         self.log_file = None
@@ -305,16 +295,16 @@ class Log():
             print(f"log information to file {self.filename}")
         else:
             if talk is None:
-                print(" Minimal information displayed")
+                print(" Minimal information displayed\n")
             else:
-                print(" Information displayed on Screen")
+                print(" Information displayed on Screen\n")
 
         # if not name.absolute().parent.exists(): # Check folder exists
         #     name.absolute().parent.mkdir(parents=True, exist_ok=True)
 
     # ##-----------------------------------------------------------------------
     def close(self, delete=False):
-
+        """."""
         if self.write:
             self.log_file.close()
             if delete:
@@ -324,7 +314,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def prt(self, text, func=print, **kwarg):
-
+        """."""
         if self.talk:
             func(text, **kwarg)
         if self.write is True:
@@ -332,6 +322,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def warning(self, text, **kwarg):
+        """."""
         if self.talk:
             warning(text)
             # print(textcol(text,t="purple",b="white",s="bold"),**kwarg)
@@ -340,6 +331,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def failure(self, text, **kwarg):
+        """."""
         if self.talk:
             failure(text, **kwarg)
         if self.write is True:
@@ -347,6 +339,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def success(self, text, **kwarg):
+        """."""
         if self.talk:
             print(textcol(text, t="green", b="black", s="bold"), **kwarg)
         if self.write is True:
@@ -354,6 +347,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def highlight(self, text, **kwarg):
+        """."""
         if self.talk:
             print(textcol(text, s="bold"), **kwarg)
         if self.write is True:
@@ -361,6 +355,7 @@ class Log():
 
     # ##-----------------------------------------------------------------------
     def banner(self, text, **kwarg):
+        """."""
         if self.talk:
             print(textcol(text, t="black", b="yellow", s="bold"), **kwarg)
         if self.write is True:

@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import astropy.units as u
 
 from niceprint import failure, heading, Log
+from niceplot import show_noticeable_times
 
 from obs_slice import Slice
 
@@ -115,7 +116,6 @@ class Slot():
         None.
 
         """
-
         self.phys = True
         for sls in self.slices:
             sls.dress(self.grb,
@@ -138,15 +138,13 @@ class Slot():
     # -------------------------------------------------------------------------
     def compact(self):
         """
-        Scan the slot slices and merge those attached to the same
-        physical flux.
+        Scan the slot slices, merge those with the same physical flux.
 
         Returns
         -------
         None.
 
         """
-
         prev_fid = -999
         prev_irf_files = [Path("")]
         newslices = []
@@ -197,7 +195,6 @@ class Slot():
             The slot copy.
 
         """
-
         if name is not None:
             self.name = name
         slot_copy = deepcopy(self)
@@ -371,7 +368,6 @@ class Slot():
             Index of the slice or -1, -2 if not within the slices
 
         """
-
         time = time.to(self.slices[0].ts1().unit)
         for slc in self.slices:
             if slc.ts1() <= time <= slc.ts2():
@@ -382,8 +378,9 @@ class Slot():
     # -------------------------------------------------------------------------
     def plot(self, axa=None, eref=100*u.GeV, **kwargs):
         """
-        Displays the slices of the time slot, including the measurement
-        points if the slot was dressed.
+        Display the slices of the time slot.
+
+        Including the measurement points if the slot was dressed.
 
         Parameters
         ----------
@@ -399,7 +396,6 @@ class Slot():
         matplotlib figure
             Current Matplotlib figure
         """
-
         if axa is None:
             fig, axa = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
         else:
@@ -447,6 +443,8 @@ class Slot():
                 axa.hlines(xmin=ts1, xmax=ts2,
                            y=flux, ls="-", color="green", **kwargs)
 
+        show_noticeable_times(axa, vpos=0.1*axa.get_ylim()[1],
+                              tmax=max(self.grb.tval), size=12)
         axa.set_xlabel("Time since trigger (" + str(self.grb.tval[0].unit)+")")
         axa.set_ylabel("Flux at " + str(eref) + " - "
                        + str(self.grb.fluxval[0][0].unit))
