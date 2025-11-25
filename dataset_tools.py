@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  3 11:51:18 2020
+Created on Thu Dec  3 11:51:18 2020.
 
 This modules contains the functions to manipulate the Gammapy `dataset` and
 `datasets` objects as used in `SoHAPPy`, both for the population analysis
@@ -10,12 +10,14 @@ This modules contains the functions to manipulate the Gammapy `dataset` and
 @author: Stolar
 """
 import sys
-
 import pickle
 from pathlib import Path
 import warnings
 
 import numpy as np
+
+import matplotlib.pyplot as plt
+from niceplot import MyLabel
 
 import astropy.units as u
 from astropy.time import Time
@@ -37,18 +39,20 @@ else:
     from gammapy.irf import load_irf_dict_from_file
 
 from gammapy.data import Observation
-from gammapy.maps import RegionNDMap, MapAxis
-
+from gammapy.maps import RegionNDMap, MapAxis, RegionGeom
 from gammapy.modeling.models import TemplateSpectralModel
 from gammapy.modeling.models import SkyModel
 
-from niceprint import t_fmt
+from niceprint import t_fmt, t_str
 from configuration import Configuration
 
 # warnings.filterwarnings('error')
 warnings.filterwarnings('ignore')
 
 sys.path.append("../SoHAPPy")
+sys.path.append("analysis/spectra")
+from dataset_flux import fit_model
+
 
 __all__ = ["generate_dataset", "stacked_model", "compare_stacked_dataset",
            "stacking", "get_masked_dataset", "compactify",
@@ -164,19 +168,25 @@ def generate_dataset(Eflux, flux, Erange=None,
                              deadtime_fraction=0,
                              reference_time=tstart)
 
-    ds_empty = SpectrumDataset.create(e_reco=ereco_axis,  # Ereco.edges,
-                                      e_true=etrue_axis,  # Etrue.edges,
-                                      region=on_region,
+    # Gammapy < 1.2
+    # ds_empty = SpectrumDataset.create(e_reco=ereco_axis,  # Ereco.edges,
+    #                                   e_true=etrue_axis,  # Etrue.edges,
+    #                                   region=on_region,
+    #                                   name=name)
+    geom = RegionGeom.create(region=on_region, axes=[ereco_axis])
+    ds_empty = SpectrumDataset.create(geom=geom,
+                                      energy_axis_true=etrue_axis,
                                       name=name)
     maker = SpectrumDatasetMaker(containment_correction=False,
                                  selection=["exposure", "background", "edisp"])
     ds = maker.run(ds_empty, obs)
     ds.models = model
+
     mask = ds.mask_safe.geom.energy_mask(energy_min=Erange[0],
                                          energy_max=Erange[1])
 
     mask = mask & ds.mask_safe.data
-    ds.mask_safe = RegionNDMap(ds.mask_safe.geom, data=mask)
+    ds.mask_safe = mask
 
     ds.fake(random_state=random_state)   # Fake is mandatory ?
 
@@ -185,7 +195,8 @@ def generate_dataset(Eflux, flux, Erange=None,
         ds = SpectrumDatasetOnOff.from_spectrum_dataset(
                                                         dataset=ds,
                                                         acceptance=1,
-                                                        acceptance_off=1/alpha)
+                                                        acceptance_off=1/alpha,
+                                                        name=name)
         print("Dataset was transformed in ONOFF")
 
     if fake:
@@ -201,85 +212,56 @@ def generate_dataset(Eflux, flux, Erange=None,
 
 
 # -----------------------------------------------------------------------------
-def stacked_model(ds, ds_stack=None, first=False, debug=False):
-    """
-    Recompute an effective spectral model from an already stacked one.
+def stacked_model(dsets, debug=False, plot=True, ax=None, ymin=1e-12):
+    """Return a mean spectra model for stacked datasets."""
+    model = None
 
-    This function is not finalised and should be checked. It is intended to
-     -from the previous call- and the current model in a dataset list. It
-    also extract the masked dataset of the first dataset in the list
-    (when first == True).
+    if plot and ax is None:
+        fig, ax = plt.subplots()
 
-    The reconstructed binning is required to apply the masking
-    The theoretical spectrum is therefore evaluated on reconstrcuted
-    energies which assumes that the reconstructed energy is not too
-    different from the true one.
+    # Get energies from the first dataset
+    Enrg = dsets[0].geoms["geom"].axes["energy"].edges
+    ebounds = [min(Enrg).value, max(Enrg).value]*Enrg.unit
+    # Intitialize total flux and weight
+    flux_tot = np.zeros(len(Enrg))
+    weight_tot = 0
 
-    Parameters
-    ----------
-    ds : Dataset
-        The current dataset.
-    ds_stack : Dataset, optional
-        The current stacked dataset if first is False. The default is None.
-    first : Boolean, optional
-        If True, extract the masked dataset - Valid for the first dataset of
-        the list. The default is False.
-    debug : Boolean, optional
-        If True, let's talk a bit. The default is False.
+    if debug:
+        print("    Compute the mean model of ", len(dsets), " datasets")
 
-    Returns
-    -------
-    model : Skymodel
-        The current stcake model.
-
-    """
-    # Get unmasked Reconstructed E bining from current dataset
-    # (but they are all identical)
-    e_axis = ds.background.geom.axes[0]  # E reco sampling from the IRF
-
-    if first:
-        # The reconstructed binning is required to apply the masking
-        # The theoretical spectrum is therefore evaluated on reconstrcuted
-        # energies which assumes that the reconstructed energy is not too
-        # different from the true one.
-
-        # e_axis = dsets[0].aeff.data.axes[0] # E true sampling from the IRF
-        flux_org = ds.models[0].spectral_model(e_axis.center)
-        mask_org = ds.mask_safe.data.flatten()
-
-        spec = TemplateSpectralModel(energy=e_axis.center,
-                                     values=flux_org*mask_org,
-                                     interp_kwargs={"values_scale": "log"})
-        model = SkyModel(spectral_model=spec, name="Stack"+"-"+ds.name)
-
-    else:
-        flux_stacked = ds_stack.models[0].spectral_model(e_axis.center)
-        dt_stack = ds_stack.gti.time_sum  # Duration on present stack
-
-        flux_org = ds.models[0].spectral_model(e_axis.center)
-        mask_org = ds.mask_safe.data.flatten()
-        dt = ds.gti.time_sum  # Duration on present stack
-
-        # Create ad-hoc new flux and model
-        dt_new = dt + dt_stack
-        flux_new = (dt_stack.value*flux_stacked + dt.value*flux_org*mask_org)
-        flux_new = flux_new/(dt_stack.value + dt.value)
-
-        # Create a new SkyModel from the flux template model
-        spec = TemplateSpectralModel(energy=e_axis.center,
-                                     values=flux_new,
-                                     interp_kwargs={"values_scale": "log"})
-        model = SkyModel(spectral_model=spec, name="Stack"+"-" + ds.name)
-
+    for ids, ds in enumerate(dsets):
+        flux = ds.models[0].spectral_model(Enrg)
+        weight = ds.gti.time_sum.to(u.s).value
+        if plot:
+            ds.models[0].spectral_model.plot(ax=ax, energy_bounds=ebounds,
+                                             label=str(ids))
         if debug:
-            livetime = ds.gti.time_sum  # Duration on present stack
-            print(72*"-")
-            print(f" Current dataset dt={livetime:10.2f} -"
-                  f" with model {ds.name, ds.models[0].name:}")
-            print("    On stack  : dt=", dt_stack, " F0 = ", flux_stacked[0])
-            print("    To add    : dt=", dt, " F0 = ", flux_org[0])
-            print("    To stack  : dt=", dt_new, " F0 = ", flux_new[0])
-            print("")
+            print(ids, " -------")
+            print(flux)
+            print(weight)
+            print(flux_tot)
+
+        flux_tot = np.add(flux_tot, flux*weight)
+        weight_tot += weight
+
+    # Normalize the total flux with the sum oh the weights
+    flux_tot = flux_tot/weight_tot
+    if debug:
+        print("====")
+        print(flux_tot)
+
+    # Create the mean Template spectral model
+    spec = TemplateSpectralModel(energy=Enrg,
+                                 values=flux_tot,
+                                 interp_kwargs={"values_scale": "log"})
+    model = SkyModel(spectral_model=spec, name="Stack"+"-" + ds.name)
+    if plot:
+        model.spectral_model.plot(ax=ax,
+                                  energy_bounds=ebounds,
+                                  label="mean model", color="black",
+                                  ls="--", lw=2)
+        ax.legend()
+        ax.set_ylim(ymin=ymin)
 
     return model
 
@@ -336,12 +318,12 @@ def stacking(dsets, tryflux=False, debug=False):
     """
     Create a new dataset collection with stacked datasets.
 
-    When datasets are stacked they are automatically masked, whihc means that
+    When datasets are stacked they are automatically masked, which means that
     the energy bins outside the valid energy range are hidden and not
     considered in the following use of this dataset.
 
     Note that the first dataset has to be masked explicitely as the stacked
-    ones are. Note that by default the model carried by the stacked dataset
+    ones are. Note that, by default, the model carried by the stacked dataset
     in a stacked list is the model of the first dataset.
     An option exists in gammapy to supersede the models in each consecutively
     stacked dataset but it essentially works only for dataset with the same
@@ -378,7 +360,7 @@ def stacking(dsets, tryflux=False, debug=False):
 
     # Put first MASKED dataset on stack - masking is mandatory
     ds = dsets[0]
-    stacked = get_masked_dataset(ds.copy(name="1st unmasked"))
+    stacked = get_masked_dataset(ds.copy(name="1st unmasked"))  # Useless ???
 
     if tryflux:  # Change model
         stacked.models = stacked_model(ds, stacked, first=True, debug=debug)
@@ -400,7 +382,8 @@ def stacking(dsets, tryflux=False, debug=False):
         if debug:
             info(ds, dss)
 
-    print(" Initial dataset collection stacked")
+    if debug:
+        print(" Initial dataset collection stacked")
 
     return dsets_stacked
 
@@ -442,72 +425,232 @@ def get_masked_dataset(ds0):
 
     return msk_dset
 
-
 # -----------------------------------------------------------------------------
-def compactify(dsets, dtmin=1*u.h, debug=False):
-    """
-    Return a list of stacked Dataset having a minimal total duration.
+def compactify(dsets, dtmin=1*u.h, debug=False, plot=False):
 
-    Start from an original unstacked Dataset list.
-    Note that the model stacking is not applied.
-
-    Parameters
-    ----------
-    dsets : Dataset List
-        The initial list of Datasets.
-    dtmin : astropy.time, optional
-        The stacked Dataset minimal duration. The default is 1*u.h.
-    debug : Boolean, optional
-        If True, let's talk a bit. The default is False.
-
-    Returns
-    -------
-    ds_compacted : Dataset List
-        The compacted Dataset list.
-
-    """
+    ds_compacted = Datasets()   # Empty Datasets (0 element)
+    tmp_stack = Datasets()  # Empty Datasets (0 element)
+    t_in_between = 0*u.d  # Time between two consecutive datasets
     duration = 0*u.s
-    tmp_stack = Datasets()
-    ds_compacted = Datasets()
 
-    iset = 0
-    # Loop over the `dataset` objetcs
-    for ds in dsets:
+    # ---------------------------------------------------------------
+    def save_stack(iset, curstack, debug=False):
+        """."""
+        name = "Compacted-"+str(iset)
 
-        tmp_stack.append(ds)
-        duration += ds.gti.time_delta[0]
+        tmp_compacted = Datasets(curstack).stack_reduce()
+        tmp_compacted.models = [SkyModel(
+            spectral_model=fit_model("powerlaw"))]
+        tmp_compacted.models = [stacked_model(curstack, plot=plot)]
+        ds_compacted.append(tmp_compacted.copy(name=name))
+        iset += 1
 
         if debug:
-            print("  ", ds.name, " : ", ds.livetime, " appended")
+            print(f"  #{iset:} {name:} Stacked "
+                  f"from {len(tmp_stack):} datasets")
+            print("    - Stacked duration : "
+                  f"{t_fmt(tmp_compacted.gti.time_sum):8.2f}")
+            print("      Deltas : ", tmp_compacted.gti.time_delta)
 
-        # If max duration reached, stack
-        if duration >= dtmin:
+            if tmp_compacted.models is None:
+                print("      No models")
+            else:
+                print("      One or several models exist")
 
-            dset_stacked = stacking(tmp_stack, tryflux=False, debug=False)
-            name = "Compacted-"+str(iset)
-            ds_compacted.append(dset_stacked[-1].copy(name=name))
+        return iset
+    # ---------------------------------------------------------------
 
-            if debug:
-                print("  Dt exceeded - stack", len(tmp_stack), " datasets")
-                print(tmp_stack)
-                print("   Duration and stack reset")
-                print(dset_stacked)
-                print(dset_stacked[-1].name, " should be kept as ", name)
+    iset = 0  # Final compacted datasets counter
+    for ids, ds in enumerate(dsets):
 
-            # Reset stack and duration
-            duration = 0*u.s
+        # print(" Proceeisng : ", ids)
+
+        # Artificially increase the stop time to avoid negligy small time
+        # errors leading to non merging.
+        ds.gti.time_stop[0] += 1/3600/24  # (1 second)
+
+        if ids > 0:
+            t_in_between = ds.gti.time_start[0] - dsets[ids-1].gti.time_stop[0]
+
+        if t_in_between < 0.1*u.d:
+
+            tmp_stack.append(ds)
+            duration += ds.gti.time_delta[0]
+            if duration >= dtmin:
+                iset = save_stack(iset, tmp_stack)
+                duration = 0*u.s
+                tmp_stack = Datasets()
+
+        else:  # I have reached the next night - dump the stack
+
+            # Put on stack the current dataset on stack and continue
             tmp_stack = Datasets()
-            iset += 1
+            tmp_stack.append(ds)
+            duration = ds.gti.time_delta[0]
+
+            # It might be that it already excedds the duration
+            if duration >= dtmin:
+                duration = 0*u.s
+                tmp_stack = Datasets()
 
     return ds_compacted
+
+# # -----------------------------------------------------------------------------
+# def compactify_old(dsets, dtmin=1*u.h, debug=False, plot=False):
+#     """
+#     Return a list of stacked Dataset having a minimal total duration.
+
+#     Start from an original unstacked Dataset list.
+#     Note that the model stacking is not applied.
+
+#     Parameters
+#     ----------
+#     dsets : Dataset List
+#         The initial list of Datasets.
+#     dtmin : astropy.time, optional
+#         The stacked Dataset minimal duration. The default is 1*u.h.
+#     debug : Boolean, optional
+#         If True, let's talk a bit. The default is False.
+
+#     Returns
+#     -------
+#     ds_compacted : Dataset List
+#         The compacted Dataset list.
+
+#     """
+#     duration = 0*u.s
+#     tmp_stack = Datasets()  # Empty Datasets (0 element)
+#     ds_compacted = Datasets()   # Empty Datasets (0 element)
+
+#     # Loop over the `dataset` objetcts
+#     iset = 0
+#     t_in_between = 0  # Time between two consecutive Datasets
+
+#     if debug:
+#         print(" --------------------")
+#         print(" Cumulating durations")
+
+#     for ids, ds in enumerate(dsets):
+
+#         # Collect some Dataset until reaching a limit in observation time.
+
+#         # Artificially increase the stop time to avoid negligy small time
+#         # errors leading to non merging.
+#         ds.gti.time_stop[0] += 1/3600/24  # (1 second)
+#         # print(" Adding 1e-9")
+
+#         tmp_stack.append(ds)
+#         duration += ds.gti.time_delta[0]  # change in time_sum
+
+#         # Compute the time between the stop of the previous Datasets
+#         if ids > 0:
+#             t_in_between = ds.gti.time_start[0] - dsets[ids-1].gti.time_stop[0]
+#             print(f" Time between {ids:} and {ids-1:} = {t_in_between}"
+#                   f" Cumulated : {duration:}")
+
+#         if debug:
+#             print(f"     #{ids:3d}: {ds.name:10s} : "
+#                   f"{t_str(ds.gti.time_sum):15s} "
+#                   f"appended  -> Total: {t_str(duration):10s}")
+
+#         # Define tests
+#         toolong = (duration >= dtmin)
+#         toofar = t_in_between > 0.1  # In second
+
+#         # If max duration reached,
+#         # or if the duration between the two datasets exceeds a few hours
+#         # or it is the last dataset
+#         # close the present stack and recreate anothernew one
+
+#         if (toolong
+#             or toofar
+#             or ids+1 == len(dsets)):
+
+#             print("  ==> Closing because: toolong=", toolong, " toofar=", toofar)
+#             print()
+
+#             # My own implementation
+#             # dsets_stacked = stacking(tmp_stack, tryflux=False, debug=False)
+#             # ds_compacted.append(dsets_stacked[-1].copy(name=name))
+
+#             # Create the stacked dataset - it has no model by default
+#             name = "Compacted-"+str(iset)
+#             tmp_compacted = Datasets(tmp_stack).stack_reduce()
+
+#             tmp_compacted.models = [SkyModel(
+#                 spectral_model=fit_model("powerlaw"))]
+#             tmp_compacted.models = [stacked_model(tmp_stack, plot=plot)]
+
+#             ds_compacted.append(tmp_compacted.copy(name=name))
+
+#             if debug:
+#                 print(f"  #{iset:} {name:} Stacked "
+#                       f"from {len(tmp_stack):} datasets")
+#                 print("    - Stacked duration : "
+#                       f"{t_fmt(tmp_compacted.gti.time_sum):8.2f}")
+#                 print("      Deltas : ", tmp_compacted.gti.time_delta)
+
+#                 if tmp_compacted.models is None:
+#                     print("      No models")
+#                 else:
+#                     print("      One or several models exist")
+
+#             # Reset stack and duration
+#             if debug:
+#                 print(" --------------------")
+#                 print(" Cumulating durations")
+
+#             duration = 0*u.s
+#             tmp_stack = Datasets()
+#             iset += 1
+
+#     return ds_compacted
+
+
+# -----------------------------------------------------------------------------
+def gti_print(dsets, debug=False):
+    """
+    Print GTIs.
+
+    Multiple tstart and tstop are possible for a Dataset made of a
+    superposition of observations at the same time.
+
+    """
+    print(f"{'Id.':<3s} | {'Sum':>10s} | {'Cumulated':>10s} |  "
+          f"{'Start':^10s} {'Stop':^10s} | "
+          f"{'Start':^23s} {'Stop':^23s} | "
+          f"{'duration':<8s}")
+
+    tcumulated = 0
+    t_end = 0
+    tref = None
+    for iset, ds in enumerate(dsets):
+
+        t0 = ds.gti.time_start[0]
+        if iset == 0:
+            tref = t0
+        else:
+            if debug:
+                print("Start - previous Stop  (>0) : ", (t0 - t_end))
+
+        t_end = t0 + ds.gti.time_sum  # Why more than one tstop ?
+        dt = [t_str(t) for t in ds.gti.time_delta]
+        ttot = t_str(ds.gti.time_sum)
+        tcumulated += ds.gti.time_sum
+
+        print(f"{iset:<3d} | {ttot:>10s} | {t_str(tcumulated):>10s} |  "
+              f"{t_str(t0 - tref):10s} {t_str(t_end - tref):10s} | "
+              f"{t0.isot:23s} {t_end.isot:23s} | {dt:}")
 
 
 # -----------------------------------------------------------------------------
 def onoff_from_simulation(mc, random_state='random-seed', alpha=0.2,
                           debug=False):
     """
-    Transform the stored SpectrumDataset list in the MonteCarlo class of
-    SoHAPPy into a list of Datasets of type SpectrumDatasetOnOff.
+    Transform the stored SpectrumDataset list into a on-off dataset.
+
+    The input is obtained from a MonteCarlo class of SoHAPPy.
+    The output is a list of Datasets of type SpectrumDatasetOnOff.
     Note that the On-Off data set is randomised from the initial contents
     ('fake' function).
 
@@ -526,7 +669,6 @@ def onoff_from_simulation(mc, random_state='random-seed', alpha=0.2,
         A list of on-off datasets from the originals.
 
     """
-
     if mc.slot is None:
         print(" Simulation was not runable - no dataset available")
         return None
@@ -565,12 +707,9 @@ def onoff_from_simulation(mc, random_state='random-seed', alpha=0.2,
 
     return dlist_onoff
 
-
 # -----------------------------------------------------------------------------
 def read_from_ogip(file=None):
-    """
-    https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/docs/spectra/ogip_92_007.pdf
-    """
+    """https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/docs/spectra/ogip_92_007.pdf"""
     print(" Not implemented yet, bugs to be solved")
 
     # ## Work on this :
@@ -595,8 +734,7 @@ def read_from_ogip(file=None):
 # -----------------------------------------------------------------------------
 def get_axis(dsets, tunit=u.s, Eunit=u.GeV):
     """
-    Return the list of observing times and the rec. energy axis from
-    a list od Dataset
+    Return the list of observing times and the rec. energy axis.
 
     Parameters
     ----------
@@ -615,7 +753,6 @@ def get_axis(dsets, tunit=u.s, Eunit=u.GeV):
         Numpy array ot the reconstructed energy axis.
 
     """
-
     # --- Build t axis
     dt = []
     t = 0
@@ -732,8 +869,9 @@ def check_dataset(ds, tag="?", e_unit="GeV",
 # ##--------------------------------------------------------------------------------------
 def check_datasets(dsets, masked=False, deeper=False, header=True):
     """
-    Printout the content of a dataset collection (Datasets), based on the
-    check_dataset function.
+    Printout the content of a dataset collection (Datasets).
+
+    Based on the check_dataset function.
 
     Parameters
     ----------
@@ -759,8 +897,9 @@ def check_datasets(dsets, masked=False, deeper=False, header=True):
 # -----------------------------------------------------------------------------
 def sigmax(dsets, alpha=0.2, stacked=False):
     """
-    Compute the max significance from the cumulated counts in a fluctuated
-    dataset. Note: the value can change depending on the random
+    Compute the max significance from the counts in a fluctuated dataset.
+
+    Note: the value can change depending on the random
     generation (this is not comparable to the mean maximal siginificance from
     a full simulation).
 
@@ -775,13 +914,12 @@ def sigmax(dsets, alpha=0.2, stacked=False):
         Significance
 
     """
-
     non = 0
     noff = 0
     sigmax = -999
 
     for _, ds in enumerate(dsets):
-        if stacked :  # Data have already been masked
+        if stacked:  # Data have already been masked
             ns = ds.excess.data.flatten().sum()
             nb = ds.background.data.flatten().sum()
         else:  # Data should be masked
@@ -805,28 +943,76 @@ def sigmax(dsets, alpha=0.2, stacked=False):
 
 
 # -----------------------------------------------------------------------------
+def check_siginificance(dset, ntrials=10):
+    """Check siginificance from random trials."""
+    sigmx = sigmax(dset)
+    print(" Significance from this realization = {:5.1f}".format(sigmx))
+
+    # Mean significance from many realisations
+    siglist = []
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 8))
+    for i in range(ntrials):
+        print(i, " ", end="")
+        dset_test = onoff_from_simulation(mc, debug=False,
+                                          random_state=get_random_state(2021))
+        siglist.append(sigmax(dset_test))
+    ax.hist(siglist, label=MyLabel(siglist, label="MC Siginificances"))
+    ax.axvline(sigmx, ls="--", color="red")
+    ax.legend()
+
+
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
 
     # Test the main function
 
+    from dev_setup import set_env
+
+    import sys, os
+    sys.path.append("./analysis/spectra")
+    from create_simulation import mcdata
+
     debug = True
 
-    # Data folder - get configuration
-    folder = Path(r"D:/CTA/SoHAPPy/output/long_1_1000/test_omega/strictmoonveto\strictmoonveto_343")
+    infolder, _ = set_env(style="notebook")
 
-    # Get configuration file
-    cf = Configuration()
-    cf.read_from_yaml(Path(folder, "config_ref.yaml"))
-    if debug:
-        cf.print()
-    file = "Event343-South_sim.bin"  # 4 slices
+    # This is required to have the EBL models read from gammapy
+    os.environ['GAMMAPY_DATA'] = str(Path(Path(__file__).absolute().parent,
+                                          "data"))
 
-    # Open archived data
-    infile = open(Path(folder, file), "rb")
-    mc = pickle.load(infile)
-    infile.close()
+    visibility = "nomoonveto"
+    loc = "North"
+    grb_id = "190114C"
+    n_night = 10
+    n_skip = 0
 
-    # Create a ON-Off list of datasets from the stored simulation
-    dlist_onoff = onoff_from_simulation(mc, alpha=cf.alpha, debug=True)
+    archive = Path("D://CTAO/SoHAPPy/HISTORICAL", grb_id)
+    simfile = Path(archive, "GRB" + grb_id + "_"+loc + "_" + visibility + "_"
+                   + str(n_skip)+"_" + str(n_night)+".bin")
+
+    if simfile.exists():
+        print(" READ FROM DISK - ", simfile)
+        mc = pickle.load(open(simfile, "rb"))
+    else:
+        print(" CREATE AND SAVE TO DISK -", simfile)
+        mc = mcdata(name=grb_id, vis=visibility, loc=loc,
+                    n_skip=n_skip, n_night=n_night, infolder=infolder,
+                    config="data/config_ref.yaml")
+        with open(simfile, "wb") as outfile:
+            pickle.dump(mc, outfile)
+
+    dset_init = onoff_from_simulation(mc,
+                                      random_state=get_random_state(2021),
+                                      debug=False)
+    gti_print(dset_init)
+
+    dsets = dset_init.copy()
+
+    dtmin = 20*u.min
+    # dtmin = 1*u.min
+    dset_list = compactify(dsets, dtmin=dtmin, debug=True)
+    print("Datasets compactified with dt = ", dtmin)
+    print(" New GTIs :")
+    gti_print(dset_list)
 
     print("... completed")

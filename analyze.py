@@ -371,12 +371,18 @@ class Analysis():
                                      n_off=noff,
                                      alpha=self.alpha)
         sigma = wstat.sqrt_ts  # ? check
-
+        print(" >>>> sigma=", sigma)
         # Cumulate sigma and sigma squared values for each slice
         if len(self.sigma_mean) == 0:
             self.sigma_mean = np.zeros(len(self.slot.slices))
             self.sigma_std = np.zeros(len(self.slot.slices))
-        self.sigma_mean += sigma    # To be averaged later
+
+        # Cumulate for computing of the mean and dispersion later
+        # Set negative values to zero (corresponds to B>S) as in Gammapy
+        # the significance is computed from the p-value at integrating from the
+        # the center of the gaussian, multiplied by the sign of (S-B)
+        sigma[sigma < 0] = 0
+        self.sigma_mean += sigma
         self.sigma_std += sigma**2  # To be averaged later
 
         # Go back to excess and background counts
@@ -791,7 +797,7 @@ class Analysis():
                 ax1.hlines(sig, xmin=xmin, ls="--", xmax=np.mean(t),
                            alpha=0.5, color=c)
 
-            ax1.set_ylabel(r"Significance $\sigma$")
+            ax1.set_ylabel(r"Significance $\sigma  \ (>0) $")
             ax1.legend(loc="lower right")
             ax1.set_xlabel('Obs. duration ('+ax1.get_xlabel()+")")
             ax1.set_xscale("log", nonpositive='clip')  # 3.5.0
@@ -801,7 +807,7 @@ class Analysis():
             ttl += ' (' + str(self.nstat) + ' iter.)'
             ax1.set_title(ttl, loc="right")
 
-            # Dark time if North or South
+            # Dark time and above the horizon if North or South
             if self.loca in ["North", "South"]:
                 first = True
                 tref = self.slot.grb.t_trig
@@ -812,7 +818,19 @@ class Analysis():
                     else:
                         label = None
                     ax1.axvspan((elt[0]-tref).sec*u.s, (elt[1]-tref).sec*u.s,
-                                alpha=0.2, color="black", label=label)
+                                alpha=0.2, color="grey", label=label)
+
+                for elt in self.slot.grb.vis[self.loca].t_true:
+                    if first:
+                        label = "Observation"
+                        first = False
+                    else:
+                        label = None
+                    if elt[0] != -9 and elt[1] != -9:
+                        t1 = (elt[0]-tref).sec*u.s
+                        t2 = (elt[1]-tref).sec*u.s
+                        ax1.axvline(t1, color="green")
+                        ax1.axvline(t2, color="red")
 
             # Sigma max distribution (if niter > 1)
             if self.nstat > 1:
